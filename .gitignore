@@ -1,0 +1,10 @@
+## Ignore temp files 
+*~
+
+
+## Ignore All Data Files
+Data/*
+
+
+## Ignore R Files
+.Rhistory
