@@ -2,9 +2,11 @@
 *~
 
 
-## Ignore All Data Files
-Data/*
 
+## Ignore All Data and Figure Files
+Data/
+Figures/
 
 ## Ignore R Files
 .Rhistory
+.Rproj.user
