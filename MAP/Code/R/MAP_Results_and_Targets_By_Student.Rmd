@@ -1,0 +1,21 @@
+Fall 2012 MAP Results by Students and Target Setting 
+========================================================
+```{r Load_Libraries}
+setwd("~/Dropbox/Consulting/KIPP Ascend/Data Analysis/MAP/Code/R")
+
+rm(list=c(ls()))
+
+
+library(RODBC) #To get data form Data Analysis DV
+library(plyr)  #To manipulate data
+library(reshape) #More data manipulation
+library(ggplot2) #Graphics of grammer graphing
+library(grid) #More Graphing
+```
+
+
+
+```{r, Load Data }
+
+```
+

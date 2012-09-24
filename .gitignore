@@ -10,3 +10,6 @@ Figures/
 ## Ignore R Files
 .Rhistory
 .Rproj.user
+*.Rproj.user
+Data\ Analysis.Rproj.user
+*.Rproj
