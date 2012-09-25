@@ -13,7 +13,13 @@ library(ggplot2) #Graphics of grammer graphing
 library(grid) #More Graphing
 ```
 
+This file is the literate programming source for a script that pulls our data from our Data Analysis `MySQL` database. I'll add references to how we get data into the database, as needed.  Nevetheless, this document focuses on the process of how we pull data from the DB and analyse it in [`R`](www.r-project.org)
 
+We need to clean and load out Fall 2012 comprehensive data file (CDF), which we get from [NWEA](http://www.nwea.org)'s reporting website. The CDF is 4 files that contain the students' MAP examination results, student specific information, and classroom data. 
+
+We use two steps to get the data into the database:
+  1. *Cleaning*: refactoring the CDF's separate csv files so they comport with `MySQL` conventions. This is done with a "one touch" shell script that usese `sed` and regular expressions to make all necessary character substitions.  
+  2. **Loading**:putting the separate CSV files as separate tablesinto the data analysis database.  Doing so ensures that we maintain the data in as simi
 
 ```{r, Load Data }
 
