@@ -6,29 +6,45 @@ We need to clean and load out Fall 2012 comprehensive data file (CDF), which we 
 
 ## Prelims
 I start by seting the pwd and loading the libraries used in the data analysis.
-```{r Load_Libraries}
+
+```r
 setwd("~/Dropbox/Consulting/KIPP Ascend/Data Analysis/MAP/Code/R")
 
-rm(list=c(ls()))
+rm(list = c(ls()))
 
 
-library(RODBC) #To get data form Data Analysis DB
+library(RODBC)  #To get data form Data Analysis DB
 library(plyr)  #To manipulate data
-library(reshape) #More data manipulation
-library(ggplot2) #Graphics of grammer graphing
-library(grid) #More Graphing
+library(reshape)  #More data manipulation
 ```
+
+```
+## Attaching package: 'reshape'
+```
+
+```
+## The following object(s) are masked from 'package:plyr':
+## 
+## rename, round_any
+```
+
+```r
+library(ggplot2)  #Graphics of grammer graphing
+library(grid)  #More Graphing
+```
+
 
 
 ### Loading Data in MySQL Database
 We use two steps to get the data into the database:
-  1. **Cleaning**: refactoring the CDF's separate csv files so they comport with `MySQL` conventions. This is done with a "one touch" shell script that usese `sed` and regular expressions to make all necessary character substitions.  
+  1. *Cleaning*: refactoring the CDF's separate csv files so they comport with `MySQL` conventions. This is done with a "one touch" shell script that usese `sed` and regular expressions to make all necessary character substitions.  
   2. **Loading**:putting the separate CSV files as separate tables into the data analysis database.  Doing so ensures that we maintain the data in as similar manner as we recieve it from NWEA. 
 
-### Retrieving Data from MySQL Database
+## Retrieving Data from MySQL Database
 Once the data loaded, we use the `RODBC` package in `R` to establish a connection ot the databse and run a SQL query to populate a dataframe (NB: `kippchidata2` is an  DSN whith appriate key value pairs that allows an `ODBC` connection to be established with the `MySQL' server:
 
-```{r Load_Data}
+
+```r
 
 # Create database connection.  
 
@@ -82,23 +98,44 @@ WHERE 	#GrowthMeasureYN='True' AND
 
 #Check contents
 head(map.scores)
+```
+
+```
+##         ID StudentFirstName StudentLastName Grade         Subject
+## 1 41921803         Kenyatta          Walker     5 General Science
+## 2 41921803         Kenyatta          Walker     5         Reading
+## 3 41921803         Kenyatta          Walker     5     Mathematics
+## 4 42049832      Christopher           Smith     5 General Science
+## 5 42049832      Christopher           Smith     5     Mathematics
+## 6 42049832      Christopher           Smith     5         Reading
+##   Fall12_GM         Fall12_TT Fall12_RIT Fall12_Pctl
+## 1     FALSE Survey With Goals        201          49
+## 2     FALSE Survey With Goals        206          47
+## 3     FALSE Survey With Goals        206          31
+## 4     FALSE Survey With Goals        201          49
+## 5     FALSE Survey With Goals        207          34
+## 6     FALSE Survey With Goals        219          80
+##   TypicalFallToSpringGrowth ReportedFallToSpringGrowth
+## 1                      4.03                          4
+## 2                      5.26                          5
+## 3                      8.10                          8
+## 4                      4.03                          4
+## 5                      8.11                          8
+## 6                      4.62                          5
+##   SDFallToSpringGrowth Quartile
+## 1                 6.10        2
+## 2                 6.13        2
+## 3                 5.99        2
+## 4                 6.10        2
+## 5                 5.99        2
+## 6                 6.13        4
+```
+
+```r
 
 #Reorder levels (since 13=Kinder) and rename
 map.scores$Grade <- factor(map.scores$Grade, levels=c("13", "1", "5", "6","7","8"))
 levels(map.scores$Grade) <- c("K", "1", "5", "6","7","8")
 ```
-## MAP Target Setting
 
-The term "Growth Target" is misnomer.  The "growth target" is simply a students expected (or average) growth contional on thier starting RIT score and current grade.  That is, the perior 1 to period 2  "growth target" is the average differnce in period 1 and period 2 scores for all students in a particular grade with same period 1 score.  For this reason I refer to the the NWEA supplied "growth targets" as *expected growth* (a statitically meaningful term) or *typical growth* (a substantively meaningful term). As Andrew Martin at Team schools, among others, has made clear, if our students meerly hit their expected growht numbers every year through 11th grade they will on average not be "Rutgers Ready" (Team's clever alliteration).
-
-Time requires that I eschew Andrew's quadratic fit goal setting that they are employing in Newark. Instead, I use the data we have from the 2011 MAP Norms Table give provide our teachers and students targets that at the 75th percentile of growth (i.e., the mean plus .675 standard deviations).
-
-```{r Set_Targets}
-#get z score (i.e., number of standard deviations) that corresponds to 75th percentile
-sigma<-qnorm(.75)
-#add simga*SD to mean and round to integer
-map.scores$GrowthPctl75th<-round(map.scores$TypicalFallToSpringGrowth + sigma*map.scores$SDFallToSpringGrowth,0)
-
-map.scores$GrowthTargets<-map.scores$Fall12_RIT+map.scores$GrowthPctl75th
-```
-
+## 
