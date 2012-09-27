@@ -30,14 +30,6 @@ library(reshape)  #More data manipulation
 
 ```r
 library(ggplot2)  #Graphics of grammer graphing
-```
-
-```
-## Find out what's changed in ggplot2 with news(Version == "0.9.1", package =
-## "ggplot2")
-```
-
-```r
 library(grid)  #More Graphing
 library(directlables)  #direct labeling in ggplot2 and lattice plots
 ```
@@ -300,8 +292,8 @@ p <- ggplot(subset(map.scores.by.grade, Grade==1 & Subject=="Reading"), aes(x=Fa
     geom_text(aes(x=Fall12_RIT-1, color=as.factor(Quartile), label=StudentFirstLastName), size=2, hjust=1) +
     geom_point(aes(color=as.factor(Quartile)), size=pointsize) +
     geom_text(aes(x=Fall12_RIT+1, color=as.factor(Quartile), label=Fall12_RIT), size=2, hjust=0) +
-    geom_point(aes(x=Fall12_RIT + ReportedFallToSpringGrowth, y=OrderID), color="#439539", size=pointsize) +
-    geom_text(aes(x=Fall12_RIT + ReportedFallToSpringGrowth+1, label=Fall12_RIT + ReportedFallToSpringGrowth), color="#439539", size=2, hjust=0) +
+    geom_point(aes(x=Fall12_RIT + ReportedFallToSpringGrowth, y=OrderID), color="#CFCCC1", size=pointsize) +
+    geom_text(aes(x=Fall12_RIT + ReportedFallToSpringGrowth+1, label=Fall12_RIT + ReportedFallToSpringGrowth), color="#CFCCC1", size=2, hjust=0) +
     geom_point(aes(x=GrowthTargets, y=OrderID), color="#FEBC11", size=pointsize) + 
     geom_text(aes(x=GrowthTargets+1, label=GrowthTargets), color="#FEBC11", size=2, hjust=0) +
     facet_grid(Quartile~., scale="free_y", space = "free_y", as.table=FALSE) +
@@ -327,12 +319,34 @@ p <- ggplot(subset(map.scores.by.grade, Grade==1 & Subject=="Reading"), aes(x=Fa
         title="2012 Fall 1st Grade Reading\nRIT Scores, Expected Growth, and College Ready Growth\nby Quartile",
         plot.title=theme_text(size=12)
         ) 
+
+
+###Let's add some summary labels by quaritle to p
+
+#First get the per panel data I want count by quartile, avg y-position (given by OrderID) by quartile,
+#  avg RIT by quartile, and percent of quartile students to total studens.
+
+qrtl.labels<-get_group_stats(subset(map.scores.by.grade, Grade==1), grp="Quartile")
+
+#add a column with the actual label text
+qrtl.labels$CountLabel<-paste(qrtl.labels$CountStudents," students (",round(qrtl.labels$PctofTotal*100),"%)", sep="")
+
+qrtl.labels$AvgLabel<-paste("Avg RIT = ",round(qrtl.labels$AvgQrtlRIT))
+
+#eyeballed X position
+qrtl.labels$xpos<-rep(120,nrow(qrtl.labels))
+
+#now adding this info to the plot p
+p <- p + geom_text(data=qrtl.labels, aes(x=xpos, y=AvgCountID, color=factor(Quartile),label=CountLabel),vjust=0, size=3.25) +
+    geom_text(data=qrtl.labels, aes(x=xpos, y=AvgCountID, color=factor(Quartile),label=AvgLabel),vjust=1.5, size=3.25)
+
 p
 ```
 
 ![plot of chunk plot_Goal_by_grade](figure/plot_Goal_by_grade.png) 
 
 ```r
+
 #Save pdf vector file of plot for other uses. 
 ggsave(p,file="plot_Goal_by_grade.pdf", path="../../Figures/",height=10.5,width=8)
 

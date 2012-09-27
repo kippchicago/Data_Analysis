@@ -6,6 +6,7 @@
 ## Ignore All Data and Figure Files
 Data/
 Figures/
+figure/
 
 ## Ignore R Files
 .Rhistory
