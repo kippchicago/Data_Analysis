@@ -17,6 +17,7 @@ library(plyr)  #To manipulate data
 library(reshape) #More data manipulation
 library(ggplot2) #Graphics of grammer graphing
 library(grid) #More Graphing
+library(directlables) #direct labeling in ggplot2 and lattice plots
 ```
 
 
@@ -40,6 +41,7 @@ map.scores<-sqlQuery(con,
 		t.`StudentFirstName`,
 		t.`StudentLastName`,
 		t.`Grade`,	
+		t.`ClassName`,
 		t.MeasurementScale AS Subject,
 		t.GrowthMeasureYN AS Fall12_GM,
 		t.TestType AS  Fall12_TT, 
@@ -56,42 +58,48 @@ map.scores<-sqlQuery(con,
 		END AS Quartile
 
 FROM 	(
-		Select 	a.*, 
-				s.DistrictName,
-				s.`StudentDateOfBirth`,
-				s.`StudentEthnicGroup`,
-				s.`StudentLastName`,
-				s.`StudentFirstName`,
-				s.`StudentMI`,
-				s.`Grade`
-		FROM	tblAssessmentResultsFall12 as a
-	 JOIN	tblStudentBySchoolFall12 as s
-		ON		a.`StudentID`=s.StudentID
+		SELECT 	a.*,
+				c.ClassName
+		FROM `tblClassAssignmentsFall12` as c
+		JOIN (
+			Select 	r.*, 
+					s.DistrictName,
+					s.`StudentDateOfBirth`,
+					s.`StudentEthnicGroup`,
+					s.`StudentLastName`,
+					s.`StudentFirstName`,
+					s.`StudentMI`,
+					s.`Grade`
+			FROM	tblAssessmentResultsFall12 as r
+	    	JOIN	tblStudentBySchoolFall12 as s
+			ON		r.`StudentID`=s.StudentID
+			) as a
+		ON a.StudentID=c.StudentID
 		) as t
 LEFT OUTER JOIN `tblNorms2011_Growth` as n
 ON 		t.`TestRITScore`=n.`StartRIT`
 AND		t.`Grade`=n.`StartGrade`
 AND		t.`MeasurementScale`=n.`MeasurementScale`
 WHERE 	#GrowthMeasureYN='True' AND
- 	(TestType='Survey with Goals'
-		OR 
-		TestType='Survey'
-		)
+        (TestType='Survey with Goals'
+          OR 
+        TestType='Survey'
+        )
 ;
 ")
 
 #Check contents
 head(map.scores)
 
-#Reorder levels (since 13=Kinder) and rename
-map.scores$Grade <- factor(map.scores$Grade, levels=c("13", "1", "5", "6","7","8"))
+#Reorder levels (since 13=Kinder, prior to Fall 2012, after that it is Kinder=0) and rename
+map.scores$Grade <- factor(map.scores$Grade, levels=c("0", "1", "5", "6","7","8"))
 levels(map.scores$Grade) <- c("K", "1", "5", "6","7","8")
 ```
 ## MAP Target Setting
 
 The term "Growth Target" is misnomer.  The "growth target" is simply a students expected (or average) growth contional on thier starting RIT score and current grade.  That is, the perior 1 to period 2  "growth target" is the average differnce in period 1 and period 2 scores for all students in a particular grade with same period 1 score.  For this reason I refer to the the NWEA supplied "growth targets" as *expected growth* (a statitically meaningful term) or *typical growth* (a substantively meaningful term). As Andrew Martin at Team schools, among others, has made clear, if our students meerly hit their expected growht numbers every year through 11th grade they will on average not be "Rutgers Ready" (Team's clever alliteration).
 
-Time requires that I eschew Andrew's quadratic fit goal setting that they are employing in Newark. Instead, I use the data we have from the 2011 MAP Norms Table give provide our teachers and students targets that at the 75th percentile of growth (i.e., the mean plus .675 standard deviations).
+Time requires that I eschew Andrew's quadratic fit goal setting that they are employing in Newark. Instead, I use the data we have from the 2011 MAP Norms Table give provide our teachers and students targets that at the 75th percentile of growth (i.e., the mean plus .675 standard deviations). 
 
 ```{r Set_Targets}
 #get z score (i.e., number of standard deviations) that corresponds to 75th percentile
@@ -99,6 +107,79 @@ sigma<-qnorm(.75)
 #add simga*SD to mean and round to integer
 map.scores$GrowthPctl75th<-round(map.scores$TypicalFallToSpringGrowth + sigma*map.scores$SDFallToSpringGrowth,0)
 
+#calculate targets
 map.scores$GrowthTargets<-map.scores$Fall12_RIT+map.scores$GrowthPctl75th
+
+#Combine Student First and Last Names into one field
+
+map.scores$StudentLastFirstName<-paste(map.scores$StudentLastName, map.scores$StudentFirstName, sep=", ")
+map.scores$StudentFirstLastName<-paste(map.scores$StudentFirstName, map.scores$StudentLastName, sep=" ")
+```
+
+## Figures
+So now we move on to graphing, leaning heavily (completely?) on the Hadley Wickham's `ggplot` package.
+
+In order to list students by order of test scores, I need a function ot add a column that adds a counter after they are sorted on a given column's values.  Fortuitously, I've written this function---along with a number of other helper functions for this analysis---in an `R` script called (perhaps obvoiusly) `MAP_helper_functions.R`, which is located in this directory of the GIT repo.
+```{r source funtions}
+source("MAP_helper_functions.R")
+```
+OK. Now to graphics.  Here I want to graph the fall score, the expected growth and the college ready 75th percentile growth.  Since we want graphs by grade we need to use `ddply` to run `fn_orderid` over each grade as well as each classroom for each subject:
+
+```{r cut_data_by_grade_class}
+map.scores.by.grade<-ddply(map.scores, .(Subject, Grade), function(df) orderid(df,df$Fall12_RIT))
+map.scores.by.class<-ddply(map.scores, .(Subject, ClassName), function(df) orderid(df,df$Fall12_RIT))
+
+head(map.scores.by.grade)
+head(map.scores.by.class)
+```
+
+
+```{r plot_Goal_by_grade, fig.height=10, fig.width=7.5}
+
+#KIPP Foundation approved colors
+kippcols<-c("#E27425", "#FEBC11", "#255694", "A7CFEE")
+
+#Plot points for Fall RIT Score, Expected Growth, College Ready Growth, ordered by Fall RIT, Names on Y axis
+pointsize<-2
+p <- ggplot(subset(map.scores.by.grade, Grade==1 & Subject=="Reading"), aes(x=Fall12_RIT, y=OrderID)) +
+    geom_text(aes(x=Fall12_RIT-1, color=as.factor(Quartile), label=StudentFirstLastName), size=2, hjust=1) +
+    geom_point(aes(color=as.factor(Quartile)), size=pointsize) +
+    geom_text(aes(x=Fall12_RIT+1, color=as.factor(Quartile), label=Fall12_RIT), size=2, hjust=0) +
+    geom_point(aes(x=Fall12_RIT + ReportedFallToSpringGrowth, y=OrderID), color="#439539", size=pointsize) +
+    geom_text(aes(x=Fall12_RIT + ReportedFallToSpringGrowth+1, label=Fall12_RIT + ReportedFallToSpringGrowth), color="#439539", size=2, hjust=0) +
+    geom_point(aes(x=GrowthTargets, y=OrderID), color="#FEBC11", size=pointsize) + 
+    geom_text(aes(x=GrowthTargets+1, label=GrowthTargets), color="#FEBC11", size=2, hjust=0) +
+    facet_grid(Quartile~., scale="free_y", space = "free_y", as.table=FALSE) +
+    scale_colour_discrete(kippcols) + 
+    scale_y_continuous(" ", breaks=map.scores.by.grade$OrderID, expand=c(0,1)) + 
+    opts(axis.text.y = theme_text(size=3, hjust=1)) + 
+    opts(legend.position = "none") + 
+    scale_x_continuous("RIT Score") + 
+    expand_limits(x=115)+
+      opts(
+        panel.background = theme_rect(fill = "transparent",colour = NA), # or theme_blank()
+        # panel.grid.minor = theme_blank(), 
+        # panel.grid.major = theme_blank(),
+        plot.background = theme_rect(fill = "transparent",colour = NA),
+        axis.text.x = theme_text(size=15),
+        axis.text.y = theme_blank(), 
+        #axis.title.y = theme_blank(), 
+        axis.ticks=theme_blank(),
+    
+        strip.text.x=theme_text(size=15),
+        strip.text.y=theme_text(size=15,angle=0), 
+        strip.background=theme_rect(fill="#F4EFEB", colour=NA),
+        title="2012 Fall 1st Grade Reading\nRIT Scores, Expected Growth, and College Ready Growth\nby Quartile",
+        plot.title=theme_text(size=12)
+        ) 
+p
+#Save pdf vector file of plot for other uses. 
+ggsave(p,file="plot_Goal_by_grade.pdf", path="../../Figures/",height=10.5,width=8)
+
+
+
+
+
+
 ```
 
