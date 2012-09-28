@@ -116,7 +116,7 @@ CREATE TABLE tblStudentBySchoolFall12 (
 	StudentGender VARCHAR(1),
 	Grade INT);
 
-LOAD DATA LOCAL INFILE '~/Dropbox/Consulting/KIPP Ascend/Data Analysis/MAP/Data/Input/NWEA Comprehensive Data Files/MAP_Fall_2012/StudentBySchool_loaddata.csv'
+LOAD DATA LOCAL INFILE '~/Dropbox/Consulting/KIPP Ascend/Data Analysis/MAP/Data/Input/NWEA Comprehensive Data Files/MAP_Fall_2012/StudentsBySchool_loaddata.csv'
 	INTO TABLE tblStudentBySchoolFall12
 	FIELDS TERMINATED BY ','
 	;
@@ -757,6 +757,9 @@ LOAD DATA LOCAL INFILE '/Users/chaid/Dropbox/Consulting/KIPP Ascend/Testing Anal
 	IGNORE 1 LINES
 	;
 
+#######################################
+## NWEA's 2011 Growth Norms for MAP  ##
+#######################################
 
 CREATE TABLE tblNorms2011_Growth
 SELECT 	*,
