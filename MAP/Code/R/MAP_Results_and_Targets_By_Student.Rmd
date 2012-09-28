@@ -128,8 +128,8 @@ source("MAP_helper_functions.R")
 OK. Now to graphics.  Here I want to graph the fall score, the expected growth and the college ready 75th percentile growth.  Since we want graphs by grade we need to use `ddply` to run `fn_orderid` over each grade as well as each classroom for each subject:
 
 ```{r cut_data_by_grade_class}
-map.scores.by.grade<-ddply(map.scores, .(Subject, Grade), function(df) orderid(df,df$Fall12_RIT))
-map.scores.by.class<-ddply(map.scores, .(Subject, ClassName), function(df) orderid(df,df$Fall12_RIT))
+map.scores.by.grade<-ddply(map.scores, .(Subject, SchoolName,Grade), function(df) orderid(df,df$Fall12_RIT))
+map.scores.by.class<-ddply(map.scores, .(Subject, SchoolName,ClassName), function(df) orderid(df,df$Fall12_RIT))
 
 head(map.scores.by.grade)
 head(map.scores.by.class)
@@ -204,10 +204,17 @@ ggsave(p,file="plot_Goal_by_grade_KAPS_1.pdf", path="../../Figures/",height=10.5
 
 I liked plot so much that I've written a function (`plot_MAP_Results_and_Goals`) so I can very quickly reproduce it for any grade and Class combination, which is sourced above in the `MAP_helper_function.R` script.  Right now it is only useful if the dataframe has very specific column names.  However, it is a stake in the ground that for a later refactoring towards a more general function.  That notwithstanding time pressure, here's the current function in actions
 
-```{r plots, height=10.5, width=8}
+```{r plots_goals, height=10.5, width=8}
 #Relevel subject factors 
 map.scores.by.grade$Subject<-factor(map.scores.by.grade$Subject, levels=c("Mathematics", "Reading", "Language Usage", "General Science"))
+
+map.scores.by.class$Subject<-factor(map.scores.by.grade$Subject, levels=c("Mathematics", "Reading", "Language Usage", "General Science"))
+
+###Separate PDF for each School
+
+
 #KAPS
+#First by Grade
 map.scores.primary<-subset(map.scores.by.grade, SchoolName=="KIPP Ascend Primary")
 
 pdf(file="../../Figures/Fall12_MAP_KAPS.pdf", height=10.5, width=8)
@@ -217,6 +224,43 @@ for(s in sort(unique(map.scores.primary$Subject))){
   for(g in as.character(sort(unique(dfp$Grade)))){
     ptitle <- paste("KAPS 2012 Fall MAP Grade ",g," ",s,"\nRIT Scores, Expected Growth, and College Ready Growth\nby Quartile",sep="")
     p<-plot_MAP_Results_and_Goals(subset(dfp,Grade==g),ptitle, labxpos=113, minx=104)
+    print(p)
+  }
+}
+dev.off()
+
+#Then by Classroom (KAPS only)
+
+map.scores.primary.by.class<-subset(map.scores.by.class, SchoolName=="KIPP Ascend Primary" & ID!="50206087") 
+# This kid is assinged to two classes in math as a 1st grader but the classes are K classees. Weird.
+
+pdf(file="../../Figures/Fall12_MAP_KAPS_by_Classroom.pdf", height=10.5, width=8)
+#Need to Loop by Subject, then grade, then classroom
+for(s in as.character(sort(unique(map.scores.primary.by.class$Subject)))){
+    dfs<-subset(map.scores.primary.by.class,Subject==s) #DataFrame for subject
+    for(g in as.character(sort(unique(dfs$Grade)))){
+      dfp<-subset(dfs, Grade==g)  #DataFrame for Plot
+      for(c in as.character(sort(unique(dfp$ClassName)))){
+        ptitle <- paste("KAPS 2012 Fall MAP ",c," (",g,") ",s,"\nRIT Scores, Expected Growth, and College Ready Growth\nby Quartile",sep="")
+        p<-plot_MAP_Results_and_Goals(subset(dfp, ClassName==c),ptitle, labxpos=113, minx=104)
+        print(p)
+      }
+    }
+}
+dev.off()
+
+
+
+#KAMS
+map.scores.KAMS<-subset(map.scores.by.grade, SchoolName=="KIPP Ascend Middle School")
+
+pdf(file="../../Figures/Fall12_MAP_KAMS.pdf", height=10.5, width=8)
+
+for(s in sort(unique(map.scores.KAMS$Subject))){
+  dfp<-subset(map.scores.KAMS,Subject==s) #DataFrame to Plot
+  for(g in as.character(sort(unique(dfp$Grade)))){
+    ptitle <- paste("KAMS 2012 Fall MAP Grade ",g," ",s,"\nRIT Scores, Expected Growth, and College Ready Growth\nby Quartile",sep="")
+    p<-plot_MAP_Results_and_Goals(subset(dfp,Grade==g),ptitle, labxpos=170, minx=145,alp=.6)
     print(p)
   }
 }
@@ -232,7 +276,7 @@ for(s in sort(unique(map.scores.KCCP$Subject))){
   dfp<-subset(map.scores.KCCP,Subject==s) #DataFrame to Plot
   for(g in as.character(sort(unique(dfp$Grade)))){
     ptitle <- paste("KCCP 2012 Fall MAP Grade ",g," ",s,"\nRIT Scores, Expected Growth, and College Ready Growth\nby Quartile",sep="")
-    p<-plot_MAP_Results_and_Goals(subset(dfp,Grade==g),ptitle, labxpos=150, minx=140)
+    p<-plot_MAP_Results_and_Goals(subset(dfp,Grade==g),ptitle, labxpos=150, minx=140, alp=.6)
     print(p)
   }
 }
@@ -242,4 +286,62 @@ dev.off()
 
 ```
 
+Now for some more high level views compared to the national distribution
+```{r plots_histograms}
+#get national summary statistics for Reading and Math, Grades K-2,5-8 for simulation
+nwea.norms.fall<-data.frame(Grade=factor(c("K","K","1","1","2","2","5","5","6","6","7","7","8","8"),levels=c("K","1","2","5","6","7","8")), Subject=factor(c("Mathematics", "Reading", "Mathematics", "Reading","Mathematics", "Reading","Mathematics", "Reading","Mathematics", "Reading","Mathematics", "Reading","Mathematics", "Reading"),levels=c("Mathematics","Reading")), Mean=c(143.7,142.5,162.8,160.3,178.2,175.9,212.9,209.8,219.6,212.3,225.6,216.3,230.2,219.3), SD=c(11.88,10.71,13.57,12.76,12.97,15.44,14.18,14.21,15.37,14.39,16.79,14.23,17.04,14.86))
 
+#KAPS
+pmK<-map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.primary,normsdata=nwea.norms.fall,grade="K",subj="Mathematics",schoolname="KAPS"),legendpos="none",title="MAP 2012 Kindergarten\nKAPS vs. National\nMath", schoolname="KAPS")
+prK<-map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.primary,normsdata=nwea.norms.fall,grade="K",subj="Reading",schoolname="KAPS"), title="Reading", schoolname="KAPS")
+
+pm1<-map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.primary,normsdata=nwea.norms.fall,grade=1,subj="Mathematics",schoolname="KAPS"),legendpos="none",title="MAP 2012 1st Grade\nKAPS vs. National\nMath", schoolname="KAPS")
+pr1<-map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.primary,normsdata=nwea.norms.fall,grade=1,subj="Reading",schoolname="KAPS"), title="Reading", schoolname="KAPS")
+
+pm2<-map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.primary,normsdata=nwea.norms.fall,grade=2,subj="Mathematics",schoolname="KAPS"),legendpos="none",title="MAP 2012 2nd Grade\nKAPS vs. National\nMath", schoolname="KAPS", schoolname="KAPS")
+pr2<-map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.primary,normsdata=nwea.norms.fall,grade=2,subj="Reading",schoolname="KAPS"), title="Reading", schoolname="KAPS")
+
+
+pdf(file="../../Figures/Fall12_MAP_KAPS_Distr.pdf", height=10.5, width=8)
+grid.arrange(pmK,prK,nrow=2)
+grid.arrange(pm1,pr1,nrow=2)
+grid.arrange(pm2,pr2,nrow=2)
+
+dev.off()
+
+
+
+#KAMS
+
+pm5<-map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.KAMS,normsdata=nwea.norms.fall,grade=5,subj="Mathematics",schoolname="KAMS"),legendpos="none",title="MAP 2012 5th Grade\nKAMS vs. National\nMath")
+pr5<-map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.KAMS,normsdata=nwea.norms.fall,grade=5,subj="Reading",schoolname="KAMS"), title="Reading")
+
+pm6<-map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.KAMS,normsdata=nwea.norms.fall,grade=6,subj="Mathematics",schoolname="KAMS"),legendpos="none",title="MAP 2012 6th Grade\nKAMS vs. National\nMath")
+pr6<-map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.KAMS,normsdata=nwea.norms.fall,grade=6,subj="Reading",schoolname="KAMS"), title="Reading")
+
+pm7<-map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.KAMS,normsdata=nwea.norms.fall,grade=7,subj="Mathematics",schoolname="KAMS"),legendpos="none",title="MAP 2012 7th Grade\nKAMS vs. National\nMath")
+pr7<-map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.KAMS,normsdata=nwea.norms.fall,grade=7,subj="Reading",schoolname="KAMS"), title="Reading")
+
+pm8<-map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.KAMS,normsdata=nwea.norms.fall,grade=8,subj="Mathematics",schoolname="KAMS"),legendpos="none",title="MAP 2012 8th Grade\nKAMS vs. National\nMath")
+pr8<-map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.KAMS,normsdata=nwea.norms.fall,grade=8,subj="Reading",schoolname="KAMS"), title="Reading")
+
+
+pdf(file="../../Figures/Fall12_MAP_KAMS_Distr.pdf", height=10.5, width=8)
+grid.arrange(pm5,pr5,nrow=2)
+grid.arrange(pm6,pr6,nrow=2)
+grid.arrange(pm7,pr7,nrow=2)
+grid.arrange(pm8,pr8,nrow=2)
+dev.off()
+
+
+#KCCP
+
+
+pm5c<-map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.KCCP,normsdata=nwea.norms.fall,grade=5,subj="Mathematics",schoolname="KCCP"),legendpos="none",title="MAP 2012 5th Grade\nKCCP vs. National\nMath", schoolname="KCCP")
+pr5c<-map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.KCCP,normsdata=nwea.norms.fall,grade=5,subj="Reading",schoolname="KCCP"), title="Reading", schoolname="KCCP")
+
+pdf(file="../../Figures/Fall12_MAP_KCCP_Distr.pdf", height=10.5, width=8)
+grid.arrange(pm5c,pr5c,nrow=2)
+dev.off()
+
+```
