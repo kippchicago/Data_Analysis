@@ -773,6 +773,13 @@ FROM 	temp_loading
 drop table if exists `temp_loading`;	
 
 
+#We create a view to create a column that replaces Grade 13 (Kinder before Fall 2012) to Grade 0 (Kinder after Fall 2012)
+CREATE VIEW viewNorms2011_Growth_Kinder_0
+AS
+SELECT *,
+		Replace(StartGrade, 13,0) AS StartGrade2
+FROM `tblNorms2011_Growth`;
+
 ##############################################	
 ## Add 9 Week adjusted Growth Target Tables ##
 ##############################################

@@ -40,6 +40,7 @@ map.scores<-sqlQuery(con,
 "SELECT  t.StudentID AS ID,
 		t.`StudentFirstName`,
 		t.`StudentLastName`,
+		t.`SchoolName`,
 		t.`Grade`,	
 		t.`ClassName`,
 		t.MeasurementScale AS Subject,
@@ -76,24 +77,25 @@ FROM 	(
 			) as a
 		ON a.StudentID=c.StudentID
 		) as t
-LEFT OUTER JOIN `tblNorms2011_Growth` as n
+LEFT OUTER JOIN `viewNorms2011_Growth_Kinder_0` as n
 ON 		t.`TestRITScore`=n.`StartRIT`
-AND		t.`Grade`=n.`StartGrade`
+AND		t.`Grade`=n.`StartGrade2`
 AND		t.`MeasurementScale`=n.`MeasurementScale`
 WHERE 	#GrowthMeasureYN='True' AND
-        (TestType='Survey with Goals'
-          OR 
-        TestType='Survey'
-        )
+ 	(TestType='Survey with Goals'
+		OR 
+		TestType='Survey'
+		)
 ;
+
 ")
 
 #Check contents
 head(map.scores)
 
 #Reorder levels (since 13=Kinder, prior to Fall 2012, after that it is Kinder=0) and rename
-map.scores$Grade <- factor(map.scores$Grade, levels=c("0", "1", "5", "6","7","8"))
-levels(map.scores$Grade) <- c("K", "1", "5", "6","7","8")
+map.scores$Grade <- factor(map.scores$Grade, levels=c("0", "1","2", "5", "6","7","8"))
+levels(map.scores$Grade) <- c("K", "1", "2", "5", "6","7","8")
 ```
 ## MAP Target Setting
 
@@ -120,7 +122,7 @@ map.scores$StudentFirstLastName<-paste(map.scores$StudentFirstName, map.scores$S
 So now we move on to graphing, leaning heavily (completely?) on the Hadley Wickham's `ggplot` package.
 
 In order to list students by order of test scores, I need a function ot add a column that adds a counter after they are sorted on a given column's values.  Fortuitously, I've written this function---along with a number of other helper functions for this analysis---in an `R` script called (perhaps obvoiusly) `MAP_helper_functions.R`, which is located in this directory of the GIT repo.
-```{r source funtions}
+```{r source_funtions}
 source("MAP_helper_functions.R")
 ```
 OK. Now to graphics.  Here I want to graph the fall score, the expected growth and the college ready 75th percentile growth.  Since we want graphs by grade we need to use `ddply` to run `fn_orderid` over each grade as well as each classroom for each subject:
@@ -179,7 +181,7 @@ p <- ggplot(subset(map.scores.by.grade, Grade==1 & Subject=="Reading"), aes(x=Fa
 #First get the per panel data I want count by quartile, avg y-position (given by OrderID) by quartile,
 #  avg RIT by quartile, and percent of quartile students to total studens.
 
-qrtl.labels<-get_group_stats(subset(map.scores.by.grade, Grade==1), grp="Quartile")
+qrtl.labels<-get_group_stats(subset(map.scores.by.grade, Grade==1 & Subject=="Reading"), grp="Quartile")
 
 #add a column with the actual label text
 qrtl.labels$CountLabel<-paste(qrtl.labels$CountStudents," students (",round(qrtl.labels$PctofTotal*100),"%)", sep="")
@@ -196,12 +198,48 @@ p <- p + geom_text(data=qrtl.labels, aes(x=xpos, y=AvgCountID, color=factor(Quar
 p
 
 #Save pdf vector file of plot for other uses. 
-ggsave(p,file="plot_Goal_by_grade.pdf", path="../../Figures/",height=10.5,width=8)
+ggsave(p,file="plot_Goal_by_grade_KAPS_1.pdf", path="../../Figures/",height=10.5,width=8)
+
+```
+
+I liked plot so much that I've written a function (`plot_MAP_Results_and_Goals`) so I can very quickly reproduce it for any grade and Class combination, which is sourced above in the `MAP_helper_function.R` script.  Right now it is only useful if the dataframe has very specific column names.  However, it is a stake in the ground that for a later refactoring towards a more general function.  That notwithstanding time pressure, here's the current function in actions
+
+```{r plots, height=10.5, width=8}
+#Relevel subject factors 
+map.scores.by.grade$Subject<-factor(map.scores.by.grade$Subject, levels=c("Mathematics", "Reading", "Language Usage", "General Science"))
+#KAPS
+map.scores.primary<-subset(map.scores.by.grade, SchoolName=="KIPP Ascend Primary")
+
+pdf(file="../../Figures/Fall12_MAP_KAPS.pdf", height=10.5, width=8)
+
+for(s in sort(unique(map.scores.primary$Subject))){
+  dfp<-subset(map.scores.primary,Subject==s) #DataFrame to Plot
+  for(g in as.character(sort(unique(dfp$Grade)))){
+    ptitle <- paste("KAPS 2012 Fall MAP Grade ",g," ",s,"\nRIT Scores, Expected Growth, and College Ready Growth\nby Quartile",sep="")
+    p<-plot_MAP_Results_and_Goals(subset(dfp,Grade==g),ptitle, labxpos=113, minx=104)
+    print(p)
+  }
+}
+dev.off()
 
 
+#KCCP
+map.scores.KCCP<-subset(map.scores.by.grade, SchoolName=="KIPP Create Middle School")
 
+pdf(file="../../Figures/Fall12_MAP_KCCP.pdf", height=10.5, width=8)
+
+for(s in sort(unique(map.scores.KCCP$Subject))){
+  dfp<-subset(map.scores.KCCP,Subject==s) #DataFrame to Plot
+  for(g in as.character(sort(unique(dfp$Grade)))){
+    ptitle <- paste("KCCP 2012 Fall MAP Grade ",g," ",s,"\nRIT Scores, Expected Growth, and College Ready Growth\nby Quartile",sep="")
+    p<-plot_MAP_Results_and_Goals(subset(dfp,Grade==g),ptitle, labxpos=150, minx=140)
+    print(p)
+  }
+}
+dev.off()
 
 
 
 ```
+
 

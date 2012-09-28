@@ -30,6 +30,14 @@ library(reshape)  #More data manipulation
 
 ```r
 library(ggplot2)  #Graphics of grammer graphing
+```
+
+```
+## Need help? Try the ggplot2 mailing list:
+## http://groups.google.com/group/ggplot2.
+```
+
+```r
 library(grid)  #More Graphing
 library(directlables)  #direct labeling in ggplot2 and lattice plots
 ```
@@ -60,6 +68,7 @@ map.scores<-sqlQuery(con,
 "SELECT  t.StudentID AS ID,
 		t.`StudentFirstName`,
 		t.`StudentLastName`,
+		t.`SchoolName`,
 		t.`Grade`,	
 		t.`ClassName`,
 		t.MeasurementScale AS Subject,
@@ -96,16 +105,17 @@ FROM 	(
 			) as a
 		ON a.StudentID=c.StudentID
 		) as t
-LEFT OUTER JOIN `tblNorms2011_Growth` as n
+LEFT OUTER JOIN `viewNorms2011_Growth_Kinder_0` as n
 ON 		t.`TestRITScore`=n.`StartRIT`
-AND		t.`Grade`=n.`StartGrade`
+AND		t.`Grade`=n.`StartGrade2`
 AND		t.`MeasurementScale`=n.`MeasurementScale`
 WHERE 	#GrowthMeasureYN='True' AND
-        (TestType='Survey with Goals'
-          OR 
-        TestType='Survey'
-        )
+ 	(TestType='Survey with Goals'
+		OR 
+		TestType='Survey'
+		)
 ;
+
 ")
 
 #Check contents
@@ -113,27 +123,27 @@ head(map.scores)
 ```
 
 ```
-##         ID StudentFirstName StudentLastName Grade  ClassName
-## 1 41921803         Kenyatta          Walker     5 Pittsburgh
-## 2 41921803         Kenyatta          Walker     5 Pittsburgh
-## 3 41921803         Kenyatta          Walker     5 Pittsburgh
-## 4 42049832      Christopher           Smith     5   Grinnell
-## 5 42049832      Christopher           Smith     5   Grinnell
-## 6 42049832      Christopher           Smith     5   Grinnell
-##           Subject Fall12_GM         Fall12_TT Fall12_RIT Fall12_Pctl
-## 1 General Science     FALSE Survey With Goals        201          49
-## 2         Reading     FALSE Survey With Goals        206          47
-## 3     Mathematics     FALSE Survey With Goals        206          31
-## 4 General Science     FALSE Survey With Goals        201          49
-## 5     Mathematics     FALSE Survey With Goals        207          34
-## 6         Reading     FALSE Survey With Goals        219          80
-##   TypicalFallToSpringGrowth ReportedFallToSpringGrowth
-## 1                      4.03                          4
-## 2                      5.26                          5
-## 3                      8.10                          8
-## 4                      4.03                          4
-## 5                      8.11                          8
-## 6                      4.62                          5
+##         ID StudentFirstName StudentLastName                SchoolName
+## 1 41921803         Kenyatta          Walker KIPP Create Middle School
+## 2 41921803         Kenyatta          Walker KIPP Create Middle School
+## 3 41921803         Kenyatta          Walker KIPP Create Middle School
+## 4 42049832      Christopher           Smith KIPP Create Middle School
+## 5 42049832      Christopher           Smith KIPP Create Middle School
+## 6 42049832      Christopher           Smith KIPP Create Middle School
+##   Grade  ClassName         Subject Fall12_GM         Fall12_TT Fall12_RIT
+## 1     5 Pittsburgh General Science     FALSE Survey With Goals        201
+## 2     5 Pittsburgh         Reading     FALSE Survey With Goals        206
+## 3     5 Pittsburgh     Mathematics     FALSE Survey With Goals        206
+## 4     5   Grinnell General Science     FALSE Survey With Goals        201
+## 5     5   Grinnell     Mathematics     FALSE Survey With Goals        207
+## 6     5   Grinnell         Reading     FALSE Survey With Goals        219
+##   Fall12_Pctl TypicalFallToSpringGrowth ReportedFallToSpringGrowth
+## 1          49                      4.03                          4
+## 2          47                      5.26                          5
+## 3          31                      8.10                          8
+## 4          49                      4.03                          4
+## 5          34                      8.11                          8
+## 6          80                      4.62                          5
 ##   SDFallToSpringGrowth Quartile
 ## 1                 6.10        2
 ## 2                 6.13        2
@@ -146,8 +156,8 @@ head(map.scores)
 ```r
 
 #Reorder levels (since 13=Kinder, prior to Fall 2012, after that it is Kinder=0) and rename
-map.scores$Grade <- factor(map.scores$Grade, levels=c("0", "1", "5", "6","7","8"))
-levels(map.scores$Grade) <- c("K", "1", "5", "6","7","8")
+map.scores$Grade <- factor(map.scores$Grade, levels=c("0", "1","2", "5", "6","7","8"))
+levels(map.scores$Grade) <- c("K", "1", "2", "5", "6","7","8")
 ```
 
 ## MAP Target Setting
@@ -199,27 +209,27 @@ head(map.scores.by.grade)
 ```
 
 ```
-##         ID StudentFirstName StudentLastName Grade  ClassName
-## 1 43712128           Jamiya          Foster     5 Pittsburgh
-## 2 44181010          Deshaun         Chapman     5 Pittsburgh
-## 3 91715210           Keenan           White     5   Grinnell
-## 4 45372995          Mikayla            Ware     5   Grinnell
-## 5 44763559           Kaylin          Ruffin     5   Grinnell
-## 6 44771365          Quavinn          Ingram     5      Texas
-##           Subject Fall12_GM         Fall12_TT Fall12_RIT Fall12_Pctl
-## 1 General Science     FALSE Survey With Goals        171           1
-## 2 General Science     FALSE Survey With Goals        175           1
-## 3 General Science     FALSE Survey With Goals        176           1
-## 4 General Science     FALSE Survey With Goals        180           2
-## 5 General Science     FALSE Survey With Goals        181           3
-## 6 General Science     FALSE Survey With Goals        182           4
-##   TypicalFallToSpringGrowth ReportedFallToSpringGrowth
-## 1                      5.73                          6
-## 2                      5.50                          6
-## 3                      5.45                          5
-## 4                      5.22                          5
-## 5                      5.16                          5
-## 6                      5.11                          5
+##         ID StudentFirstName StudentLastName                SchoolName
+## 1 43712128           Jamiya          Foster KIPP Create Middle School
+## 2 44181010          Deshaun         Chapman KIPP Create Middle School
+## 3 91715210           Keenan           White KIPP Create Middle School
+## 4 45372995          Mikayla            Ware KIPP Create Middle School
+## 5 44763559           Kaylin          Ruffin KIPP Create Middle School
+## 6 44771365          Quavinn          Ingram KIPP Create Middle School
+##   Grade  ClassName         Subject Fall12_GM         Fall12_TT Fall12_RIT
+## 1     5 Pittsburgh General Science     FALSE Survey With Goals        171
+## 2     5 Pittsburgh General Science     FALSE Survey With Goals        175
+## 3     5   Grinnell General Science     FALSE Survey With Goals        176
+## 4     5   Grinnell General Science     FALSE Survey With Goals        180
+## 5     5   Grinnell General Science     FALSE Survey With Goals        181
+## 6     5      Texas General Science     FALSE Survey With Goals        182
+##   Fall12_Pctl TypicalFallToSpringGrowth ReportedFallToSpringGrowth
+## 1           1                      5.73                          6
+## 2           1                      5.50                          6
+## 3           1                      5.45                          5
+## 4           2                      5.22                          5
+## 5           3                      5.16                          5
+## 6           4                      5.11                          5
 ##   SDFallToSpringGrowth Quartile GrowthPctl75th GrowthTargets
 ## 1                  6.1        1             10           181
 ## 2                  6.1        1             10           185
@@ -241,27 +251,27 @@ head(map.scores.by.class)
 ```
 
 ```
-##         ID StudentFirstName StudentLastName Grade ClassName
-## 1 91715210           Keenan           White     5  Grinnell
-## 2 45372995          Mikayla            Ware     5  Grinnell
-## 3 44763559           Kaylin          Ruffin     5  Grinnell
-## 4 50053590           Jawonn             Nix     5  Grinnell
-## 5 44296373          Takayla          Walker     5  Grinnell
-## 6 50078086          Brandon           White     5  Grinnell
-##           Subject Fall12_GM         Fall12_TT Fall12_RIT Fall12_Pctl
-## 1 General Science     FALSE Survey With Goals        176           1
-## 2 General Science     FALSE Survey With Goals        180           2
-## 3 General Science     FALSE Survey With Goals        181           3
-## 4 General Science     FALSE Survey With Goals        186           8
-## 5 General Science     FALSE Survey With Goals        188          11
-## 6 General Science     FALSE Survey With Goals        188          11
-##   TypicalFallToSpringGrowth ReportedFallToSpringGrowth
-## 1                      5.45                          5
-## 2                      5.22                          5
-## 3                      5.16                          5
-## 4                      4.88                          5
-## 5                      4.77                          5
-## 6                      4.77                          5
+##         ID StudentFirstName StudentLastName                SchoolName
+## 1 91715210           Keenan           White KIPP Create Middle School
+## 2 45372995          Mikayla            Ware KIPP Create Middle School
+## 3 44763559           Kaylin          Ruffin KIPP Create Middle School
+## 4 50053590           Jawonn             Nix KIPP Create Middle School
+## 5 44296373          Takayla          Walker KIPP Create Middle School
+## 6 50078086          Brandon           White KIPP Create Middle School
+##   Grade ClassName         Subject Fall12_GM         Fall12_TT Fall12_RIT
+## 1     5  Grinnell General Science     FALSE Survey With Goals        176
+## 2     5  Grinnell General Science     FALSE Survey With Goals        180
+## 3     5  Grinnell General Science     FALSE Survey With Goals        181
+## 4     5  Grinnell General Science     FALSE Survey With Goals        186
+## 5     5  Grinnell General Science     FALSE Survey With Goals        188
+## 6     5  Grinnell General Science     FALSE Survey With Goals        188
+##   Fall12_Pctl TypicalFallToSpringGrowth ReportedFallToSpringGrowth
+## 1           1                      5.45                          5
+## 2           2                      5.22                          5
+## 3           3                      5.16                          5
+## 4           8                      4.88                          5
+## 5          11                      4.77                          5
+## 6          11                      4.77                          5
 ##   SDFallToSpringGrowth Quartile GrowthPctl75th GrowthTargets
 ## 1                  6.1        1             10           186
 ## 2                  6.1        1              9           189
@@ -326,7 +336,7 @@ p <- ggplot(subset(map.scores.by.grade, Grade==1 & Subject=="Reading"), aes(x=Fa
 #First get the per panel data I want count by quartile, avg y-position (given by OrderID) by quartile,
 #  avg RIT by quartile, and percent of quartile students to total studens.
 
-qrtl.labels<-get_group_stats(subset(map.scores.by.grade, Grade==1), grp="Quartile")
+qrtl.labels<-get_group_stats(subset(map.scores.by.grade, Grade==1 & Subject=="Reading"), grp="Quartile")
 
 #add a column with the actual label text
 qrtl.labels$CountLabel<-paste(qrtl.labels$CountStudents," students (",round(qrtl.labels$PctofTotal*100),"%)", sep="")
@@ -348,8 +358,69 @@ p
 ```r
 
 #Save pdf vector file of plot for other uses. 
-ggsave(p,file="plot_Goal_by_grade.pdf", path="../../Figures/",height=10.5,width=8)
+ggsave(p,file="plot_Goal_by_grade_KAPS_1.pdf", path="../../Figures/",height=10.5,width=8)
+```
+
+
+I liked plot so much that I've written a function (`plot_MAP_Results_and_Goals`) so I can very quickly reproduce it for any grade and Class combination, which is sourced above in the `MAP_helper_function.R` script.  Right now it is only useful if the dataframe has very specific column names.  However, it is a stake in the ground that for a later refactoring towards a more general function.  That notwithstanding time pressure, here's the current function in actions
+
+
+```r
+# Relevel subject factors
+map.scores.by.grade$Subject <- factor(map.scores.by.grade$Subject, levels = c("Mathematics", 
+    "Reading", "Language Usage", "General Science"))
+# KAPS
+map.scores.primary <- subset(map.scores.by.grade, SchoolName == "KIPP Ascend Primary")
+
+pdf(file = "../../Figures/Fall12_MAP_KAPS.pdf", height = 10.5, width = 8)
+
+for (s in sort(unique(map.scores.primary$Subject))) {
+    dfp <- subset(map.scores.primary, Subject == s)  #DataFrame to Plot
+    for (g in as.character(sort(unique(dfp$Grade)))) {
+        ptitle <- paste("KAPS 2012 Fall MAP Grade ", g, " ", s, "\nRIT Scores, Expected Growth, and College Ready Growth\nby Quartile", 
+            sep = "")
+        p <- plot_MAP_Results_and_Goals(subset(dfp, Grade == g), ptitle, labxpos = 113, 
+            minx = 104)
+        print(p)
+    }
+}
+dev.off()
+```
 
 ```
+## pdf 
+##   2 
+```
+
+```r
+
+
+# KCCP
+map.scores.KCCP <- subset(map.scores.by.grade, SchoolName == "KIPP Create Middle School")
+
+pdf(file = "../../Figures/Fall12_MAP_KCCP.pdf", height = 10.5, width = 8)
+
+for (s in sort(unique(map.scores.KCCP$Subject))) {
+    dfp <- subset(map.scores.KCCP, Subject == s)  #DataFrame to Plot
+    for (g in as.character(sort(unique(dfp$Grade)))) {
+        ptitle <- paste("KCCP 2012 Fall MAP Grade ", g, " ", s, "\nRIT Scores, Expected Growth, and College Ready Growth\nby Quartile", 
+            sep = "")
+        p <- plot_MAP_Results_and_Goals(subset(dfp, Grade == g), ptitle, labxpos = 150, 
+            minx = 140)
+        print(p)
+    }
+}
+dev.off()
+```
+
+```
+## pdf 
+##   2 
+```
+
+```r
+
+```
+
 
 
