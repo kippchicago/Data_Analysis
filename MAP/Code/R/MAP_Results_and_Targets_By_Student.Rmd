@@ -5,11 +5,18 @@ This file is the literate programming source for a script that pulls our data fr
 We need to clean and load out Fall 2012 comprehensive data file (CDF), which we get from [NWEA](http://www.nwea.org)'s reporting website. The CDF is 4 files that contain the students' MAP examination results, student specific information, and classroom data. 
 
 ## Prelims
-I start by seting the pwd and loading the libraries used in the data analysis.
+
+
+I start by setting some global paramaters for my R markdwon file (i.e, this file) by then by seting the present working directory and loading the libraries used in the data analysis.
+
+```{r global_options}
+opts_chunk$set(tidy=TRUE, echo=TRUE, dpi=150, fig.align='center', fig.height=6.3125, fig.width=5, message=FALSE)
+```
+
+
 ```{r Load_Libraries}
 setwd("~/Dropbox/Consulting/KIPP Ascend/Data Analysis/MAP/Code/R")
 
-rm(list=c(ls()))
 
 
 library(RODBC) #To get data form Data Analysis DB
@@ -17,7 +24,7 @@ library(plyr)  #To manipulate data
 library(reshape) #More data manipulation
 library(ggplot2) #Graphics of grammer graphing
 library(grid) #More Graphing
-library(directlables) #direct labeling in ggplot2 and lattice plots
+library(gridExtra) #better than par(mfrow=c(r,c)) for arranging ggplot2 and lattice graphics
 ```
 
 
@@ -154,26 +161,27 @@ p <- ggplot(subset(map.scores.by.grade, Grade==1 & Subject=="Reading"), aes(x=Fa
     facet_grid(Quartile~., scale="free_y", space = "free_y", as.table=FALSE) +
     scale_colour_discrete(kippcols) + 
     scale_y_continuous(" ", breaks=map.scores.by.grade$OrderID, expand=c(0,1)) + 
-    opts(axis.text.y = theme_text(size=3, hjust=1)) + 
-    opts(legend.position = "none") + 
+    theme(axis.text.y = element_text(size=3, hjust=1)) + 
+    theme(legend.position = "none") + 
     scale_x_continuous("RIT Score") + 
     expand_limits(x=115)+
-      opts(
-        panel.background = theme_rect(fill = "transparent",colour = NA), # or theme_blank()
-        # panel.grid.minor = theme_blank(), 
-        # panel.grid.major = theme_blank(),
-        plot.background = theme_rect(fill = "transparent",colour = NA),
-        axis.text.x = theme_text(size=15),
-        axis.text.y = theme_blank(), 
-        #axis.title.y = theme_blank(), 
-        axis.ticks=theme_blank(),
+      theme(
+        panel.background = element_rect(fill = "transparent",colour = NA), # or element_blank()
+        # panel.grid.minor = element_blank(), 
+        # panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent",colour = NA),
+        axis.text.x = element_text(size=15),
+        axis.text.y = element_blank(), 
+        #axis.title.y = element_blank(), 
+        axis.ticks=element_blank(),
     
-        strip.text.x=theme_text(size=15),
-        strip.text.y=theme_text(size=15,angle=0), 
-        strip.background=theme_rect(fill="#F4EFEB", colour=NA),
-        title="2012 Fall 1st Grade Reading\nRIT Scores, Expected Growth, and College Ready Growth\nby Quartile",
-        plot.title=theme_text(size=12)
-        ) 
+        strip.text.x=element_text(size=15),
+        strip.text.y=element_text(size=15,angle=0), 
+        strip.background=element_rect(fill="#F4EFEB", colour=NA),
+        plot.title=element_text(size=12)
+        ) +
+        ggtitle("2012 Fall 1st Grade Reading\nRIT Scores, 
+                Expected Growth, and College Ready Growth\nby Quartile")  
 
 
 ###Let's add some summary labels by quaritle to p
@@ -301,6 +309,7 @@ pr1<-map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.prim
 pm2<-map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.primary,normsdata=nwea.norms.fall,grade=2,subj="Mathematics",schoolname="KAPS"),legendpos="none",title="MAP 2012 2nd Grade\nKAPS vs. National\nMath", schoolname="KAPS", schoolname="KAPS")
 pr2<-map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.primary,normsdata=nwea.norms.fall,grade=2,subj="Reading",schoolname="KAPS"), title="Reading", schoolname="KAPS")
 
+grid.arrange(pmK,prK,nrow=2)
 
 pdf(file="../../Figures/Fall12_MAP_KAPS_Distr.pdf", height=10.5, width=8)
 grid.arrange(pmK,prK,nrow=2)

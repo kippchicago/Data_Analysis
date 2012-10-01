@@ -5,45 +5,30 @@ This file is the literate programming source for a script that pulls our data fr
 We need to clean and load out Fall 2012 comprehensive data file (CDF), which we get from [NWEA](http://www.nwea.org)'s reporting website. The CDF is 4 files that contain the students' MAP examination results, student specific information, and classroom data. 
 
 ## Prelims
-I start by seting the pwd and loading the libraries used in the data analysis.
+
+
+I start by setting some global paramaters for my R markdwon file (i.e, this file) by then by seting the present working directory and loading the libraries used in the data analysis.
+
+
+```r
+opts_chunk$set(tidy = TRUE, echo = TRUE, dpi = 150, fig.align = "center", fig.height = 6.3125, 
+    fig.width = 5, message = FALSE)
+```
+
+
+
 
 ```r
 setwd("~/Dropbox/Consulting/KIPP Ascend/Data Analysis/MAP/Code/R")
 
-rm(list = c(ls()))
 
 
 library(RODBC)  #To get data form Data Analysis DB
 library(plyr)  #To manipulate data
 library(reshape)  #More data manipulation
-```
-
-```
-## Attaching package: 'reshape'
-```
-
-```
-## The following object(s) are masked from 'package:plyr':
-## 
-## rename, round_any
-```
-
-```r
 library(ggplot2)  #Graphics of grammer graphing
-```
-
-```
-## Need help? Try the ggplot2 mailing list:
-## http://groups.google.com/group/ggplot2.
-```
-
-```r
 library(grid)  #More Graphing
-library(directlables)  #direct labeling in ggplot2 and lattice plots
-```
-
-```
-## Error: there is no package called 'directlables'
+library(gridExtra)  #better than par(mfrow=c(r,c)) for arranging ggplot2 and lattice graphics
 ```
 
 
@@ -124,33 +109,33 @@ head(map.scores)
 
 ```
 ##         ID StudentFirstName StudentLastName                SchoolName
-## 1 41921803         Kenyatta          Walker KIPP Create Middle School
-## 2 41921803         Kenyatta          Walker KIPP Create Middle School
-## 3 41921803         Kenyatta          Walker KIPP Create Middle School
-## 4 42049832      Christopher           Smith KIPP Create Middle School
-## 5 42049832      Christopher           Smith KIPP Create Middle School
-## 6 42049832      Christopher           Smith KIPP Create Middle School
-##   Grade  ClassName         Subject Fall12_GM         Fall12_TT Fall12_RIT
-## 1     5 Pittsburgh General Science     FALSE Survey With Goals        201
-## 2     5 Pittsburgh         Reading     FALSE Survey With Goals        206
-## 3     5 Pittsburgh     Mathematics     FALSE Survey With Goals        206
-## 4     5   Grinnell General Science     FALSE Survey With Goals        201
-## 5     5   Grinnell     Mathematics     FALSE Survey With Goals        207
-## 6     5   Grinnell         Reading     FALSE Survey With Goals        219
+## 1 39910470      Chardonne't          Thomas KIPP Ascend Middle School
+## 2 39910470      Chardonne't          Thomas KIPP Ascend Middle School
+## 3 39984121             Demi          Thomas KIPP Ascend Middle School
+## 4 39984121             Demi          Thomas KIPP Ascend Middle School
+## 5 40534857          Amarion           Mayes KIPP Ascend Middle School
+## 6 40534857          Amarion           Mayes KIPP Ascend Middle School
+##   Grade ClassName     Subject Fall12_GM         Fall12_TT Fall12_RIT
+## 1     8        ND Mathematics      TRUE Survey With Goals        198
+## 2     8        ND     Reading      TRUE Survey With Goals        202
+## 3     8        ND Mathematics      TRUE Survey With Goals        221
+## 4     8        ND     Reading      TRUE Survey With Goals        215
+## 5     8        ND Mathematics      TRUE Survey With Goals        224
+## 6     8        ND     Reading      TRUE Survey With Goals        214
 ##   Fall12_Pctl TypicalFallToSpringGrowth ReportedFallToSpringGrowth
-## 1          49                      4.03                          4
-## 2          47                      5.26                          5
-## 3          31                      8.10                          8
-## 4          49                      4.03                          4
-## 5          34                      8.11                          8
-## 6          80                      4.62                          5
+## 1           3                      4.39                          4
+## 2          12                      4.26                          4
+## 3          29                      4.32                          4
+## 4          39                      3.42                          3
+## 5          36                      4.31                          4
+## 6          36                      3.48                          3
 ##   SDFallToSpringGrowth Quartile
-## 1                 6.10        2
-## 2                 6.13        2
-## 3                 5.99        2
-## 4                 6.10        2
-## 5                 5.99        2
-## 6                 6.13        4
+## 1                 6.42        1
+## 2                 6.63        1
+## 3                 6.42        2
+## 4                 6.63        2
+## 5                 6.42        2
+## 6                 6.63        2
 ```
 
 ```r
@@ -200,50 +185,50 @@ OK. Now to graphics.  Here I want to graph the fall score, the expected growth a
 
 
 ```r
-map.scores.by.grade <- ddply(map.scores, .(Subject, Grade), function(df) orderid(df, 
+map.scores.by.grade <- ddply(map.scores, .(Subject, SchoolName, Grade), function(df) orderid(df, 
     df$Fall12_RIT))
-map.scores.by.class <- ddply(map.scores, .(Subject, ClassName), function(df) orderid(df, 
-    df$Fall12_RIT))
+map.scores.by.class <- ddply(map.scores, .(Subject, SchoolName, ClassName), 
+    function(df) orderid(df, df$Fall12_RIT))
 
 head(map.scores.by.grade)
 ```
 
 ```
 ##         ID StudentFirstName StudentLastName                SchoolName
-## 1 43712128           Jamiya          Foster KIPP Create Middle School
-## 2 44181010          Deshaun         Chapman KIPP Create Middle School
-## 3 91715210           Keenan           White KIPP Create Middle School
-## 4 45372995          Mikayla            Ware KIPP Create Middle School
-## 5 44763559           Kaylin          Ruffin KIPP Create Middle School
-## 6 44771365          Quavinn          Ingram KIPP Create Middle School
-##   Grade  ClassName         Subject Fall12_GM         Fall12_TT Fall12_RIT
-## 1     5 Pittsburgh General Science     FALSE Survey With Goals        171
-## 2     5 Pittsburgh General Science     FALSE Survey With Goals        175
-## 3     5   Grinnell General Science     FALSE Survey With Goals        176
-## 4     5   Grinnell General Science     FALSE Survey With Goals        180
-## 5     5   Grinnell General Science     FALSE Survey With Goals        181
-## 6     5      Texas General Science     FALSE Survey With Goals        182
+## 1 44740729           Machir        Lawrence KIPP Ascend Middle School
+## 2 43616412          Antonio          Protho KIPP Ascend Middle School
+## 3 43610740           Pierre         Higgins KIPP Ascend Middle School
+## 4 91192512           Trevon           Toney KIPP Ascend Middle School
+## 5 43571427        Demetrius          Bryant KIPP Ascend Middle School
+## 6 44214172          Charles          Rhodes KIPP Ascend Middle School
+##   Grade ClassName         Subject Fall12_GM         Fall12_TT Fall12_RIT
+## 1     6   Indiana General Science      TRUE Survey With Goals        164
+## 2     6   Indiana General Science      TRUE Survey With Goals        171
+## 3     6   Indiana General Science      TRUE Survey With Goals        175
+## 4     6 Wisconsin General Science      TRUE Survey With Goals        176
+## 5     6 Wisconsin General Science      TRUE Survey With Goals        177
+## 6     6    Purdue General Science      TRUE Survey With Goals        180
 ##   Fall12_Pctl TypicalFallToSpringGrowth ReportedFallToSpringGrowth
-## 1           1                      5.73                          6
-## 2           1                      5.50                          6
-## 3           1                      5.45                          5
-## 4           2                      5.22                          5
-## 5           3                      5.16                          5
-## 6           4                      5.11                          5
+## 1           1                      5.93                          6
+## 2           1                      5.38                          5
+## 3           1                      5.07                          5
+## 4           1                      4.99                          5
+## 5           1                      4.91                          5
+## 6           1                      4.68                          5
 ##   SDFallToSpringGrowth Quartile GrowthPctl75th GrowthTargets
-## 1                  6.1        1             10           181
-## 2                  6.1        1             10           185
-## 3                  6.1        1             10           186
-## 4                  6.1        1              9           189
-## 5                  6.1        1              9           190
-## 6                  6.1        1              9           191
+## 1                 5.71        1             10           174
+## 2                 5.71        1              9           180
+## 3                 5.71        1              9           184
+## 4                 5.71        1              9           185
+## 5                 5.71        1              9           186
+## 6                 5.71        1              9           189
 ##   StudentLastFirstName StudentFirstLastName OrderID
-## 1       Foster, Jamiya        Jamiya Foster       1
-## 2     Chapman, Deshaun      Deshaun Chapman       2
-## 3        White, Keenan         Keenan White       3
-## 4        Ware, Mikayla         Mikayla Ware       4
-## 5       Ruffin, Kaylin        Kaylin Ruffin       5
-## 6      Ingram, Quavinn       Quavinn Ingram       6
+## 1     Lawrence, Machir      Machir Lawrence       1
+## 2      Protho, Antonio       Antonio Protho       2
+## 3      Higgins, Pierre       Pierre Higgins       3
+## 4        Toney, Trevon         Trevon Toney       4
+## 5    Bryant, Demetrius     Demetrius Bryant       5
+## 6      Rhodes, Charles       Charles Rhodes       6
 ```
 
 ```r
@@ -252,40 +237,40 @@ head(map.scores.by.class)
 
 ```
 ##         ID StudentFirstName StudentLastName                SchoolName
-## 1 91715210           Keenan           White KIPP Create Middle School
-## 2 45372995          Mikayla            Ware KIPP Create Middle School
-## 3 44763559           Kaylin          Ruffin KIPP Create Middle School
-## 4 50053590           Jawonn             Nix KIPP Create Middle School
-## 5 44296373          Takayla          Walker KIPP Create Middle School
-## 6 50078086          Brandon           White KIPP Create Middle School
+## 1 44740729           Machir        Lawrence KIPP Ascend Middle School
+## 2 43616412          Antonio          Protho KIPP Ascend Middle School
+## 3 43610740           Pierre         Higgins KIPP Ascend Middle School
+## 4 91524865            Anika          Stokes KIPP Ascend Middle School
+## 5 44707241         Jarvelle       Armstrong KIPP Ascend Middle School
+## 6 44725096           Jordan           Greer KIPP Ascend Middle School
 ##   Grade ClassName         Subject Fall12_GM         Fall12_TT Fall12_RIT
-## 1     5  Grinnell General Science     FALSE Survey With Goals        176
-## 2     5  Grinnell General Science     FALSE Survey With Goals        180
-## 3     5  Grinnell General Science     FALSE Survey With Goals        181
-## 4     5  Grinnell General Science     FALSE Survey With Goals        186
-## 5     5  Grinnell General Science     FALSE Survey With Goals        188
-## 6     5  Grinnell General Science     FALSE Survey With Goals        188
+## 1     6   Indiana General Science      TRUE Survey With Goals        164
+## 2     6   Indiana General Science      TRUE Survey With Goals        171
+## 3     6   Indiana General Science      TRUE Survey With Goals        175
+## 4     6   Indiana General Science      TRUE Survey With Goals        185
+## 5     6   Indiana General Science      TRUE Survey With Goals        187
+## 6     6   Indiana General Science      TRUE Survey With Goals        188
 ##   Fall12_Pctl TypicalFallToSpringGrowth ReportedFallToSpringGrowth
-## 1           1                      5.45                          5
-## 2           2                      5.22                          5
-## 3           3                      5.16                          5
-## 4           8                      4.88                          5
-## 5          11                      4.77                          5
-## 6          11                      4.77                          5
+## 1           1                      5.93                          6
+## 2           1                      5.38                          5
+## 3           1                      5.07                          5
+## 4           3                      4.28                          4
+## 5           5                      4.12                          4
+## 6           6                      4.05                          4
 ##   SDFallToSpringGrowth Quartile GrowthPctl75th GrowthTargets
-## 1                  6.1        1             10           186
-## 2                  6.1        1              9           189
-## 3                  6.1        1              9           190
-## 4                  6.1        1              9           195
-## 5                  6.1        1              9           197
-## 6                  6.1        1              9           197
+## 1                 5.71        1             10           174
+## 2                 5.71        1              9           180
+## 3                 5.71        1              9           184
+## 4                 5.71        1              8           193
+## 5                 5.71        1              8           195
+## 6                 5.71        1              8           196
 ##   StudentLastFirstName StudentFirstLastName OrderID
-## 1        White, Keenan         Keenan White       1
-## 2        Ware, Mikayla         Mikayla Ware       2
-## 3       Ruffin, Kaylin        Kaylin Ruffin       3
-## 4          Nix, Jawonn           Jawonn Nix       4
-## 5      Walker, Takayla       Takayla Walker       5
-## 6       White, Brandon        Brandon White       6
+## 1     Lawrence, Machir      Machir Lawrence       1
+## 2      Protho, Antonio       Antonio Protho       2
+## 3      Higgins, Pierre       Pierre Higgins       3
+## 4        Stokes, Anika         Anika Stokes       4
+## 5  Armstrong, Jarvelle   Jarvelle Armstrong       5
+## 6        Greer, Jordan         Jordan Greer       6
 ```
 
 
@@ -309,26 +294,27 @@ p <- ggplot(subset(map.scores.by.grade, Grade==1 & Subject=="Reading"), aes(x=Fa
     facet_grid(Quartile~., scale="free_y", space = "free_y", as.table=FALSE) +
     scale_colour_discrete(kippcols) + 
     scale_y_continuous(" ", breaks=map.scores.by.grade$OrderID, expand=c(0,1)) + 
-    opts(axis.text.y = theme_text(size=3, hjust=1)) + 
-    opts(legend.position = "none") + 
+    theme(axis.text.y = element_text(size=3, hjust=1)) + 
+    theme(legend.position = "none") + 
     scale_x_continuous("RIT Score") + 
     expand_limits(x=115)+
-      opts(
-        panel.background = theme_rect(fill = "transparent",colour = NA), # or theme_blank()
-        # panel.grid.minor = theme_blank(), 
-        # panel.grid.major = theme_blank(),
-        plot.background = theme_rect(fill = "transparent",colour = NA),
-        axis.text.x = theme_text(size=15),
-        axis.text.y = theme_blank(), 
-        #axis.title.y = theme_blank(), 
-        axis.ticks=theme_blank(),
+      theme(
+        panel.background = element_rect(fill = "transparent",colour = NA), # or element_blank()
+        # panel.grid.minor = element_blank(), 
+        # panel.grid.major = element_blank(),
+        plot.background = element_rect(fill = "transparent",colour = NA),
+        axis.text.x = element_text(size=15),
+        axis.text.y = element_blank(), 
+        #axis.title.y = element_blank(), 
+        axis.ticks=element_blank(),
     
-        strip.text.x=theme_text(size=15),
-        strip.text.y=theme_text(size=15,angle=0), 
-        strip.background=theme_rect(fill="#F4EFEB", colour=NA),
-        title="2012 Fall 1st Grade Reading\nRIT Scores, Expected Growth, and College Ready Growth\nby Quartile",
-        plot.title=theme_text(size=12)
-        ) 
+        strip.text.x=element_text(size=15),
+        strip.text.y=element_text(size=15,angle=0), 
+        strip.background=element_rect(fill="#F4EFEB", colour=NA),
+        plot.title=element_text(size=12)
+        ) +
+        ggtitle("2012 Fall 1st Grade Reading\nRIT Scores, 
+                Expected Growth, and College Ready Growth\nby Quartile")  
 
 
 ###Let's add some summary labels by quaritle to p
@@ -369,7 +355,14 @@ I liked plot so much that I've written a function (`plot_MAP_Results_and_Goals`)
 # Relevel subject factors
 map.scores.by.grade$Subject <- factor(map.scores.by.grade$Subject, levels = c("Mathematics", 
     "Reading", "Language Usage", "General Science"))
-# KAPS
+
+map.scores.by.class$Subject <- factor(map.scores.by.grade$Subject, levels = c("Mathematics", 
+    "Reading", "Language Usage", "General Science"))
+
+### Separate PDF for each School
+
+
+# KAPS First by Grade
 map.scores.primary <- subset(map.scores.by.grade, SchoolName == "KIPP Ascend Primary")
 
 pdf(file = "../../Figures/Fall12_MAP_KAPS.pdf", height = 10.5, width = 8)
@@ -389,7 +382,67 @@ dev.off()
 
 ```
 ## pdf 
-##   2 
+##   2
+```
+
+```r
+
+# Then by Classroom (KAPS only)
+
+map.scores.primary.by.class <- subset(map.scores.by.class, SchoolName == "KIPP Ascend Primary" & 
+    ID != "50206087")
+# This kid is assinged to two classes in math as a 1st grader but the
+# classes are K classees. Weird.
+
+pdf(file = "../../Figures/Fall12_MAP_KAPS_by_Classroom.pdf", height = 10.5, 
+    width = 8)
+# Need to Loop by Subject, then grade, then classroom
+for (s in as.character(sort(unique(map.scores.primary.by.class$Subject)))) {
+    dfs <- subset(map.scores.primary.by.class, Subject == s)  #DataFrame for subject
+    for (g in as.character(sort(unique(dfs$Grade)))) {
+        dfp <- subset(dfs, Grade == g)  #DataFrame for Plot
+        for (c in as.character(sort(unique(dfp$ClassName)))) {
+            ptitle <- paste("KAPS 2012 Fall MAP ", c, " (", g, ") ", s, "\nRIT Scores, Expected Growth, and College Ready Growth\nby Quartile", 
+                sep = "")
+            p <- plot_MAP_Results_and_Goals(subset(dfp, ClassName == c), ptitle, 
+                labxpos = 113, minx = 104)
+            print(p)
+        }
+    }
+}
+dev.off()
+```
+
+```
+## pdf 
+##   2
+```
+
+```r
+
+
+
+# KAMS
+map.scores.KAMS <- subset(map.scores.by.grade, SchoolName == "KIPP Ascend Middle School")
+
+pdf(file = "../../Figures/Fall12_MAP_KAMS.pdf", height = 10.5, width = 8)
+
+for (s in sort(unique(map.scores.KAMS$Subject))) {
+    dfp <- subset(map.scores.KAMS, Subject == s)  #DataFrame to Plot
+    for (g in as.character(sort(unique(dfp$Grade)))) {
+        ptitle <- paste("KAMS 2012 Fall MAP Grade ", g, " ", s, "\nRIT Scores, Expected Growth, and College Ready Growth\nby Quartile", 
+            sep = "")
+        p <- plot_MAP_Results_and_Goals(subset(dfp, Grade == g), ptitle, labxpos = 170, 
+            minx = 145, alp = 0.6)
+        print(p)
+    }
+}
+dev.off()
+```
+
+```
+## pdf 
+##   2
 ```
 
 ```r
@@ -406,7 +459,7 @@ for (s in sort(unique(map.scores.KCCP$Subject))) {
         ptitle <- paste("KCCP 2012 Fall MAP Grade ", g, " ", s, "\nRIT Scores, Expected Growth, and College Ready Growth\nby Quartile", 
             sep = "")
         p <- plot_MAP_Results_and_Goals(subset(dfp, Grade == g), ptitle, labxpos = 150, 
-            minx = 140)
+            minx = 140, alp = 0.6)
         print(p)
     }
 }
@@ -415,7 +468,7 @@ dev.off()
 
 ```
 ## pdf 
-##   2 
+##   2
 ```
 
 ```r
@@ -423,4 +476,148 @@ dev.off()
 ```
 
 
+Now for some more high level views compared to the national distribution
+
+```r
+# get national summary statistics for Reading and Math, Grades K-2,5-8 for
+# simulation
+nwea.norms.fall <- data.frame(Grade = factor(c("K", "K", "1", "1", "2", "2", 
+    "5", "5", "6", "6", "7", "7", "8", "8"), levels = c("K", "1", "2", "5", 
+    "6", "7", "8")), Subject = factor(c("Mathematics", "Reading", "Mathematics", 
+    "Reading", "Mathematics", "Reading", "Mathematics", "Reading", "Mathematics", 
+    "Reading", "Mathematics", "Reading", "Mathematics", "Reading"), levels = c("Mathematics", 
+    "Reading")), Mean = c(143.7, 142.5, 162.8, 160.3, 178.2, 175.9, 212.9, 209.8, 
+    219.6, 212.3, 225.6, 216.3, 230.2, 219.3), SD = c(11.88, 10.71, 13.57, 12.76, 
+    12.97, 15.44, 14.18, 14.21, 15.37, 14.39, 16.79, 14.23, 17.04, 14.86))
+
+# KAPS
+pmK <- map_comparative_histograms(map_combined_histo_data(kippdata = map.scores.primary, 
+    normsdata = nwea.norms.fall, grade = "K", subj = "Mathematics", schoolname = "KAPS"), 
+    legendpos = "none", title = "MAP 2012 Kindergarten\nKAPS vs. National\nMath", 
+    schoolname = "KAPS")
+prK <- map_comparative_histograms(map_combined_histo_data(kippdata = map.scores.primary, 
+    normsdata = nwea.norms.fall, grade = "K", subj = "Reading", schoolname = "KAPS"), 
+    title = "Reading", schoolname = "KAPS")
+
+pm1 <- map_comparative_histograms(map_combined_histo_data(kippdata = map.scores.primary, 
+    normsdata = nwea.norms.fall, grade = 1, subj = "Mathematics", schoolname = "KAPS"), 
+    legendpos = "none", title = "MAP 2012 1st Grade\nKAPS vs. National\nMath", 
+    schoolname = "KAPS")
+pr1 <- map_comparative_histograms(map_combined_histo_data(kippdata = map.scores.primary, 
+    normsdata = nwea.norms.fall, grade = 1, subj = "Reading", schoolname = "KAPS"), 
+    title = "Reading", schoolname = "KAPS")
+
+pm2 <- map_comparative_histograms(map_combined_histo_data(kippdata = map.scores.primary, 
+    normsdata = nwea.norms.fall, grade = 2, subj = "Mathematics", schoolname = "KAPS"), 
+    legendpos = "none", title = "MAP 2012 2nd Grade\nKAPS vs. National\nMath", 
+    schoolname = "KAPS", schoolname = "KAPS")
+```
+
+```
+## Error: formal argument "schoolname" matched by multiple actual arguments
+```
+
+```r
+pr2 <- map_comparative_histograms(map_combined_histo_data(kippdata = map.scores.primary, 
+    normsdata = nwea.norms.fall, grade = 2, subj = "Reading", schoolname = "KAPS"), 
+    title = "Reading", schoolname = "KAPS")
+
+grid.arrange(pmK, prK, nrow = 2)
+```
+
+![plot of chunk plots_histograms](figure/plots_histograms.png) 
+
+```r
+
+pdf(file = "../../Figures/Fall12_MAP_KAPS_Distr.pdf", height = 10.5, width = 8)
+grid.arrange(pmK, prK, nrow = 2)
+grid.arrange(pm1, pr1, nrow = 2)
+grid.arrange(pm2, pr2, nrow = 2)
+```
+
+```
+## Error: object 'pm2' not found
+```
+
+```r
+
+dev.off()
+```
+
+```
+## pdf 
+##   2
+```
+
+```r
+
+
+
+# KAMS
+
+pm5 <- map_comparative_histograms(map_combined_histo_data(kippdata = map.scores.KAMS, 
+    normsdata = nwea.norms.fall, grade = 5, subj = "Mathematics", schoolname = "KAMS"), 
+    legendpos = "none", title = "MAP 2012 5th Grade\nKAMS vs. National\nMath")
+pr5 <- map_comparative_histograms(map_combined_histo_data(kippdata = map.scores.KAMS, 
+    normsdata = nwea.norms.fall, grade = 5, subj = "Reading", schoolname = "KAMS"), 
+    title = "Reading")
+
+pm6 <- map_comparative_histograms(map_combined_histo_data(kippdata = map.scores.KAMS, 
+    normsdata = nwea.norms.fall, grade = 6, subj = "Mathematics", schoolname = "KAMS"), 
+    legendpos = "none", title = "MAP 2012 6th Grade\nKAMS vs. National\nMath")
+pr6 <- map_comparative_histograms(map_combined_histo_data(kippdata = map.scores.KAMS, 
+    normsdata = nwea.norms.fall, grade = 6, subj = "Reading", schoolname = "KAMS"), 
+    title = "Reading")
+
+pm7 <- map_comparative_histograms(map_combined_histo_data(kippdata = map.scores.KAMS, 
+    normsdata = nwea.norms.fall, grade = 7, subj = "Mathematics", schoolname = "KAMS"), 
+    legendpos = "none", title = "MAP 2012 7th Grade\nKAMS vs. National\nMath")
+pr7 <- map_comparative_histograms(map_combined_histo_data(kippdata = map.scores.KAMS, 
+    normsdata = nwea.norms.fall, grade = 7, subj = "Reading", schoolname = "KAMS"), 
+    title = "Reading")
+
+pm8 <- map_comparative_histograms(map_combined_histo_data(kippdata = map.scores.KAMS, 
+    normsdata = nwea.norms.fall, grade = 8, subj = "Mathematics", schoolname = "KAMS"), 
+    legendpos = "none", title = "MAP 2012 8th Grade\nKAMS vs. National\nMath")
+pr8 <- map_comparative_histograms(map_combined_histo_data(kippdata = map.scores.KAMS, 
+    normsdata = nwea.norms.fall, grade = 8, subj = "Reading", schoolname = "KAMS"), 
+    title = "Reading")
+
+
+pdf(file = "../../Figures/Fall12_MAP_KAMS_Distr.pdf", height = 10.5, width = 8)
+grid.arrange(pm5, pr5, nrow = 2)
+grid.arrange(pm6, pr6, nrow = 2)
+grid.arrange(pm7, pr7, nrow = 2)
+grid.arrange(pm8, pr8, nrow = 2)
+dev.off()
+```
+
+```
+## pdf 
+##   2
+```
+
+```r
+
+
+# KCCP
+
+
+pm5c <- map_comparative_histograms(map_combined_histo_data(kippdata = map.scores.KCCP, 
+    normsdata = nwea.norms.fall, grade = 5, subj = "Mathematics", schoolname = "KCCP"), 
+    legendpos = "none", title = "MAP 2012 5th Grade\nKCCP vs. National\nMath", 
+    schoolname = "KCCP")
+pr5c <- map_comparative_histograms(map_combined_histo_data(kippdata = map.scores.KCCP, 
+    normsdata = nwea.norms.fall, grade = 5, subj = "Reading", schoolname = "KCCP"), 
+    title = "Reading", schoolname = "KCCP")
+
+pdf(file = "../../Figures/Fall12_MAP_KCCP_Distr.pdf", height = 10.5, width = 8)
+grid.arrange(pm5c, pr5c, nrow = 2)
+dev.off()
+```
+
+```
+## pdf 
+##   2
+```
 

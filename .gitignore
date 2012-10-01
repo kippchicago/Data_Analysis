@@ -9,6 +9,7 @@ Figures/
 figure/
 
 ## Ignore R Files
+.Rdata
 .Rhistory
 .Rproj.user
 *.Rproj.user

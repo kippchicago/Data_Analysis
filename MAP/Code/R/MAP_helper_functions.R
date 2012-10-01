@@ -48,26 +48,26 @@ plot_MAP_Results_and_Goals <- function (df, plottitle=" ",labxpos=115, minx=105,
     facet_grid(Quartile~., scale="free_y", space = "free_y", as.table=FALSE) +
     scale_colour_discrete(kippcols) + 
     scale_y_continuous(" ", breaks=df$OrderID, expand=c(0,1.5)) + 
-    opts(axis.text.y = theme_text(size=3, hjust=1)) + 
-    opts(legend.position = "none") + 
+    theme(axis.text.y = element_text(size=3, hjust=1)) + 
+    theme(legend.position = "none") + 
     scale_x_continuous("RIT Score") + 
     expand_limits(x=minx)+
-    opts(
-      panel.background = theme_rect(fill = "transparent",colour = NA), # or theme_blank()
-      # panel.grid.minor = theme_blank(), 
-      # panel.grid.major = theme_blank(),
-      plot.background = theme_rect(fill = "transparent",colour = NA),
-      axis.text.x = theme_text(size=15),
-      axis.text.y = theme_blank(), 
-      #axis.title.y = theme_blank(), 
-      axis.ticks=theme_blank(),
+    theme(
+      panel.background = element_rect(fill = "transparent",colour = NA), # or element_blank()
+      # panel.grid.minor = element_blank(), 
+      # panel.grid.major = element_blank(),
+      plot.background = element_rect(fill = "transparent",colour = NA),
+      axis.text.x = element_text(size=15),
+      axis.text.y = element_blank(), 
+      #axis.title.y = element_blank(), 
+      axis.ticks=element_blank(),
       
-      strip.text.x=theme_text(size=15),
-      strip.text.y=theme_text(size=15,angle=0), 
-      strip.background=theme_rect(fill="#F4EFEB", colour=NA),
-      title=plottitle,
-      plot.title=theme_text(size=12)
-    ) 
+      strip.text.x=element_text(size=15),
+      strip.text.y=element_text(size=15,angle=0), 
+      strip.background=element_rect(fill="#F4EFEB", colour=NA),
+      plot.title=element_text(size=12)
+    ) +
+    ggtitle(plottitle)
   
   
   ###Let's add some summary labels by quaritle to p
@@ -142,10 +142,16 @@ map_combined_histo_data <- function (kippdata=map.scores.KAMS, normsdata=nwea.no
 ####And now for the small mulitples, comparative histograms
 
 map_comparative_histograms <- function (df, legendpos="bottom", title=" ", schoolname="KAMS",...) {
-  pctl75<-quantile(x=df$RIT,probs=.75)
+  pctl75<-quantile(x=subset(df, ID=="National Norm")$RIT,probs=.75)
   bw<-2 #binning width
-  #df.plot.data$CollegeReady<-df.plot.data$RIT>pctl75
+ 
+
+  #Adjust locationg of 75th percentile border (verticle line) for even and odd percentile scores
+  if(pctl75%%2==0){
+    pctl75.vline<-pctl75
+    } else pctl75.vline<-pctl75 + 0.5*bw
   
+  #find means of both distributions for verticles lines representing means in plots
   df.vline <- data.frame(ID=unique(df$ID), vl=c(mean(subset(df, ID==schoolname)$RIT),mean(subset(df, ID=="National Norm")$RIT)))
   #KIPP friendly colors
   kippcols <- c("#CFCCC1","#60A2D7")
@@ -157,11 +163,11 @@ map_comparative_histograms <- function (df, legendpos="bottom", title=" ", schoo
   p <- ggplot(df, aes(x=RIT)) 
   p <- p + geom_histogram(aes_string(y = y.text, fill=fill.text),  binwidth=bw)  + 
     facet_grid(ID~.) +
-    geom_vline(x=pctl75+(.5*bw), color="#E27425") +
+    geom_vline(x=pctl75.vline, color="#E27425") +
     geom_vline(data=df.vline, aes(xintercept=vl), color="#439539") +
     scale_fill_manual("College Readiness",values = kippcols, labels=c("< 75th Percentile", "> 75th Percentile")) +
-    opts(legend.position=legendpos,
-         title=title) 
+    theme(legend.position=legendpos) + 
+    ggtitle(title)
   p
 }
 
