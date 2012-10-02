@@ -2,12 +2,19 @@ Fall 2012 MAP Results by Students with Target Setting and Comparative Distributi
 ========================================================
 This file is the literate programming source for a script that pulls our data from our Data Analysis `MySQL` database. I'll add references to how we get data into the database, as needed.  Nevertheless, this document focuses on the process of how we pull data from the DB and analyse it in [`R`](www.r-project.org)
 
-We need to clean and load out Fall 2012 comprehensive data file (CDF), which we get from [NWEA](http://www.nwea.org)'s reporting website. The CDF is 4 files that contain the students' MAP examination results, student specific information, and classroom data. 
+There are three aims of this document
+  1. To show how I connect `R` to a `MySQL' database and use a `SQL` query to populate a dataframe with the data I want.
+  2. Provide some exmaples of data manipulation and building graphics leveraging `ggplot2`.
+  3. Emphasize how writing functions can save you so much time (both in producing analyses and in debugging code).
+  4. Encourage [literate probramming](http://en.wikipedia.org/wiki/Literate_programming) practices (which are dead simple in [RStudio](http://www.rstudio.org)).
+  5. Inspire the adoption of `R` throughout the KIPP Network. 
+
+
+___
 
 ## Prelims
 
-
-I start by setting some global parameters for my R markdown file (i.e, this file) by then by setting the present working directory and loading the libraries used in the data analysis.
+I start by setting some global parameters for my R markdown file (i.e, this file), then updating the present working directory and loading the packaged used in the data analysis.
 
 
 ```r
@@ -34,13 +41,15 @@ library(randomNames)  #to do as it says and generate random names by gender and 
 
 
 
-### Loading Data in MySQL Database
+### Loading Data into MySQL Database
 We use two steps to get the data into the database:
-  1. **Cleaning**: re-factoring the CDF's separate csv files so they comport with `MySQL` conventions. This is done with a "one touch" shell script that uses `sed` and regular expressions to make all necessary character substations.  
-  2. **Loading**:putting the separate CSV files as separate tables into the data analysis database.  Doing so ensures that we maintain the data in as similar manner as we receive it from NWEA. 
+  1. **Cleaning**: re-factoring the CDF's separate csv files so they comport with `MySQL` conventions. This is done with a "one touch" shell script that uses `sed` and regular expressions to make all necessary character substations. Theone-touch script for cleaning the data can be found [here](http://github.com/chrishaid/Data_Analysis/blob/master/MAP/Code/SQL/map_cdf_prep.sh);  
+  2. **Loading**:putting the separate CSV files as separate tables into the data analysis database.  Doing so ensures that we maintain the data in as similar manner as we receive it from NWEA. The `SQL` code for loading the data is [here](github.com/chrishaid/Data_Analysis/blob/master/MAP/Code/SQL/Data_Loading_MAP.sql).
+  
+ 
 
 ### Retrieving Data from MySQL Database
-Once the data loaded, we use the `RODBC` package in `R` to establish a connection to the database and run a SQL query to populate a dataframe (NB: `kippchidata2` is an  DSN with appropriate key value pairs that allows an `ODBC` connection to be established with the `MySQL' server.  To protect the privacy of our student's while simultaneously showing you all my work flow, I've suppressed the evaluation of the following code.  That is, this next chunk of code is not run.
+Once the data loaded, we use the `RODBC` package in `R` to establish a connection to the database and run a SQL query to populate a dataframe (NB: `kippchidata2` is a DSN with appropriate key value pairs that allows an `ODBC` connection to be established with the `MySQL' server).  To protect the privacy of our students while simultaneously showing you all my work flow, I've suppressed the evaluation of the following code.  That is, this next chunk of code is not run.
 
 
 ```r
@@ -203,12 +212,12 @@ head(map.scores)
 
 ```
 ##   StudentLastName StudentFirstName                SchoolName Grade
-## 1          Daylie           Andrea KIPP Ascend Middle School     5
-## 2         Johnson          Trysten KIPP Ascend Middle School     5
-## 3         Jackson         Shameion KIPP Ascend Middle School     5
-## 4         Olatipo           Shania KIPP Ascend Middle School     5
-## 5   Buchanan-Hall        Dimitrius KIPP Ascend Middle School     5
-## 6       Thortvedt         Rashawna KIPP Ascend Middle School     5
+## 1        Falconer          Sylvana KIPP Ascend Middle School     5
+## 2            Nyre           Keirra KIPP Ascend Middle School     5
+## 3            Lyde        Gabrielle KIPP Ascend Middle School     5
+## 4           Tejan           Aliyah KIPP Ascend Middle School     5
+## 5           Yorks            Mayde KIPP Ascend Middle School     5
+## 6           Davis            Janae KIPP Ascend Middle School     5
 ##   ClassName     Subject Fall12_GM         Fall12_TT Fall12_RIT Fall12_Pctl
 ## 1  Michigan Mathematics      TRUE Survey With Goals        200          18
 ## 2 Morehouse Mathematics      TRUE Survey With Goals        186           3
@@ -233,12 +242,15 @@ head(map.scores)
 ```
 
 
+___
 
-## MAP Target Setting
+## Data Manipulation
+
+### MAP Target Setting
 
 The term "Growth Target" is misnomer.  The "growth target" is simply a students expected (or average) growth conditional on their starting RIT score and current grade.  That is, the period 1 to period 2  "growth target" is the average difference in period 1 and period 2 scores for all students in a particular grade with same period 1 score.  For this reason I refer to the the NWEA supplied "growth targets" as *expected growth* (a statistically meaningful term) or *typical growth* (a substantively meaningful term). As Andrew Martin at Team schools, among others, has made clear, if our students merely hit their expected growth numbers every year through 11th grade they will on average not be "Rutgers Ready" (Team's clever alliteration).
 
-Time requires that I eschew Andrew's quadratic fit goal setting that they are employing in Newark. Instead, I use the data we have from the 2011 MAP Norms Table give provide our teachers and students targets that at the 75th percentile of growth (i.e., the mean plus .675 standard deviations). 
+Time requires that I eschew Andrew's quadratic-fit goal-setting that they employ in Newark. Instead, I use the data we have from the 2011 MAP Norms Table to provide our teachers and students targets that at the 75th percentile of growth (i.e., the mean plus .675 standard deviations) for each Grade-Subject-Fall RIT score triplet. 
 
 
 ```r
@@ -261,7 +273,12 @@ map.scores$StudentFirstLastName <- paste(map.scores$StudentFirstName, map.scores
 ```
 
 
-## How is each student doing relative to every other student
+___ 
+
+
+##Visualizations
+
+### MAP Results by Students with Targets, or How is each student doing relative to every other student in her class?
 So now we move on to graphing, leaning heavily (completely?) on the [Hadley Wickham's `ggplot2`](http://www.http://ggplot2.org/) package.
 
 In order to list students by order of test scores, I need a function to add a column that adds a counter after they are sorted on a given column's values.  Fortuitously, I've written this function---along with a number of other helper functions for this analysis---in an `R` script called (perhaps obviously) `MAP_helper_functions.R`, which is located in this directory of the GIT repo.
@@ -284,12 +301,12 @@ head(map.scores.by.grade)
 
 ```
 ##   StudentLastName StudentFirstName                SchoolName Grade
-## 1            Moss           Dezant KIPP Ascend Middle School     5
-## 2           Berry          Dayquan KIPP Ascend Middle School     5
-## 3          Morris        Demontrae KIPP Ascend Middle School     5
-## 4           Crews           Willie KIPP Ascend Middle School     5
-## 5         Johnson          Trysten KIPP Ascend Middle School     5
-## 6          Gibson           Darius KIPP Ascend Middle School     5
+## 1         Tinsley           Mesuod KIPP Ascend Middle School     5
+## 2            King          Andelyn KIPP Ascend Middle School     5
+## 3          Starks            Koran KIPP Ascend Middle School     5
+## 4         Tearney           Zainab KIPP Ascend Middle School     5
+## 5            Nyre           Keirra KIPP Ascend Middle School     5
+## 6          Liddie            Haven KIPP Ascend Middle School     5
 ##   ClassName     Subject Fall12_GM         Fall12_TT Fall12_RIT Fall12_Pctl
 ## 1 Morehouse Mathematics      TRUE Survey With Goals        158           1
 ## 2      Duke Mathematics      TRUE Survey With Goals        172           1
@@ -312,12 +329,12 @@ head(map.scores.by.grade)
 ## 5                 5.99        1             12           198
 ## 6                 5.99        1             12           198
 ##   StudentLastFirstName StudentFirstLastName OrderID
-## 1         Moss, Dezant          Dezant Moss       1
-## 2       Berry, Dayquan        Dayquan Berry       2
-## 3    Morris, Demontrae     Demontrae Morris       3
-## 4        Crews, Willie         Willie Crews       4
-## 5     Johnson, Trysten      Trysten Johnson       5
-## 6       Gibson, Darius        Darius Gibson       6
+## 1      Tinsley, Mesuod       Mesuod Tinsley       1
+## 2        King, Andelyn         Andelyn King       2
+## 3        Starks, Koran         Koran Starks       3
+## 4      Tearney, Zainab       Zainab Tearney       4
+## 5         Nyre, Keirra          Keirra Nyre       5
+## 6        Liddie, Haven         Haven Liddie       6
 ```
 
 ```r
@@ -326,12 +343,12 @@ head(map.scores.by.class)
 
 ```
 ##   StudentLastName StudentFirstName                SchoolName Grade
-## 1           Berry          Dayquan KIPP Ascend Middle School     5
-## 2          Morris        Demontrae KIPP Ascend Middle School     5
-## 3          Gibson           Darius KIPP Ascend Middle School     5
-## 4         Calvert          Brielle KIPP Ascend Middle School     5
-## 5            Cade          Chaysen KIPP Ascend Middle School     5
-## 6            Hill          Terryle KIPP Ascend Middle School     5
+## 1            King          Andelyn KIPP Ascend Middle School     5
+## 2          Starks            Koran KIPP Ascend Middle School     5
+## 3          Liddie            Haven KIPP Ascend Middle School     5
+## 4         Johnson           Tyrell KIPP Ascend Middle School     5
+## 5            Gill            Sarah KIPP Ascend Middle School     5
+## 6           Falls             Ryan KIPP Ascend Middle School     5
 ##   ClassName     Subject Fall12_GM         Fall12_TT Fall12_RIT Fall12_Pctl
 ## 1      Duke Mathematics      TRUE Survey With Goals        172           1
 ## 2      Duke Mathematics      TRUE Survey With Goals        172           1
@@ -354,12 +371,12 @@ head(map.scores.by.class)
 ## 5                 5.99        1             12           203
 ## 6                 5.99        1             12           205
 ##   StudentLastFirstName StudentFirstLastName OrderID
-## 1       Berry, Dayquan        Dayquan Berry       1
-## 2    Morris, Demontrae     Demontrae Morris       2
-## 3       Gibson, Darius        Darius Gibson       3
-## 4     Calvert, Brielle      Brielle Calvert       4
-## 5        Cade, Chaysen         Chaysen Cade       5
-## 6        Hill, Terryle         Terryle Hill       6
+## 1        King, Andelyn         Andelyn King       1
+## 2        Starks, Koran         Koran Starks       2
+## 3        Liddie, Haven         Haven Liddie       3
+## 4      Johnson, Tyrell       Tyrell Johnson       4
+## 5          Gill, Sarah           Sarah Gill       5
+## 6          Falls, Ryan           Ryan Falls       6
 ```
 
 
@@ -574,7 +591,10 @@ dev.off()
 ```
 
 
-Now for some more high level views compared to the national distribution.  These figures are helpful in understanding where a whole grade or classroom is relative to nationally representative distribution.  However, we don't have such a distribution, so I simulated one using the nationally normed means and standard deviations for each subject-grade pair.  I assumed that the distributions were truncated Gaussian (i.e., normal) distributions and used some basic probability theory to construct the a sample distribution.  The code for this is in the `MAP_helper_fucntions.R` script in the `map_combined_histo_data()` function.  It's worth a look if you want to see how almost any distribution can be built up by starting with the $U\sim(0,1)$, i.e., the uniform distribution over the interval from 0 to 1.  The histograms themselves are generated with the `map_comparative_histograms()` function in the same file
+
+### Comparative Distrubionts (really histograms), or How are our student's doing relatively to the rest of their peers throughtout this great land of ours?
+
+Now for some more high level views compared to the national distribution.  These figures are helpful in understanding where a whole grade or classroom is relative to nationally representative distribution.  However, we don't have such a distribution, so I simulated one using the nationally normed means and standard deviations for each subject-grade pair.  I assumed that the distributions were truncated Gaussian (i.e., normal) distributions and used some basic probability theory to construct the a sample distribution.  The code for this is in the `MAP_helper_fucntions.R` script in the `map_combined_histo_data()` function.  It's worth a look if you want to see how almost any distribution can be built up by starting with the $U\sim(0,1)$, i.e., the uniform distribution over the interval from 0 to 1.  The histograms themselves are generated with the `map_comparative_histograms()` function in the same file.  
 
 ```r
 # get national summary statistics for Reading and Math, Grades K-2,5-8 for
@@ -603,3 +623,6 @@ pm5
 
 ![plot of chunk plots_histograms](./public_figures/plots_histograms.png) 
 
+
+
+Again I welcome and encourage all feedback on this.   Free to email me at [chaid@kippchicago.org](mailto:chaid@kippchicago.org) with any feedback. I hope this is helpful.
