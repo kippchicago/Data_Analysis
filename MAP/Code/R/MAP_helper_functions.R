@@ -142,17 +142,26 @@ map_combined_histo_data <- function (kippdata=map.scores.KAMS, normsdata=nwea.no
 ####And now for the small mulitples, comparative histograms
 
 map_comparative_histograms <- function (df, legendpos="bottom", title=" ", schoolname="KAMS",...) {
+  
+  #get RIT score of 75th percentile of simulated national distributoin
   pctl75<-quantile(x=subset(df, ID=="National Norm")$RIT,probs=.75)
+  
   bw<-2 #binning width
  
 
+  
+  
   #Adjust locationg of 75th percentile border (verticle line) for even and odd percentile scores
   if(pctl75%%2==0){
     pctl75.vline<-pctl75
     } else pctl75.vline<-pctl75 + 0.5*bw
   
+  #Get means of simulated national and actual class distiribution for verticle line
+  mean.vline<-c(mean(subset(df, ID==schoolname)$RIT),mean(subset(df, ID=="National Norm")$RIT))
+  label.vline<-c(paste("Mean RIT = ", round(mean.vline[1]), sep=""), paste("Mean RIT = ", round(mean.vline[2]), sep=""))
+  
   #find means of both distributions for verticles lines representing means in plots
-  df.vline <- data.frame(ID=unique(df$ID), vl=c(mean(subset(df, ID==schoolname)$RIT),mean(subset(df, ID=="National Norm")$RIT)))
+  df.vline <- data.frame(ID=unique(df$ID), vl=mean.vline, mean.label=label.vline, p75=rep(pctl75,2), p75.label=rep(paste("75th %ile = ",round(pctl75),sep="")))
   #KIPP friendly colors
   kippcols <- c("#CFCCC1","#60A2D7")
   
@@ -164,7 +173,9 @@ map_comparative_histograms <- function (df, legendpos="bottom", title=" ", schoo
   p <- p + geom_histogram(aes_string(y = y.text, fill=fill.text),  binwidth=bw)  + 
     facet_grid(ID~.) +
     geom_vline(x=pctl75.vline, color="#E27425") +
+    geom_text(data=df.vline, aes(x=p75+1, y=.05, label=p75.label), color="#E27425", size = 3, hjust=0) +
     geom_vline(data=df.vline, aes(xintercept=vl), color="#439539") +
+    geom_text(data=df.vline, aes(x=vl-1, y=.05, label=mean.label), color="#439539", size = 3, hjust=1) +
     scale_fill_manual("College Readiness",values = kippcols, labels=c("< 75th Percentile", "> 75th Percentile")) +
     theme(legend.position=legendpos) + 
     ggtitle(title)
