@@ -88,7 +88,8 @@ LEFT OUTER JOIN `viewNorms2011_Growth_Kinder_0` as n
 ON 		t.`TestRITScore`=n.`StartRIT`
 AND		t.`Grade`=n.`StartGrade2`
 AND		t.`MeasurementScale`=n.`MeasurementScale`
-WHERE 	#GrowthMeasureYN='True' AND
+WHERE GrowthMeasureYN='True' 
+  AND
  	(TestType='Survey with Goals'
 		OR 
 		TestType='Survey'
@@ -239,7 +240,7 @@ dev.off()
 
 #Then by Classroom (KAPS only)
 
-map.scores.primary.by.class<-subset(map.scores.by.class, SchoolName=="KIPP Ascend Primary" & ID!="50206087") 
+map.scores.primary.by.class<-subset(map.scores.by.class, SchoolName=="KIPP Ascend Primary") 
 # This kid is assinged to two classes in math as a 1st grader but the classes are K classees. Weird.
 
 pdf(file="../../Figures/Fall12_MAP_KAPS_by_Classroom.pdf", height=10.5, width=8)
@@ -306,7 +307,7 @@ prK<-map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.prim
 pm1<-map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.primary,normsdata=nwea.norms.fall,grade=1,subj="Mathematics",schoolname="KAPS"),legendpos="none",title="MAP 2012 1st Grade\nKAPS vs. National\nMath", schoolname="KAPS")
 pr1<-map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.primary,normsdata=nwea.norms.fall,grade=1,subj="Reading",schoolname="KAPS"), title="Reading", schoolname="KAPS")
 
-pm2<-map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.primary,normsdata=nwea.norms.fall,grade=2,subj="Mathematics",schoolname="KAPS"),legendpos="none",title="MAP 2012 2nd Grade\nKAPS vs. National\nMath", schoolname="KAPS", schoolname="KAPS")
+pm2<-map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.primary,normsdata=nwea.norms.fall,grade=2,subj="Mathematics",schoolname="KAPS"),legendpos="none",title="MAP 2012 2nd Grade\nKAPS vs. National\nMath", schoolname="KAPS")
 pr2<-map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.primary,normsdata=nwea.norms.fall,grade=2,subj="Reading",schoolname="KAPS"), title="Reading", schoolname="KAPS")
 
 grid.arrange(pmK,prK,nrow=2)
@@ -352,5 +353,78 @@ pr5c<-map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.KCC
 pdf(file="../../Figures/Fall12_MAP_KCCP_Distr.pdf", height=10.5, width=8)
 grid.arrange(pm5c,pr5c,nrow=2)
 dev.off()
+
+```
+
+
+Finally the two graphs merged by school:
+```{r merged_graphs}
+
+#KAPS
+pdf(file="../../Figures/Fall12_MAP_KAPS_merged.pdf", height=10.5, width=8)
+grid.arrange(pm5,pr5,nrow=2)
+grid.arrange(pm6,pr6,nrow=2)
+grid.arrange(pm7,pr7,nrow=2)
+grid.arrange(pm8,pr8,nrow=2)
+
+for(s in sort(unique(map.scores.primary$Subject))){
+  dfp<-subset(map.scores.primary,Subject==s) #DataFrame to Plot
+  for(g in as.character(sort(unique(dfp$Grade)))){
+    ptitle <- paste("KAPS 2012 Fall MAP Grade ",g," ",s,"\nRIT Scores, Expected Growth, and College Ready Growth\nby Quartile",sep="")
+    p<-plot_MAP_Results_and_Goals(subset(dfp,Grade==g),ptitle, labxpos=113, minx=104)
+    print(p)
+  }
+}
+
+#Need to Loop by Subject, then grade, then classroom
+for(s in as.character(sort(unique(map.scores.primary.by.class$Subject)))){
+    dfs<-subset(map.scores.primary.by.class,Subject==s) #DataFrame for subject
+    for(g in as.character(sort(unique(dfs$Grade)))){
+      dfp<-subset(dfs, Grade==g)  #DataFrame for Plot
+      for(c in as.character(sort(unique(dfp$ClassName)))){
+        ptitle <- paste("KAPS 2012 Fall MAP ",c," (",g,") ",s,"\nRIT Scores, Expected Growth, and College Ready Growth\nby Quartile",sep="")
+        p<-plot_MAP_Results_and_Goals(subset(dfp, ClassName==c),ptitle, labxpos=113, minx=104)
+        print(p)
+      }
+    }
+}
+dev.off()
+
+#KAMS
+pdf(file="../../Figures/Fall12_MAP_KAMS_merged.pdf", height=10.5, width=8)
+
+grid.arrange(pm5,pr5,nrow=2)
+grid.arrange(pm6,pr6,nrow=2)
+grid.arrange(pm7,pr7,nrow=2)
+grid.arrange(pm8,pr8,nrow=2)
+
+for(s in sort(unique(map.scores.KAMS$Subject))){
+  dfp<-subset(map.scores.KAMS,Subject==s) #DataFrame to Plot
+  for(g in as.character(sort(unique(dfp$Grade)))){
+    ptitle <- paste("KAMS 2012 Fall MAP Grade ",g," ",s,"\nRIT Scores, Expected Growth, and College Ready Growth\nby Quartile",sep="")
+    p<-plot_MAP_Results_and_Goals(subset(dfp,Grade==g),ptitle, labxpos=170, minx=145,alp=.6)
+    print(p)
+  }
+}
+dev.off()
+
+#KCCP
+
+pdf(file="../../Figures/Fall12_MAP_KCCP_merged.pdf", height=10.5, width=8)
+
+grid.arrange(pm5c,pr5c,nrow=2)
+
+for(s in sort(unique(map.scores.KCCP$Subject))){
+  dfp<-subset(map.scores.KCCP,Subject==s) #DataFrame to Plot
+  for(g in as.character(sort(unique(dfp$Grade)))){
+    ptitle <- paste("KCCP 2012 Fall MAP Grade ",g," ",s,"\nRIT Scores, Expected Growth, and College Ready Growth\nby Quartile",sep="")
+    p<-plot_MAP_Results_and_Goals(subset(dfp,Grade==g),ptitle, labxpos=150, minx=140, alp=.6)
+    print(p)
+  }
+}
+dev.off()
+
+
+
 
 ```

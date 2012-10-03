@@ -94,7 +94,8 @@ LEFT OUTER JOIN `viewNorms2011_Growth_Kinder_0` as n
 ON 		t.`TestRITScore`=n.`StartRIT`
 AND		t.`Grade`=n.`StartGrade2`
 AND		t.`MeasurementScale`=n.`MeasurementScale`
-WHERE 	#GrowthMeasureYN='True' AND
+WHERE GrowthMeasureYN='True' 
+  AND
  	(TestType='Survey with Goals'
 		OR 
 		TestType='Survey'
@@ -116,26 +117,26 @@ head(map.scores)
 ## 5 40534857          Amarion           Mayes KIPP Ascend Middle School
 ## 6 40534857          Amarion           Mayes KIPP Ascend Middle School
 ##   Grade ClassName     Subject Fall12_GM         Fall12_TT Fall12_RIT
-## 1     8        ND Mathematics      TRUE Survey With Goals        198
-## 2     8        ND     Reading      TRUE Survey With Goals        202
-## 3     8        ND Mathematics      TRUE Survey With Goals        221
-## 4     8        ND     Reading      TRUE Survey With Goals        215
-## 5     8        ND Mathematics      TRUE Survey With Goals        224
-## 6     8        ND     Reading      TRUE Survey With Goals        214
+## 1     8        ND     Reading      TRUE Survey With Goals        202
+## 2     8        ND Mathematics      TRUE Survey With Goals        198
+## 3     8        ND     Reading      TRUE Survey With Goals        215
+## 4     8        ND Mathematics      TRUE Survey With Goals        221
+## 5     8        ND     Reading      TRUE Survey With Goals        214
+## 6     8        ND Mathematics      TRUE Survey With Goals        224
 ##   Fall12_Pctl TypicalFallToSpringGrowth ReportedFallToSpringGrowth
-## 1           3                      4.39                          4
-## 2          12                      4.26                          4
-## 3          29                      4.32                          4
-## 4          39                      3.42                          3
-## 5          36                      4.31                          4
-## 6          36                      3.48                          3
+## 1          12                      4.26                          4
+## 2           3                      4.39                          4
+## 3          39                      3.42                          3
+## 4          29                      4.32                          4
+## 5          36                      3.48                          3
+## 6          36                      4.31                          4
 ##   SDFallToSpringGrowth Quartile
-## 1                 6.42        1
-## 2                 6.63        1
-## 3                 6.42        2
-## 4                 6.63        2
-## 5                 6.42        2
-## 6                 6.63        2
+## 1                 6.63        1
+## 2                 6.42        1
+## 3                 6.63        2
+## 4                 6.42        2
+## 5                 6.63        2
+## 6                 6.42        2
 ```
 
 ```r
@@ -389,8 +390,7 @@ dev.off()
 
 # Then by Classroom (KAPS only)
 
-map.scores.primary.by.class <- subset(map.scores.by.class, SchoolName == "KIPP Ascend Primary" & 
-    ID != "50206087")
+map.scores.primary.by.class <- subset(map.scores.by.class, SchoolName == "KIPP Ascend Primary")
 # This kid is assinged to two classes in math as a 1st grader but the
 # classes are K classees. Weird.
 
@@ -510,14 +510,7 @@ pr1 <- map_comparative_histograms(map_combined_histo_data(kippdata = map.scores.
 pm2 <- map_comparative_histograms(map_combined_histo_data(kippdata = map.scores.primary, 
     normsdata = nwea.norms.fall, grade = 2, subj = "Mathematics", schoolname = "KAPS"), 
     legendpos = "none", title = "MAP 2012 2nd Grade\nKAPS vs. National\nMath", 
-    schoolname = "KAPS", schoolname = "KAPS")
-```
-
-```
-## Error: formal argument "schoolname" matched by multiple actual arguments
-```
-
-```r
+    schoolname = "KAPS")
 pr2 <- map_comparative_histograms(map_combined_histo_data(kippdata = map.scores.primary, 
     normsdata = nwea.norms.fall, grade = 2, subj = "Reading", schoolname = "KAPS"), 
     title = "Reading", schoolname = "KAPS")
@@ -533,13 +526,6 @@ pdf(file = "../../Figures/Fall12_MAP_KAPS_Distr.pdf", height = 10.5, width = 8)
 grid.arrange(pmK, prK, nrow = 2)
 grid.arrange(pm1, pr1, nrow = 2)
 grid.arrange(pm2, pr2, nrow = 2)
-```
-
-```
-## Error: object 'pm2' not found
-```
-
-```r
 
 dev.off()
 ```
@@ -619,5 +605,109 @@ dev.off()
 ```
 ## pdf 
 ##   2
+```
+
+
+
+Finally the two graphs merged by school:
+
+```r
+
+# KAPS
+pdf(file = "../../Figures/Fall12_MAP_KAPS_merged.pdf", height = 10.5, width = 8)
+grid.arrange(pm5, pr5, nrow = 2)
+grid.arrange(pm6, pr6, nrow = 2)
+grid.arrange(pm7, pr7, nrow = 2)
+grid.arrange(pm8, pr8, nrow = 2)
+
+for (s in sort(unique(map.scores.primary$Subject))) {
+    dfp <- subset(map.scores.primary, Subject == s)  #DataFrame to Plot
+    for (g in as.character(sort(unique(dfp$Grade)))) {
+        ptitle <- paste("KAPS 2012 Fall MAP Grade ", g, " ", s, "\nRIT Scores, Expected Growth, and College Ready Growth\nby Quartile", 
+            sep = "")
+        p <- plot_MAP_Results_and_Goals(subset(dfp, Grade == g), ptitle, labxpos = 113, 
+            minx = 104)
+        print(p)
+    }
+}
+
+# Need to Loop by Subject, then grade, then classroom
+for (s in as.character(sort(unique(map.scores.primary.by.class$Subject)))) {
+    dfs <- subset(map.scores.primary.by.class, Subject == s)  #DataFrame for subject
+    for (g in as.character(sort(unique(dfs$Grade)))) {
+        dfp <- subset(dfs, Grade == g)  #DataFrame for Plot
+        for (c in as.character(sort(unique(dfp$ClassName)))) {
+            ptitle <- paste("KAPS 2012 Fall MAP ", c, " (", g, ") ", s, "\nRIT Scores, Expected Growth, and College Ready Growth\nby Quartile", 
+                sep = "")
+            p <- plot_MAP_Results_and_Goals(subset(dfp, ClassName == c), ptitle, 
+                labxpos = 113, minx = 104)
+            print(p)
+        }
+    }
+}
+dev.off()
+```
+
+```
+## pdf 
+##   2
+```
+
+```r
+
+# KAMS
+pdf(file = "../../Figures/Fall12_MAP_KAMS_merged.pdf", height = 10.5, width = 8)
+
+grid.arrange(pm5, pr5, nrow = 2)
+grid.arrange(pm6, pr6, nrow = 2)
+grid.arrange(pm7, pr7, nrow = 2)
+grid.arrange(pm8, pr8, nrow = 2)
+
+for (s in sort(unique(map.scores.KAMS$Subject))) {
+    dfp <- subset(map.scores.KAMS, Subject == s)  #DataFrame to Plot
+    for (g in as.character(sort(unique(dfp$Grade)))) {
+        ptitle <- paste("KAMS 2012 Fall MAP Grade ", g, " ", s, "\nRIT Scores, Expected Growth, and College Ready Growth\nby Quartile", 
+            sep = "")
+        p <- plot_MAP_Results_and_Goals(subset(dfp, Grade == g), ptitle, labxpos = 170, 
+            minx = 145, alp = 0.6)
+        print(p)
+    }
+}
+dev.off()
+```
+
+```
+## pdf 
+##   2
+```
+
+```r
+
+# KCCP
+
+pdf(file = "../../Figures/Fall12_MAP_KCCP_merged.pdf", height = 10.5, width = 8)
+
+grid.arrange(pm5c, pr5c, nrow = 2)
+
+for (s in sort(unique(map.scores.KCCP$Subject))) {
+    dfp <- subset(map.scores.KCCP, Subject == s)  #DataFrame to Plot
+    for (g in as.character(sort(unique(dfp$Grade)))) {
+        ptitle <- paste("KCCP 2012 Fall MAP Grade ", g, " ", s, "\nRIT Scores, Expected Growth, and College Ready Growth\nby Quartile", 
+            sep = "")
+        p <- plot_MAP_Results_and_Goals(subset(dfp, Grade == g), ptitle, labxpos = 150, 
+            minx = 140, alp = 0.6)
+        print(p)
+    }
+}
+dev.off()
+```
+
+```
+## pdf 
+##   2
+```
+
+```r
+
 ```
 
