@@ -1,0 +1,49 @@
+\documentclass[nohyper, sfsidenotes]{tufte-handout}
+\usepackage{url}
+
+%Fonts
+
+\makeatletter
+
+\title{Principal Packets Test}
+\author{Christopher J. Haid}
+
+\makeatother
+
+\begin{document}
+
+<<setup, include=FALSE, cache=FALSE>>=
+options(replace.assign=TRUE,width=60)
+opts_chunk$set(fig.path='figure/graphics-', cache.path='cache/graphics-', fig.align='center', dev='tikz', fig.width=5, fig.height=5, fig.show='hold', cache=TRUE, par=TRUE)
+knit_hooks$set(par=function(before, options, envir){
+if (before && options$fig.show!='none') par(mar=c(4,4,.1,.1),cex.lab=.95,cex.axis=.9,mgp=c(2,.7,0),tcl=-.3)
+}, crop=hook_pdfcrop)
+@
+
+\maketitle
+\begin{abstract}
+This manual shows features of graphics in the \textbf{knitr} package
+(version \Sexpr{packageVersion('knitr')}) in detail, including the
+graphical devices, plot recording, plot rearrangement, control of
+plot sizes, the tikz device, figure captions, animations and other
+types of plots such as \textbf{rgl} or GGobi plots.
+\end{abstract}
+Before reading this specific manual%
+\footnote{\url{http://bit.ly/knitr-graphics-src} (Rnw source)%
+}, you must have finished the main manual%
+\footnote{\url{http://bit.ly/knitr-main-pdf}%
+}.
+
+\section{Graphical Devices}
+
+The \textbf{knitr} package comes with more than 20 built-in graphical
+devices, and you can specify them through the \texttt{dev} option.
+This document uses the global option \texttt{dev='tikz'}, i.e., the
+plots are recorded by the tikz device by default, but we can change
+the device locally. Since tikz will be used extensively throughout
+this manual and you will see plenty of tikz graphics later, now we
+first show a few other devices.
+
+
+
+\end{document}
