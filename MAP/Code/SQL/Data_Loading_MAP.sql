@@ -121,6 +121,19 @@ LOAD DATA LOCAL INFILE '~/Dropbox/Consulting/KIPP Ascend/Data Analysis/MAP/Data/
 	FIELDS TERMINATED BY ','
 	;
 
+-- Load Program Assignments (i.e. Special Education)
+DROP TABLE IF EXISTS tblProgramAssignmentsFall12;	
+CREATE TABLE tblProgramAssignmentsFall12 (
+	TermName VARCHAR(12),
+	StudentID INT,
+	Program VARCHAR(50)
+	);
+
+LOAD DATA LOCAL INFILE '~/Dropbox/Consulting/KIPP Ascend/Data Analysis/MAP/Data/Input/NWEA Comprehensive Data Files/MAP_Fall_2012/ProgramAssignments_loaddata.csv'
+	INTO TABLE tblProgramAssignmentsFall12
+	FIELDS TERMINATED BY ','
+	;
+
 ###########################
 ### 2011-12              ##
 ###########################

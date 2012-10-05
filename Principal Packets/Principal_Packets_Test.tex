@@ -1,4 +1,4 @@
-\documentclass[nohyper, sfsidenotes]{tufte-handout}\usepackage{graphicx, color}
+\documentclass[sfsidenotes, justified]{tufte-handout}\usepackage{graphicx, color}
 %% maxwidth is the original width if it is less than linewidth
 %% otherwise use linewidth (to make sure the graphics do not exceed the margin)
 \makeatletter
@@ -55,13 +55,12 @@
 
 \usepackage{alltt}
 \usepackage{url}
-
-%Fonts
-
-\makeatletter
+\usepackage[english]{babel}
+\usepackage{blindtext}
 
 \title{Principal Packets Test}
 \author{Christopher J. Haid}
+
 
 \makeatother
 
@@ -72,28 +71,56 @@
 
 \maketitle
 \begin{abstract}
-This manual shows features of graphics in the \textbf{knitr} package
-(version 0.8) in detail, including the
-graphical devices, plot recording, plot rearrangement, control of
-plot sizes, the tikz device, figure captions, animations and other
-types of plots such as \textbf{rgl} or GGobi plots.
+This document is a beta version of KIPP:Chicago's \textbf{Principal Packet}.  This proposed principal packet has two aims.  First, and most importantly, to present our school leaders with actionable data and analysis to help our students achieve at the highest level.  Secondly, is to provide a proof-of-concept that will move regional reporting \emph{away from} PowerPoint style decks and towards more thoughtful, insightful, and informative reports.  To this end, this report needs to include useful, clear data visualization that are explained and contextualized with incisive analytical prose, rather than the near meaningless, overly-simplified prolix of the dreaded bullet point.\sidenote{For more on the pitfalls of PowerPoints ``cognitive style'' please read Edward Tufte's excellent \emph{The Cognitive Style of PowerPoint} (\url{http://bit.ly/SuaNBh}).}
 \end{abstract}
-Before reading this specific manual%
-\footnote{\url{http://bit.ly/knitr-graphics-src} (Rnw source)%
-}, you must have finished the main manual%
-\footnote{\url{http://bit.ly/knitr-main-pdf}%
-}.
 
-\section{Graphical Devices}
 
-The \textbf{knitr} package comes with more than 20 built-in graphical
-devices, and you can specify them through the \texttt{dev} option.
-This document uses the global option \texttt{dev='tikz'}, i.e., the
-plots are recorded by the tikz device by default, but we can change
-the device locally. Since tikz will be used extensively throughout
-this manual and you will see plenty of tikz graphics later, now we
-first show a few other devices.
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+\section{Graphics Test 1}
+
+\newthought{This section is a test of graphing,} espeically of the marginal variety. 
+\blindtext
+\blindtext
+\begin{marginfigure}
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}
+
+{\centering \includegraphics[width=\linewidth]{figure/test_plot} 
+
+}
+
+
+\end{knitrout}
+
+\caption{KAPS Kindergarten Distribution of RIT Scores versus the National Distribution of RIT Scores \\n Fall 2012 Readin}
+\end{marginfigure}
+\blindtext
+\blindtext
+\section{Enrollment, Attrition, \& Attendence}
+\blindtext
+\blindtext
+\section{Highlights from the 2011-12 School Year}
+\blindtext
+\blindtext
+\section{MAP Results}
+\blindtext
+\blindtext
 
 
 \end{document}

@@ -1,12 +1,11 @@
-\documentclass[nohyper, sfsidenotes]{tufte-handout}
+\documentclass[sfsidenotes, justified]{tufte-handout}
 \usepackage{url}
-
-%Fonts
-
-\makeatletter
+\usepackage[english]{babel}
+\usepackage{blindtext}
 
 \title{Principal Packets Test}
 \author{Christopher J. Haid}
+
 
 \makeatother
 
@@ -14,36 +13,159 @@
 
 <<setup, include=FALSE, cache=FALSE>>=
 options(replace.assign=TRUE,width=60)
-opts_chunk$set(fig.path='figure/graphics-', cache.path='cache/graphics-', fig.align='center', dev='tikz', fig.width=5, fig.height=5, fig.show='hold', cache=TRUE, par=TRUE)
-knit_hooks$set(par=function(before, options, envir){
-if (before && options$fig.show!='none') par(mar=c(4,4,.1,.1),cex.lab=.95,cex.axis=.9,mgp=c(2,.7,0),tcl=-.3)
-}, crop=hook_pdfcrop)
+opts_chunk$set( 
+               fig.align='center', 
+               dev='pdf', 
+               fig.width=8, 
+               fig.height=10.5, 
+               fig.show='hold', 
+               cache=FALSE, 
+               par=TRUE,
+               echo=FALSE,
+               message=FALSE
+               )
 @
 
 \maketitle
 \begin{abstract}
-This manual shows features of graphics in the \textbf{knitr} package
-(version \Sexpr{packageVersion('knitr')}) in detail, including the
-graphical devices, plot recording, plot rearrangement, control of
-plot sizes, the tikz device, figure captions, animations and other
-types of plots such as \textbf{rgl} or GGobi plots.
+This document is a beta version of KIPP:Chicago's \textbf{Principal Packet}.  This proposed principal packet has two aims.  First, and most importantly, to present our school leaders with actionable data and analysis to help our students achieve at the highest level.  Secondly, is to provide a proof-of-concept that will move regional reporting \emph{away from} PowerPoint style decks and towards more thoughtful, insightful, and informative reports.  To this end, this report needs to include useful, clear data visualization that are explained and contextualized with incisive analytical prose, rather than the near meaningless, overly-simplified prolix of the dreaded bullet point.\sidenote{For more on the pitfalls of PowerPoints ``cognitive style'' please read Edward Tufte's excellent \emph{The Cognitive Style of PowerPoint} (\url{http://bit.ly/SuaNBh}).}
 \end{abstract}
-Before reading this specific manual%
-\footnote{\url{http://bit.ly/knitr-graphics-src} (Rnw source)%
-}, you must have finished the main manual%
-\footnote{\url{http://bit.ly/knitr-main-pdf}%
-}.
+<<load_libraris>>=
+setwd("~/Dropbox/Consulting/KIPP Ascend/Data Analysis/Principal Packets/")
 
-\section{Graphical Devices}
+library(RODBC) #To get data form Data Analysis DB
+library(plyr)  #To manipulate data
+library(reshape) #More data manipulation
+library(ggplot2) #Graphics of grammer graphing
+library(grid) #More Graphing
+library(gridExtra) #better than par(mfrow=c(r,c)) for arranging ggplot2 and lattice graphics
 
-The \textbf{knitr} package comes with more than 20 built-in graphical
-devices, and you can specify them through the \texttt{dev} option.
-This document uses the global option \texttt{dev='tikz'}, i.e., the
-plots are recorded by the tikz device by default, but we can change
-the device locally. Since tikz will be used extensively throughout
-this manual and you will see plenty of tikz graphics later, now we
-first show a few other devices.
+#source MAP helper functions
+source("~/Dropbox/Consulting/KIPP Ascend/Data Analysis/MAP/Code/R/MAP_helper_functions.R")
+@
 
+
+<<get_MAP_Data>>=
+
+# Create database connection.  
+
+con<-odbcConnect("kippchidata2")
+
+#get MAP data with SQL statement
+map.scores<-sqlQuery(con, 
+"SELECT  t.StudentID AS ID,
+  	t.`StudentFirstName`,
+		t.`StudentLastName`,
+		t.`SchoolName`,
+		t.`Grade`,	
+		t.`ClassName`,
+		t.MeasurementScale AS Subject,
+		t.GrowthMeasureYN AS Fall12_GM,
+		t.TestType AS  Fall12_TT, 
+		t.TestRITScore AS Fall12_RIT,
+		t.TestPercentile AS Fall12_Pctl,
+		n.t42 as TypicalFallToSpringGrowth,
+		n.r42 as ReportedFallToSpringGrowth,
+		n.s42 as SDFallToSpringGrowth,
+		CASE
+			WHEN TestPercentile >= 75 THEN 4
+			WHEN TestPercentile < 75 AND TestPercentile>=50 THEN 3
+			WHEN TestPercentile < 50 AND TestPercentile>=25 THEN 2
+			ELSE 1
+		END AS Quartile
+
+FROM 	(
+		SELECT 	a.*,
+				c.ClassName
+		FROM `tblClassAssignmentsFall12` as c
+		JOIN (
+			Select 	r.*, 
+					s.DistrictName,
+					s.`StudentDateOfBirth`,
+					s.`StudentEthnicGroup`,
+					s.`StudentLastName`,
+					s.`StudentFirstName`,
+					s.`StudentMI`,
+					s.`Grade`
+			FROM	tblAssessmentResultsFall12 as r
+	    	JOIN	tblStudentBySchoolFall12 as s
+			ON		r.`StudentID`=s.StudentID
+			) as a
+		ON a.StudentID=c.StudentID
+		) as t
+LEFT OUTER JOIN `viewNorms2011_Growth_Kinder_0` as n
+ON 		t.`TestRITScore`=n.`StartRIT`
+AND		t.`Grade`=n.`StartGrade2`
+AND		t.`MeasurementScale`=n.`MeasurementScale`
+WHERE GrowthMeasureYN='True' 
+  AND
+ 	(TestType='Survey with Goals'
+		OR 
+		TestType='Survey'
+		)
+;
+")
+
+#Reorder levels (since 13=Kinder, prior to Fall 2012, after that it is Kinder=0) and rename
+map.scores$Grade <- factor(map.scores$Grade, levels=c("0", "1","2", "5", "6","7","8"))
+levels(map.scores$Grade) <- c("K", "1", "2", "5", "6","7","8")
+@
+
+
+<<set_MAP_targets>>=
+#get z score (i.e., number of standard deviations) that corresponds to 75th percentile
+sigma<-qnorm(.75)
+#add simga*SD to mean and round to integer
+map.scores$GrowthPctl75th<-round(map.scores$TypicalFallToSpringGrowth + sigma*map.scores$SDFallToSpringGrowth,0)
+
+#calculate targets
+map.scores$GrowthTargets<-map.scores$Fall12_RIT+map.scores$GrowthPctl75th
+
+#Combine Student First and Last Names into one field
+
+map.scores$StudentLastFirstName<-paste(map.scores$StudentLastName, map.scores$StudentFirstName, sep=", ")
+map.scores$StudentFirstLastName<-paste(map.scores$StudentFirstName, map.scores$StudentLastName, sep=" ")
+@
+
+<<cut_by_grades_class>>=
+map.scores.by.grade<-ddply(map.scores, .(Subject, SchoolName,Grade), function(df) orderid(df,df$Fall12_RIT))
+map.scores.by.class<-ddply(map.scores, .(Subject, SchoolName,ClassName), function(df) orderid(df,df$Fall12_RIT))
+
+#separate by school
+map.scores.primary<-subset(map.scores.by.grade, SchoolName=="KIPP Ascend Primary")
+map.scores.primary.by.class<-subset(map.scores.by.class, SchoolName=="KIPP Ascend Primary") 
+map.scores.KAMS<-subset(map.scores.by.grade, SchoolName=="KIPP Ascend Middle School")
+map.scores.KCCP<-subset(map.scores.by.grade, SchoolName=="KIPP Create Middle School")
+@
+
+
+<<NWEA_Norms>>=
+nwea.norms.fall<-data.frame(Grade=factor(c("K","K","1","1","2","2","5","5","6","6","7","7","8","8"),levels=c("K","1","2","5","6","7","8")), Subject=factor(c("Mathematics", "Reading", "Mathematics", "Reading","Mathematics", "Reading","Mathematics", "Reading","Mathematics", "Reading","Mathematics", "Reading","Mathematics", "Reading"),levels=c("Mathematics","Reading")), Mean=c(143.7,142.5,162.8,160.3,178.2,175.9,212.9,209.8,219.6,212.3,225.6,216.3,230.2,219.3), SD=c(11.88,10.71,13.57,12.76,12.97,15.44,14.18,14.21,15.37,14.39,16.79,14.23,17.04,14.86))
+@
+
+
+\section{Graphics Test 1}
+
+\newthought{This section is a test of graphing,} espeically of the marginal variety. 
+\blindtext
+\blindtext
+\begin{marginfigure}
+<<test_plot, fig.width=8, fig.height=5, out.width='\\linewidth', dev='pdf',echo=FALSE>>=
+map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.KAMS,normsdata=nwea.norms.fall,grade=5,subj="Mathematics",schoolname="KAMS"),legendpos="none")
+@
+\caption{KAPS Kindergarten Distribution of RIT Scores versus the National Distribution of RIT Scores \\n Fall 2012 Readin}
+\end{marginfigure}
+\blindtext
+\blindtext
+\section{Enrollment, Attrition, \& Attendence}
+\blindtext
+\blindtext
+\section{Highlights from the 2011-12 School Year}
+\blindtext
+\blindtext
+\section{MAP Results}
+\blindtext
+\blindtext
 
 
 \end{document}
