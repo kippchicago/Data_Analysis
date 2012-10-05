@@ -15,8 +15,10 @@ figure/
 *.Rproj.user
 Data\ Analysis.Rproj.user
 *.Rproj
+cache/
 
 ## Ignore LaTex auxilary files
 *.log
 *-concordance.tex
 *.synctex.gz
+*-tikzDictionary
