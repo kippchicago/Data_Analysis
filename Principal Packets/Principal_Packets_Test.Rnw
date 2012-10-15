@@ -39,6 +39,7 @@ library(reshape) #More data manipulation
 library(ggplot2) #Graphics of grammer graphing
 library(grid) #More Graphing
 library(gridExtra) #better than par(mfrow=c(r,c)) for arranging ggplot2 and lattice graphics
+library(lubridate) #for dealing with dates
 
 #source MAP helper functions
 source("~/Dropbox/Consulting/KIPP Ascend/Data Analysis/MAP/Code/R/MAP_helper_functions.R")
@@ -158,8 +159,35 @@ map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.KAMS,norm
 \blindtext
 \blindtext
 \section{Enrollment, Attrition, \& Attendence}
-\blindtext
-\blindtext
+\subsection{Attendence} 
+The school year for for KAPS and KAMS began on August 13, 2012 and on August 27, 2012 for KCCP.  Consequntly all of the attendance analysis is bassed on data pulled from PowerSchool for the time perdioud between August 13 and today (OCtober 10, 2012).  
+
+<<get_Attendance_Data>>=
+#Establish connection ot PowerSchool.  Not you must have established the F5 BIG-IP VPN or this 
+#won't work. 
+pscon<-odbcConnect("PS", pwd="laidephy")
+
+#Get Attendance data.  Thi sis a table with each student for each day with status for the day
+Attendence<-sqlQuery(pscon, "SELECT att.schoolid,
+s.lastfirst, 
+att.Att_Date,
+attc.Att_Code,
+attc.Description,
+attc.Presence_Status_CD,
+s.Enroll_Status
+FROM Attendance att
+  INNER JOIN Attendance_Code attc ON att.Attendance_CodeID = attc.ID
+ LEFT JOIN students s ON att.StudentID = s.id
+WHERE att.Att_Mode_Code = 'ATT_ModeDaily'
+  AND att.Att_Date = '08-OCT-2012'
+  AND s.Enroll_Status=0  
+  AND att.schoolid=400146
+  AND attc.att_code = 'A'
+ORDER BY s.lastfirst
+")
+@
+
+
 \section{Highlights from the 2011-12 School Year}
 \blindtext
 \blindtext

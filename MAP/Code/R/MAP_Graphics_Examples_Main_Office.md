@@ -130,6 +130,18 @@ Since I didn't run the data loading code that I do run for KIPP Chicago's own re
 
 # Create database connection.  
 con<-odbcConnect("kippchidata2")
+```
+
+```
+## Warning: [RODBC] ERROR: state HY000, code 2003, message [MySQL][ODBC 5.1
+## Driver]Can't connect to MySQL server on '54.245.118.235' (60)
+```
+
+```
+## Warning: ODBC connection failed
+```
+
+```r
 
 #Pull data from db with SQL query
 map.scores<-sqlQuery(con, 
@@ -186,6 +198,13 @@ WHERE GrowthMeasureYN='True'
 ;
 
 ")
+```
+
+```
+## Error: first argument is not an open RODBC channel
+```
+
+```r
 
 #need to add fake first and last names data using randomName package
 
@@ -197,6 +216,13 @@ genders <- c("Female", "Male")
 
 genderethnicity.df<-data.frame(Gender=sample(genders, nrow(map.scores), replace=TRUE), 
                                Ethnicity=sample(ethnicities, nrow(map.scores), replace=TRUE))
+```
+
+```
+## Error: object 'map.scores' not found
+```
+
+```r
 
 names.df<-data.frame(StudentLastName=randomNames(gender=genderethnicity.df$Gender,
                                                  ethnicity=genderethnicity.df$Ethnicity, which.names="last"),
@@ -204,41 +230,28 @@ names.df<-data.frame(StudentLastName=randomNames(gender=genderethnicity.df$Gende
                                                   ethnicity=genderethnicity.df$Ethnicity, which.names="first"
                                                   )
                      )
+```
+
+```
+## Error: object 'genderethnicity.df' not found
+```
+
+```r
 
 map.scores<-cbind(names.df, map.scores)
+```
+
+```
+## Error: object 'names.df' not found
+```
+
+```r
 
 head(map.scores)
 ```
 
 ```
-##   StudentLastName StudentFirstName                SchoolName Grade
-## 1        Falconer          Sylvana KIPP Ascend Middle School     5
-## 2            Nyre           Keirra KIPP Ascend Middle School     5
-## 3            Lyde        Gabrielle KIPP Ascend Middle School     5
-## 4           Tejan           Aliyah KIPP Ascend Middle School     5
-## 5           Yorks            Mayde KIPP Ascend Middle School     5
-## 6           Davis            Janae KIPP Ascend Middle School     5
-##   ClassName     Subject Fall12_GM         Fall12_TT Fall12_RIT Fall12_Pctl
-## 1  Michigan Mathematics      TRUE Survey With Goals        200          18
-## 2 Morehouse Mathematics      TRUE Survey With Goals        186           3
-## 3      Duke Mathematics      TRUE Survey With Goals        218          64
-## 4      Duke Mathematics      TRUE Survey With Goals        199          16
-## 5 Morehouse Mathematics      TRUE Survey With Goals        201          20
-## 6  Michigan Mathematics      TRUE Survey With Goals        202          22
-##   TypicalFallToSpringGrowth ReportedFallToSpringGrowth
-## 1                      8.09                          8
-## 2                      8.05                          8
-## 3                      8.14                          8
-## 4                      8.08                          8
-## 5                      8.09                          8
-## 6                      8.09                          8
-##   SDFallToSpringGrowth Quartile
-## 1                 5.99        1
-## 2                 5.99        1
-## 3                 5.99        3
-## 4                 5.99        1
-## 5                 5.99        1
-## 6                 5.99        1
+## Error: object 'map.scores' not found
 ```
 
 
@@ -260,16 +273,41 @@ sigma <- qnorm(0.75)
 # add simga*SD to mean and round to integer
 map.scores$GrowthPctl75th <- round(map.scores$TypicalFallToSpringGrowth + sigma * 
     map.scores$SDFallToSpringGrowth, 0)
+```
+
+```
+## Error: object 'map.scores' not found
+```
+
+```r
 
 # calculate targets
 map.scores$GrowthTargets <- map.scores$Fall12_RIT + map.scores$GrowthPctl75th
+```
+
+```
+## Error: object 'map.scores' not found
+```
+
+```r
 
 # Combine Student First and Last Names into one field
 
 map.scores$StudentLastFirstName <- paste(map.scores$StudentLastName, map.scores$StudentFirstName, 
     sep = ", ")
+```
+
+```
+## Error: object 'map.scores' not found
+```
+
+```r
 map.scores$StudentFirstLastName <- paste(map.scores$StudentFirstName, map.scores$StudentLastName, 
     sep = " ")
+```
+
+```
+## Error: object 'map.scores' not found
 ```
 
 
@@ -293,48 +331,28 @@ OK. Now to graphics.  Here I want to graph the fall score, the expected growth a
 ```r
 map.scores.by.grade <- ddply(map.scores, .(Subject, SchoolName, Grade), function(df) orderid(df, 
     df$Fall12_RIT))
+```
+
+```
+## Error: object 'map.scores' not found
+```
+
+```r
 map.scores.by.class <- ddply(map.scores, .(Subject, SchoolName, ClassName), 
     function(df) orderid(df, df$Fall12_RIT))
+```
+
+```
+## Error: object 'map.scores' not found
+```
+
+```r
 
 head(map.scores.by.grade)
 ```
 
 ```
-##   StudentLastName StudentFirstName                SchoolName Grade
-## 1         Tinsley           Mesuod KIPP Ascend Middle School     5
-## 2            King          Andelyn KIPP Ascend Middle School     5
-## 3          Starks            Koran KIPP Ascend Middle School     5
-## 4         Tearney           Zainab KIPP Ascend Middle School     5
-## 5            Nyre           Keirra KIPP Ascend Middle School     5
-## 6          Liddie            Haven KIPP Ascend Middle School     5
-##   ClassName     Subject Fall12_GM         Fall12_TT Fall12_RIT Fall12_Pctl
-## 1 Morehouse Mathematics      TRUE Survey With Goals        158           1
-## 2      Duke Mathematics      TRUE Survey With Goals        172           1
-## 3      Duke Mathematics      TRUE Survey With Goals        172           1
-## 4 Morehouse Mathematics      TRUE Survey With Goals        185           2
-## 5 Morehouse Mathematics      TRUE Survey With Goals        186           3
-## 6      Duke Mathematics      TRUE Survey With Goals        186           3
-##   TypicalFallToSpringGrowth ReportedFallToSpringGrowth
-## 1                      7.97                          8
-## 2                      8.01                          8
-## 3                      8.01                          8
-## 4                      8.05                          8
-## 5                      8.05                          8
-## 6                      8.05                          8
-##   SDFallToSpringGrowth Quartile GrowthPctl75th GrowthTargets
-## 1                 5.99        1             12           170
-## 2                 5.99        1             12           184
-## 3                 5.99        1             12           184
-## 4                 5.99        1             12           197
-## 5                 5.99        1             12           198
-## 6                 5.99        1             12           198
-##   StudentLastFirstName StudentFirstLastName OrderID
-## 1      Tinsley, Mesuod       Mesuod Tinsley       1
-## 2        King, Andelyn         Andelyn King       2
-## 3        Starks, Koran         Koran Starks       3
-## 4      Tearney, Zainab       Zainab Tearney       4
-## 5         Nyre, Keirra          Keirra Nyre       5
-## 6        Liddie, Haven         Haven Liddie       6
+## Error: object 'map.scores.by.grade' not found
 ```
 
 ```r
@@ -342,41 +360,7 @@ head(map.scores.by.class)
 ```
 
 ```
-##   StudentLastName StudentFirstName                SchoolName Grade
-## 1            King          Andelyn KIPP Ascend Middle School     5
-## 2          Starks            Koran KIPP Ascend Middle School     5
-## 3          Liddie            Haven KIPP Ascend Middle School     5
-## 4         Johnson           Tyrell KIPP Ascend Middle School     5
-## 5            Gill            Sarah KIPP Ascend Middle School     5
-## 6           Falls             Ryan KIPP Ascend Middle School     5
-##   ClassName     Subject Fall12_GM         Fall12_TT Fall12_RIT Fall12_Pctl
-## 1      Duke Mathematics      TRUE Survey With Goals        172           1
-## 2      Duke Mathematics      TRUE Survey With Goals        172           1
-## 3      Duke Mathematics      TRUE Survey With Goals        186           3
-## 4      Duke Mathematics      TRUE Survey With Goals        188           4
-## 5      Duke Mathematics      TRUE Survey With Goals        191           6
-## 6      Duke Mathematics      TRUE Survey With Goals        193           8
-##   TypicalFallToSpringGrowth ReportedFallToSpringGrowth
-## 1                      8.01                          8
-## 2                      8.01                          8
-## 3                      8.05                          8
-## 4                      8.05                          8
-## 5                      8.06                          8
-## 6                      8.07                          8
-##   SDFallToSpringGrowth Quartile GrowthPctl75th GrowthTargets
-## 1                 5.99        1             12           184
-## 2                 5.99        1             12           184
-## 3                 5.99        1             12           198
-## 4                 5.99        1             12           200
-## 5                 5.99        1             12           203
-## 6                 5.99        1             12           205
-##   StudentLastFirstName StudentFirstLastName OrderID
-## 1        King, Andelyn         Andelyn King       1
-## 2        Starks, Koran         Koran Starks       2
-## 3        Liddie, Haven         Haven Liddie       3
-## 4      Johnson, Tyrell       Tyrell Johnson       4
-## 5          Gill, Sarah           Sarah Gill       5
-## 6          Falls, Ryan           Ryan Falls       6
+## Error: object 'map.scores.by.class' not found
 ```
 
 
@@ -443,6 +427,13 @@ p <- ggplot(map.scores.by.grade, aes(x=Fall12_RIT,
         ) +
         ggtitle("2012 Fall 5th Grade Mathematics\nRIT Scores, 
                 Expected Growth, and College Ready Growth\nby Quartile")  
+```
+
+```
+## Error: object 'map.scores.by.grade' not found
+```
+
+```r
 
 
 ###Let's add some summary labels by quaritle to p
@@ -451,17 +442,45 @@ p <- ggplot(map.scores.by.grade, aes(x=Fall12_RIT,
 #  avg RIT by quartile, and percent of quartile students to total studens.
 
 qrtl.labels<-get_group_stats(map.scores.by.grade, grp="Quartile")
+```
+
+```
+## Error: object 'map.scores.by.grade' not found
+```
+
+```r
 
 #add a column with the actual label text
 qrtl.labels$CountLabel<-paste(qrtl.labels$CountStudents,
                               " students (",
                               round(qrtl.labels$PctofTotal*100),"%)", 
                               sep="")
+```
+
+```
+## Error: object 'qrtl.labels' not found
+```
+
+```r
 
 qrtl.labels$AvgLabel<-paste("Avg RIT = ",round(qrtl.labels$AvgQrtlRIT))
+```
+
+```
+## Error: object 'qrtl.labels' not found
+```
+
+```r
 
 #eyeballed X position
 qrtl.labels$xpos<-rep(150,nrow(qrtl.labels))
+```
+
+```
+## Error: object 'qrtl.labels' not found
+```
+
+```r
 
 #now adding this info to the plot p
 p <- p + geom_text(data=qrtl.labels, 
@@ -478,16 +497,29 @@ p <- p + geom_text(data=qrtl.labels,
                   label=AvgLabel),
               vjust=1.5, 
               size=3.25)
+```
+
+```
+## Error: object 'p' not found
+```
+
+```r
 
 p
 ```
 
-![plot of chunk plot_Goal_by_grade](./public_figures/plot_Goal_by_grade.png) 
+```
+## Error: object 'p' not found
+```
 
 ```r
 
 #Uncomment below to save pdf vector file of plot for other uses. 
-#ggsave(p,file="plot_Goal_by_grade_KAPS_1.pdf", path="../../Figures/",height=10.5,width=8)
+ggsave(p,file="plot_Goal_by_grade_KAPS_1.pdf",height=10.5,width=8)
+```
+
+```
+## Error: object 'p' not found
 ```
 
 
@@ -617,11 +649,20 @@ nwea.norms.fall <- data.frame(Grade = factor(c("K", "K", "1", "1", "2", "2",
 pm5 <- map_comparative_histograms(map_combined_histo_data(kippdata = map.scores.by.grade, 
     normsdata = nwea.norms.fall, grade = 5, subj = "Mathematics", schoolname = "KAMS"), 
     legendpos = "none", title = "MAP 2012 5th Grade\nKAMS vs. National\nMath")
+```
+
+```
+## Error: object 'map.scores.by.grade' not found
+```
+
+```r
 
 pm5
 ```
 
-![plot of chunk plots_histograms](./public_figures/plots_histograms.png) 
+```
+## Error: object 'pm5' not found
+```
 
 
 
