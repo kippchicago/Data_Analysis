@@ -30,7 +30,7 @@ opts_chunk$set(
 \begin{abstract}
 This document is a beta version of KIPP:Chicago's \textbf{Principal Packet}.  This proposed principal packet has two aims.  First, and most importantly, to present our school leaders with actionable data and analysis to help our students achieve at the highest level.  Secondly, is to provide a proof-of-concept that will move regional reporting \emph{away from} PowerPoint style decks and towards more thoughtful, insightful, and informative reports.  To this end, this report needs to include useful, clear data visualization that are explained and contextualized with incisive analytical prose, rather than the near meaningless, overly-simplified prolix of the dreaded bullet point.\sidenote{For more on the pitfalls of PowerPoints ``cognitive style'' please read Edward Tufte's excellent \emph{The Cognitive Style of PowerPoint} (\url{http://bit.ly/SuaNBh}).}
 \end{abstract}
-<<load_libraris>>=
+<<load_libraries>>=
 setwd("~/Dropbox/Consulting/KIPP Ascend/Data Analysis/Principal Packets/")
 
 library(RODBC) #To get data form Data Analysis DB
@@ -46,7 +46,7 @@ source("~/Dropbox/Consulting/KIPP Ascend/Data Analysis/MAP/Code/R/MAP_helper_fun
 @
 
 
-<<get_MAP_Data>>=
+<<get_MAP_Data, cache=TRUE>>=
 
 # Create database connection.  
 
@@ -160,32 +160,115 @@ map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.KAMS,norm
 \blindtext
 \section{Enrollment, Attrition, \& Attendence}
 \subsection{Attendence} 
-The school year for for KAPS and KAMS began on August 13, 2012 and on August 27, 2012 for KCCP.  Consequntly all of the attendance analysis is bassed on data pulled from PowerSchool for the time perdioud between August 13 and today (OCtober 10, 2012).  
+The school year for for KAPS and KAMS began on August 13, 2012 and on August 27, 2012 for KCCP.  Consequntly all of the attendance analysis is bassed on data pulled from PowerSchool for the time between August 13 and today (October 10, 2012).  
 
-<<get_Attendance_Data>>=
+
+
+<<get_Attendance_Data, cache=TRUE>>=
 #Establish connection ot PowerSchool.  Not you must have established the F5 BIG-IP VPN or this 
 #won't work. 
 pscon<-odbcConnect("PS", pwd="laidephy")
 
-#Get Attendance data.  Thi sis a table with each student for each day with status for the day
-Attendence<-sqlQuery(pscon, "SELECT att.schoolid,
-s.lastfirst, 
-att.Att_Date,
-attc.Att_Code,
-attc.Description,
-attc.Presence_Status_CD,
-s.Enroll_Status
-FROM Attendance att
-  INNER JOIN Attendance_Code attc ON att.Attendance_CodeID = attc.ID
- LEFT JOIN students s ON att.StudentID = s.id
-WHERE att.Att_Mode_Code = 'ATT_ModeDaily'
-  AND att.Att_Date = '08-OCT-2012'
-  AND s.Enroll_Status=0  
-  AND att.schoolid=400146
-  AND attc.att_code = 'A'
-ORDER BY s.lastfirst
+#Get Attendance data.  
+# This SQL statement retrieves each enrolled student and their attendence status form PowerSchool 
+# by date for a given dateThi sis a table with each student for each day with status for the day
+Attendence<-sqlQuery(pscon, "
+SELECT 
+  m.schoolid, 
+	m.grade_level,
+	m.calendardate, 
+	m.studentid, 
+	m.Enrolled,
+	a.Att_Code,
+	a.Description as AttDescr,
+	CASE 
+		WHEN	a.Presence_Status_CD = 'Absent' THEN 1 
+		ELSE 0 
+	END as boolAbsent
+FROM (
+	SELECT
+		SchoolID,  
+		grade_level, 
+		calendardate, studentid, 
+		1 as Enrolled  
+	FROM PS_Membership_Defaults 
+	Where 	calendardate >= '13-AUG-12'
+		AND  calendardate <= '31-OCT-12'
+) m
+LEFT JOIN (
+	SELECT 
+		att.schoolid,
+		s.lastfirst, 
+		s.id as StudentID,
+		s.GRADE_LEVEL,
+		att.Att_Date,
+		attc.Att_Code,
+		attc.Description,
+		attc.Presence_Status_CD
+	FROM Attendance att
+  	INNER JOIN Attendance_Code attc ON att.Attendance_CodeID = attc.ID
+ 	LEFT JOIN students s ON att.StudentID = s.id
+	WHERE 
+		att.Att_Mode_Code = 'ATT_ModeDaily'
+  		AND att.Att_Date >= '13-AUG-12'
+  		AND att.Att_Date <= '31-OCT-12'
+		AND (attc.att_code = 'A' OR attc.att_code = 'S')
+) a
+ON m.STUDENTID = a.studentid AND m.calendardate =a.Att_Date AND m.schoolID = a.schoolid
+ORDER BY schoolid, grade_level, calendardate
 ")
+
+#Summarize enrollments and absences by day
+
+DailyEnrollAttend<-ddply(Attendence, .(SCHOOLID, CALENDARDATE), summarise, Enrolled=sum(ENROLLED), Absent=sum(BOOLABSENT))
+
+DailyEnrollAttendByGrade<-ddply(Attendence, .(SCHOOLID, GRADE_LEVEL, CALENDARDATE), summarise, Enrolled=sum(ENROLLED), Absent=sum(BOOLABSENT))
+#rename some columns (becuase ALL CAPS is annoying)
+
+names(DailyEnrollAttend)<-c("SchoolID", "Date", "Enrolled", "Absent")
+names(DailyEnrollAttendByGrade)<-c("SchoolID", "Grade","Date", "Enrolled", "Absent")
+
+
+#transform dates
+DailyEnrollAttend$Date<-ymd(as.character(DailyEnrollAttend$Date))
+DailyEnrollAttendByGrade$Date<-ymd(as.character(DailyEnrollAttendByGrade$Date))
+
+#Some quick daily stats
+DailyEnrollAttend$Present<-DailyEnrollAttend$Enrolled-DailyEnrollAttend$Absent
+DailyEnrollAttend$PctAbsent<-DailyEnrollAttend$Absent/DailyEnrollAttend$Enrolled
+DailyEnrollAttend$PctPresent<-1-DailyEnrollAttend$PctAbsent
+DailyEnrollAttend$PctPresentGTE95<-DailyEnrollAttend$PctPresent>=.95
+DailyEnrollAttend$Present96PctBenchMark<-.96*DailyEnrollAttend$Enrolled
+DailyEnrollAttend$WeekInYear<-week(DailyEnrollAttend$Date)
+DailyEnrollAttend$WeekInSchoolYear<-DailyEnrollAttend$WeekInYear - min(DailyEnrollAttend$WeekInYear) +1
+DailyEnrollAttend$WeekOfDate<-floor_date(DailyEnrollAttend$Date, unit="week") + days(1) 
+DailyEnrollAttend$WeekOfDateLabel<-paste("Week of", month(DailyEnrollAttend$WeekOfDate,label=TRUE, abbr=TRUE), day(DailyEnrollAttend$WeekOfDate), sep=" ")
+
+
+#add School Initials for graphics
+DailyEnrollAttend$SchoolInitials[DailyEnrollAttend$SchoolID==7810]<-"KAMS"
+DailyEnrollAttend$SchoolInitials[DailyEnrollAttend$SchoolID==78102]<-"KAPS"
+DailyEnrollAttend$SchoolInitials[DailyEnrollAttend$SchoolID==400146]<-"KCCP"
+#head(DailyEnrollAttend)
 @
+
+
+\begin{figure*}
+<<Plot_Attendance, fig.width=8, fig.height=3, out.width='\\linewidth', dev='pdf',echo=FALSE>>=
+
+#Melt DailyEnrollAttend into long file format
+
+ggplot(subset(DailyEnrollAttend,SchoolID!=400146), aes(x=wday(Date), y=Enrolled)) + 
+  geom_step(direction="hv", color="gray") + 
+  geom_step(aes(y=Present), direction="hv") + 
+  geom_step(aes(y=.96*Enrolled), direction="hv", color="green") + 
+  scale_x_continuous(breaks = c(2,3,4,5,6), labels=c("M","T","W","R","F")) + #Change numberd week days to lettered
+  facet_grid(SchoolID~WeekInSchoolYear, scales="free_y") +
+  theme_bw()
+@
+\end{figure*}
+
+
 
 
 \section{Highlights from the 2011-12 School Year}

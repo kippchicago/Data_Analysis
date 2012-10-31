@@ -74,24 +74,103 @@ ORDER BY schoolid, grade_level;
 
 --Selects ALL students enrolled on a given date as well as their entry and exit data.
 SELECT 
-	m.SchoolID, 
+	m.SchoolID, 	
 	m.studentid,
 	s.first_name,
-  s.middle_name,
-  s.last_name,
+  	s.middle_name,
+     s.last_name,
 	m.grade_level, 
  	s.ethnicity AS Race_ID,
-  s.gender,
-  s.dob,
+  	s.gender,
+  	s.dob,
 	s.entrydate,
 	s.SCHOOLENTRYDATE,
+	s.DISTRICTENTRYDATE,
 	s.EXITDATE,
-	s.exitcode 
+	s.exitcode,
+	s.EXITCOMMENT
 FROM PS_Membership_Defaults m
 	JOIN STUDENTS s
 	ON m.studentid = s.id
 WHERE m.calendardate = '3-OCT-11'
 ORDER BY schoolid, grade_level
+
+--Calculate counts and percentages by exit reason (this is for pulling data for KIPP 
+--Foundation's HSR data request
+SELECT 
+  ExitCode, 
+  COUNT(*) as ExitCount, 
+  count(*)/sum( count(*)) over()  as Pct
+FROM (
+SELECT 
+	m.SchoolID, 	
+	m.studentid,
+	s.first_name,
+  	s.middle_name,
+     s.last_name,
+	m.grade_level, 
+ 	s.ethnicity AS Race_ID,
+  	s.gender,
+  	s.dob,
+	s.entrydate,
+	s.SCHOOLENTRYDATE,
+	s.DISTRICTENTRYDATE,
+	s.EXITDATE,
+	s.exitcode,
+	s.EXITCOMMENT
+FROM PS_Membership_Defaults m
+	JOIN STUDENTS s
+	ON m.studentid = s.id
+WHERE m.calendardate = '3-OCT-11'
+ORDER BY schoolid, grade_level
+)
+GROUP BY exitcode
+ORDER BY exitcode;
 ;
+
+--Get each enrolled student and their attendence status by date for a given date range
+SELECT 
+	m.schoolid, 
+	m.grade_level,
+	m.calendardate, 
+	m.studentid, 
+	m.Enrolled,
+	a.Att_Code,
+	a.Description as AttDescr,
+	CASE 
+		WHEN	a.Presence_Status_CD = 'Absent' THEN 1 
+		ELSE 0 
+	END as boolAbsent
+FROM (
+	SELECT
+		SchoolID,  
+		grade_level, 
+		calendardate, studentid, 
+		1 as Enrolled  
+	FROM PS_Membership_Defaults 
+	Where 	calendardate >= '11-OCT-12'
+		AND  calendardate <= '16-OCT-12'
+LEFT JOIN (
+) m
+	SELECT 
+		att.schoolid,
+		s.lastfirst, 
+		s.id as StudentID,
+		s.GRADE_LEVEL,
+		att.Att_Date,
+		attc.Att_Code,
+		attc.Description,
+		attc.Presence_Status_CD
+	FROM Attendance att
+  	INNER JOIN Attendance_Code attc ON att.Attendance_CodeID = attc.ID
+ 	LEFT JOIN students s ON att.StudentID = s.id
+	WHERE 
+		att.Att_Mode_Code = 'ATT_ModeDaily'
+  		AND att.Att_Date >= '11-OCT-12'
+  		AND att.Att_Date <= '16-OCT-12'
+		AND (attc.att_code = 'A' OR attc.att_code = 'S')
+) a
+ON m.STUDENTID = a.studentid AND m.calendardate =a.Att_Date AND m.schoolID = a.schoolid
+ORDER BY schoolid, grade_level, calendardate;
 
 
