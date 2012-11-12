@@ -3,11 +3,13 @@
 \usepackage[english]{babel}
 \usepackage{blindtext}
 
+
 \title{Principal Packets Test}
 \author{Christopher J. Haid}
 
 
 \makeatother
+
 
 \begin{document}
 
@@ -15,14 +17,16 @@
 options(replace.assign=TRUE,width=60)
 opts_chunk$set( 
                fig.align='center', 
-               dev='pdf', 
+               dev='tikz', 
                fig.width=8, 
                fig.height=10.5, 
                fig.show='hold', 
                cache=FALSE, 
                par=TRUE,
                echo=FALSE,
-               message=FALSE
+               message=FALSE,
+               warning=FALSE,
+               autodepend=TRUE
                )
 @
 
@@ -30,30 +34,241 @@ opts_chunk$set(
 \begin{abstract}
 This document is a beta version of KIPP:Chicago's \textbf{Principal Packet}.  This proposed principal packet has two aims.  First, and most importantly, to present our school leaders with actionable data and analysis to help our students achieve at the highest level.  Secondly, is to provide a proof-of-concept that will move regional reporting \emph{away from} PowerPoint style decks and towards more thoughtful, insightful, and informative reports.  To this end, this report needs to include useful, clear data visualization that are explained and contextualized with incisive analytical prose, rather than the near meaningless, overly-simplified prolix of the dreaded bullet point.\sidenote{For more on the pitfalls of PowerPoints ``cognitive style'' please read Edward Tufte's excellent \emph{The Cognitive Style of PowerPoint} (\url{http://bit.ly/SuaNBh}).}
 \end{abstract}
-<<load_libraries>>=
+
+<<load_libraries, echo=FALSE, message=FALSE,warning=FALSE>>=
 setwd("~/Dropbox/Consulting/KIPP Ascend/Data Analysis/Principal Packets/")
 
-library(RODBC) #To get data form Data Analysis DB
+
+
 library(plyr)  #To manipulate data
 library(reshape) #More data manipulation
 library(ggplot2) #Graphics of grammer graphing
 library(grid) #More Graphing
 library(gridExtra) #better than par(mfrow=c(r,c)) for arranging ggplot2 and lattice graphics
 library(lubridate) #for dealing with dates
-
+library(xtable) #for pretty tables
+library(RJDBC) #To get data form PowerSchool DB
+library(RODBC) #To get data form PowerSchool DB
 #source MAP helper functions
 source("~/Dropbox/Consulting/KIPP Ascend/Data Analysis/MAP/Code/R/MAP_helper_functions.R")
 @
 
+<<Database_connections>>=
+#Connect to KIPP Chi Testing Analysis DB
+testcon<-odbcConnect("kippchidata2") # Create database connection to KIPP Chi Assessment Database
+
+
+#Establish connection ot PowerSchool.  Note you must have established the F5 BIG-IP VPN or this 
+#won't work (one day I will figure out how to do this from the command line!)
+#pscon<-odbcConnect("PS", pwd="laidephy")
+
+drvr <- JDBC("oracle.jdbc.driver.OracleDriver", "/Users/chaid/Dropbox/JDBC Drivers/ojdbc5.jar","")
+pscon <- dbConnect(drvr,"jdbc:oracle:thin:@10.160.29.47:1521:IL039","psnavigator","laidephy")
+@
+
+<<get_Exit_Transfer_data, cache=TRUE>>=
+#Pull data from PowerSchool
+HSR.data<-dbGetQuery(pscon, "SELECT
+m.SchoolID,
+s.student_number as StudentID,
+s.first_name,
+s.middle_name,
+s.last_name,
+m.grade_level,
+s.ethnicity AS Race_ID,
+s.gender,
+s.dob,
+s.entrydate,
+s.SCHOOLENTRYDATE,
+s.DISTRICTENTRYDATE,
+s.EXITDATE,
+s.exitcode,
+s.EXITCOMMENT
+FROM PS_Membership_Defaults m
+JOIN STUDENTS s
+ON m.studentid = s.id
+WHERE m.calendardate = '3-OCT-11'
+ORDER BY schoolid, grade_level
+")
+@
+
+<<polish_Exit_Transfer_data, cache=TRUE>>=
+#Parse field EXITCOMMENT for integer values that (hopefully) correspond to Foundation Exit Reasons
+
+#need regexp that returns only digits.  Note that the follow regexp matches all non-digit characters and
+#replaces them with "" (i.e., nothing); consequently, an comment with two numeric reasons, 
+#say 2=transportation and 3=moved will result in a a combined integer = 23.  There is no reason = 0 and 
+#so reason =10 must mean somthing.  I think all other two digit codes are concatonation.  
+#If they moved within CPS then then a 23 should likely be a transportation (3).  If they moved out of CPS 
+#Then 23 should revert to moved (3)
+
+HSR.data$HSRExitCodes<-as.integer(gsub('\\D','',HSR.data$EXITCOMMENT))
+
+#Now need to drop students that  Did NOT Arrive (code 99)
+#HSR.exit<-HSR.data[(HSR.data$EXITCODE!=99|HSR.data$EXITCODE!="GR"),]
+HSR.exit <- HSR.data[is.na(HSR.data$EXITCODE) | HSR.data$EXITCODE==31 | HSR.data$EXITCODE==33 | HSR.data$EXITCODE==36 |HSR.data$EXITCODE==99 |  HSR.data$EXITCODE=="GR", ]
+#HSR.exit.with.grads<-HSR.data[is.na(HSR.data$EXITCODE) | HSR.data$EXITCODE==31 | HSR.data$EXITCODE==33 | HSR.data$EXITCODE==36 |  HSR.data$EXITCODE=="GR" , ]
+
+#drop 2 did not arrive on 10/6 since they never showed 
+HSR.exit<-HSR.exit[!(HSR.exit$EXITCODE==99 & HSR.exit$EXITDATE=="2011-10-06 00:00:00"),]
+
+
+#Add HSR code for graduated
+HSR.exit$HSRExitCodes[HSR.exit$EXITCODE=="GR"]<-999999
+
+#if HSR code is 23, but student transfered in cps (EXITCODE = 31), than Transportation ->3
+HSR.exit$HSRExitCodes[HSR.exit$EXITCODE==31 & HSR.exit$HSRExitCodes==23]<-3
+HSR.exit$HSRExitCodes[HSR.exit$HSRExitCodes==25]<-5
+HSR.exit$HSRExitCodes[HSR.exit$HSRExitCodes==38]<-3
+HSR.exit$HSRExitCodes[HSR.exit$HSRExitCodes==79]<-7
+
+HSR.exit$HSRExitCodes[HSR.exit$EXITCODE==99]<-10
+
+#Get Sped and race data from kippchidata2 and merge with HSR.data
+sped.data<-sqlQuery(testcon, "SELECT * FROM tblSpecialEd1112;")
+race.data<-sqlQuery(testcon, "SELECT StudentID, StudentEthnicGroup FROM tblStudentBySchoolFall12;") 
+race2.data<-sqlQuery(testcon, "SELECT StudentID, StudentEthnicGroup FROM tblStudentBySchoolSpring12;")
+
+#merge sped data
+HSR.exit<-merge(HSR.exit, sped.data, by.x ="STUDENTID", by.y="StudentID", all.x=TRUE)
+
+#construct complete race vector
+temp.df<-merge(HSR.exit,race.data, by.x="STUDENTID", by.y="StudentID", all.x=TRUE)
+
+temp.df<-merge(temp.df,race2.data, by.x="STUDENTID", by.y="StudentID", all.x=TRUE)
+temp.df$RACE_ID<-temp.df$StudentEthnicGroup.x
+temp.df$RACE_ID[is.na(temp.df$RACE_ID)]<-temp.df$StudentEthnicGroup.y[is.na(temp.df$RACE_ID)]
+temp.df<-temp.df[,-18:-19]
+HSR.exit<-temp.df
+rm(temp.df)
+
+#Remove students who exited after 10/1/12
+
+#Create interval to be ignored
+#i.e. we want to change exit codes for anyone who disenrolled between 10/1/2012 and today to NA
+
+ignore.span<-interval(ymd("2012-10-2"), today())
+drop.vector<-(ymd_hms(HSR.exit$EXITDATE) %within% ignore.span) # I was to keep everything outside of the the vector
+
+HSR.exit$HSRExitCodes[drop.vector]<-NA
+
+HSR.exit<-HSR.exit[,c("SCHOOLID", "STUDENTID", "FIRST_NAME", "MIDDLE_NAME", "LAST_NAME", "GRADE_LEVEL", "RACE_ID", "GENDER", "DOB", "Sped", "ENTRYDATE","EXITDATE","HSRExitCodes", "EXITCOMMENT")]
+
+#create graduated column
+HSR.exit$Graduated[ HSR.exit$HSRExitCodes==999999]<-1
+HSR.exit$Graduated[ HSR.exit$HSRExitCodes!=999999]<-0
+HSR.exit$Graduated[ is.na(HSR.exit$HSRExitCodes)]<-0
+
+#recode Special_Needs column
+
+HSR.exit$Special_Needs[ HSR.exit$Sped==1]<-"Y"
+HSR.exit$Special_Needs[ HSR.exit$Sped!=1]<-"N"
+HSR.exit$Special_Needs[ is.na(HSR.exit$Sped)]<-"N"
+
+#Create Free and Reduced Lunch column
+HSR.exit$Free_Reduced_Lunch<-"U"
+
+
+
+#add 10 (unkown) to HSRExitCodes for those students with ExitDates before 10/1/12
+HSR.exit$HSRExitCodes[is.na(HSR.exit$HSRExitCodes) & HSR.exit$EXITDATE<="2012-10-01 00:00:00"]<-10
+
+#Change exit dates to NA for those still enrolled
+HSR.exit$EXITDATE[ is.na(HSR.exit$HSRExitCodes)]<-NA
+
+#RollBack Entry dates to 8/22/2011 for those with Entry dates after 10/1/2012
+HSR.exit$ENTRYDATE[ymd_hms(HSR.exit$ENTRYDATE)>ymd("2011-10-1")]<-ymd("2011-8-22")
+
+#Reorder and rename columns
+HSR.exit<-HSR.exit[,c(1:9,17,16,11,12,15,13,14)]
+names(HSR.exit)<-c("School_ID", "Student_ID", "First_Name", "Middle_Name", "Last_Name", "Grade_Level", "Race_ID", "Gender", "DOB", "Free_Reduced_Lunch", "Special_Needs", "Entry_Date", "Exit_Date", "Graduation", "Exit_Reason", "Exit_Comment")
+
+HSR.exit$Exit_Reason[HSR.exit$Student_ID==43629891]<-NA
+HSR.exit$Exit_Date[HSR.exit$Student_ID==43629891]<-NA
+@
+
+<<get_Attendance_Data, cache=TRUE>>=
+
+#Get Attendance data.  
+# This SQL statement retrieves each enrolled student and their attendence status form PowerSchool 
+# by date for a given dateThi sis a table with each student for each day with status for the day
+Attendence<-dbGetQuery(pscon, "SELECT 
+  m.schoolid, 
+  m.grade_level,
+	m.calendardate, 
+	m.studentid, 
+  a.lastfirst,
+	m.Enrolled,
+	a.Att_Code,
+	a.Description as AttDescr,
+	CASE 
+		WHEN	a.Presence_Status_CD = 'Absent' THEN 1 
+		ELSE 0 
+	END as boolAbsent
+FROM (
+	SELECT
+		SchoolID,  
+		grade_level, 
+		calendardate, studentid, 
+		1 as Enrolled  
+	FROM PS_Membership_Defaults 
+	Where 	calendardate >= '13-AUG-12'
+		AND  calendardate <= '6-NOV-12'
+) m
+LEFT JOIN (
+	SELECT 
+		att.schoolid,
+		s.lastfirst, 
+		s.id as StudentID,
+		s.GRADE_LEVEL,
+		att.Att_Date,
+		attc.Att_Code,
+		attc.Description,
+		attc.Presence_Status_CD
+	FROM Attendance att
+  	INNER JOIN Attendance_Code attc ON att.Attendance_CodeID = attc.ID
+ 	LEFT JOIN students s ON att.StudentID = s.id
+	WHERE 
+		att.Att_Mode_Code = 'ATT_ModeDaily'
+  		AND att.Att_Date >= '13-AUG-12'
+  		AND att.Att_Date <= '6-NOV-12'
+		AND (attc.att_code = 'A' OR attc.att_code = 'S')
+) a
+ON m.STUDENTID = a.studentid AND m.calendardate =a.Att_Date AND m.schoolID = a.schoolid
+ORDER BY schoolid, grade_level, calendardate
+")
+@
+
+<<get_Current_Enrollement_Data, cache=TRUE>>=
+Enrollment<-dbGetQuery(pscon, "
+    SELECT  s.SchoolID, 
+    s.Grade_Level,
+    s.LastFirst, 
+		s.Gender, 
+		s.Student_Number, 
+		s.Ethnicity,
+		s.LunchStatus,
+		pcs.SPED_Survey
+    FROM Students s
+    LEFT OUTER JOIN (
+	    SELECT 	cvc.KeyNo as StudentDCID,
+			        MAX(CASE WHEN f.Name='SPED_Survey' THEN cvc.VALUE ELSE '' END) AS SPED_Survey
+	    FROM CUSTOMVARCHARS cvc
+	    JOIN FIELDSTABLE f
+	    ON 	f.ID=cvc.FieldNo
+	    WHERE f.NAME = 'SPED_Survey'
+	    AND	cvc.KeyNo IN (SELECT DCID FROM students s2 WHERE s2.Enroll_Status=0)
+	    GROUP BY cvc.KeyNo ) pcs
+    ON s.DCID=pcs.StudentDCID
+    WHERE s.Enroll_Status=0 
+")
+
+@
 
 <<get_MAP_Data, cache=TRUE>>=
 
-# Create database connection.  
-
-con<-odbcConnect("kippchidata2")
-
 #get MAP data with SQL statement
-map.scores<-sqlQuery(con, 
+map.scores<-sqlQuery(testcon, 
 "SELECT  t.StudentID AS ID,
   	t.`StudentFirstName`,
 		t.`StudentLastName`,
@@ -111,9 +326,8 @@ WHERE GrowthMeasureYN='True'
 map.scores$Grade <- factor(map.scores$Grade, levels=c("0", "1","2", "5", "6","7","8"))
 levels(map.scores$Grade) <- c("K", "1", "2", "5", "6","7","8")
 @
-
-
-<<set_MAP_targets>>=
+  
+<<set_MAP_targets, cache=TRUE>>=
 #get z score (i.e., number of standard deviations) that corresponds to 75th percentile
 sigma<-qnorm(.75)
 #add simga*SD to mean and round to integer
@@ -128,7 +342,7 @@ map.scores$StudentLastFirstName<-paste(map.scores$StudentLastName, map.scores$St
 map.scores$StudentFirstLastName<-paste(map.scores$StudentFirstName, map.scores$StudentLastName, sep=" ")
 @
 
-<<cut_by_grades_class>>=
+<<cut_by_grades_class, cache=TRUE>>=
 map.scores.by.grade<-ddply(map.scores, .(Subject, SchoolName,Grade), function(df) orderid(df,df$Fall12_RIT))
 map.scores.by.class<-ddply(map.scores, .(Subject, SchoolName,ClassName), function(df) orderid(df,df$Fall12_RIT))
 
@@ -137,87 +351,125 @@ map.scores.primary<-subset(map.scores.by.grade, SchoolName=="KIPP Ascend Primary
 map.scores.primary.by.class<-subset(map.scores.by.class, SchoolName=="KIPP Ascend Primary") 
 map.scores.KAMS<-subset(map.scores.by.grade, SchoolName=="KIPP Ascend Middle School")
 map.scores.KCCP<-subset(map.scores.by.grade, SchoolName=="KIPP Create Middle School")
+map.scores.KAMS_KCCP<-subset(map.scores.by.grade, SchoolName!="KIPP Ascend Primary")
 @
 
 
-<<NWEA_Norms>>=
+<<NWEA_Norms, cache=TRUE>>=
 nwea.norms.fall<-data.frame(Grade=factor(c("K","K","1","1","2","2","5","5","6","6","7","7","8","8"),levels=c("K","1","2","5","6","7","8")), Subject=factor(c("Mathematics", "Reading", "Mathematics", "Reading","Mathematics", "Reading","Mathematics", "Reading","Mathematics", "Reading","Mathematics", "Reading","Mathematics", "Reading"),levels=c("Mathematics","Reading")), Mean=c(143.7,142.5,162.8,160.3,178.2,175.9,212.9,209.8,219.6,212.3,225.6,216.3,230.2,219.3), SD=c(11.88,10.71,13.57,12.76,12.97,15.44,14.18,14.21,15.37,14.39,16.79,14.23,17.04,14.86))
 @
 
 
-\section{Graphics Test 1}
+\section{Are we serving the children who need us?}
+This section should have a side table with region wide demographics from :
+  Ethnicity (by school?)
+  Gender
+  FRL
+  SPED
+  ELL
+  E
+
+<<Enrollment_tables_prep, cache=TRUE>>=
+
+GenderByGrade<-cast(ddply(Enrollment, .(GRADE_LEVEL,GENDER), summarise, Gender_Count=length(GENDER)), GRADE_LEVEL~GENDER, margins=TRUE, sum)
+
+GenderByGrade$Girls<-paste(GenderByGrade$F, " (", round(GenderByGrade$F/(GenderByGrade$F+GenderByGrade$M)*100),"%)",sep="")
+GenderByGrade$Boys<-paste(GenderByGrade$F, " (", round(GenderByGrade$M/(GenderByGrade$F+GenderByGrade$M)*100),"%)",sep="")
+
+GenderByGrade.table<-GenderByGrade[,c("GRADE_LEVEL", "Girls", "Boys", "(all)")]
+names(GenderByGrade.table)<-c("Grade", "Girls", "Boys", "Total")
+GenderByGrade.table$Grade<-factor(x=GenderByGrade.table$Grade, labels=c("K","1st","2nd","5th","6th","7th","8th", "Total"))
+
+GenderByGrade.xtable<-xtable(GenderByGrade.table)
+
+#Create similar table Grade by ethnicity over the whole region
+RaceByGrade<-cast(ddply(Enrollment, .(GRADE_LEVEL,ETHNICITY), summarise, Race_Count=length(ETHNICITY)), GRADE_LEVEL~ETHNICITY, margins=TRUE, sum)
+
+names(RaceByGrade)<-c("Grade", "AA", "Latino1", "Latino2", "Total")
+RaceByGrade$AfricAmer<-paste(RaceByGrade$AA, " (", round(RaceByGrade$AA/RaceByGrade$Total*100), "%)",sep="")
+RaceByGrade$Latino<-paste(RaceByGrade$Latino1+RaceByGrade$Latino2, " (", round((RaceByGrade$Latino1+RaceByGrade$Latino2)/RaceByGrade$Total*100), "%)",sep="")
+
+RaceByGrade.table<-RaceByGrade[,c(1,7,8,6,5)]
+names(RaceByGrade.table)<-c("Grade", "Black", "Latino", "NA", "Total")
+RaceByGrade.table$Grade<-factor(x=RaceByGrade.table$Grade, labels=c("K","1st","2nd","5th","6th","7th","8th", "Total"))
+RaceByGrade.xtable<-xtable(RaceByGrade.table)
+@
+
+
+We currently enroll **X** students of whom **Y** are female and **Z** are male. 
+\begin{margintable}
+<<Enrollement_Gender_table, results='asis', echo=FALSE>>=
+print(GenderByGrade.xtable, include.rownames=FALSE, size="small", floating=FALSE, label="t:Gender_by_Grade")
+@
+\caption{KIPP Chicago Enrollment by Gender}
+\end{margintable}
+  
+Racially we our students are Y\% African American and Z\% Latino.  X\% qualify for free or reduced lunch and S\% have an accomodation.
+
+\begin{margintable}
+<<Enrollement_Race_table, results='asis', echo=FALSE>>=
+print(RaceByGrade.xtable, include.rownames=FALSE, size="small", floating=FALSE, label="t:Race_by_Grade")
+@
+\caption{KIPP Chicago Enrollment by Ethnicity}
+\end{margintable}
+
+
+
+Perhaps more pertinent the question denoting this section is to ask at what level of academic achievemnt are our  students newly entering our schools and how does that compare to national levels of achievement?
+
+\begin{marginfigure}
+<<test_plot, fig.width=8, fig.height=5, out.width='\\linewidth', dev='pdf',echo=FALSE>>=
+map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.KAMS_KCCP,normsdata=nwea.norms.fall,grade=5,subj="Mathematics",schoolname="KAMS"),legendpos="none")
+@
+\caption{KAMS 5th Grade Distribution of RIT Scores versus the National Distribution of RIT Scores \\n Fall 2012 Readin}
+\end{marginfigure}
+
+  
+  
+\section{Are our students staying with us?}
+This section should have a simply graph showing the proportions for kids leaving.  We should probably also look at numbers leaving and reasons by grade (Are we losing kids at a predictable point?).  A table should be included in a side bar showing reasons, counts, and percentages.
+
+
+Historical mobility and attrition data
+
+Enrollment and attendence
+
+\section{Are our students progressing and achieving academically?}
+
+ISAT last year
+MAP Results from last year
+MAP Results this year
+
+Look at percentile/quartile movement fall to fall?  
+
+Results by sped?
+
+\section{Are we supporting kids to and through collegte?}
+
+Graph of Selective versus no selective.
+
+\section{Do we attract and retain talented educators?}
+
+Teacher attrition rates
+Graph/table of exit reasons
+
+Q12 and HSR results 
+
+\section{Are we building a financially sustainable model?}
+
+Probably budget burn data here
 
 \newthought{This section is a test of graphing,} espeically of the marginal variety. 
 \blindtext
 \blindtext
-\begin{marginfigure}
-<<test_plot, fig.width=8, fig.height=5, out.width='\\linewidth', dev='pdf',echo=FALSE>>=
-map_comparative_histograms(map_combined_histo_data(kippdata=map.scores.KAMS,normsdata=nwea.norms.fall,grade=5,subj="Mathematics",schoolname="KAMS"),legendpos="none")
-@
-\caption{KAPS Kindergarten Distribution of RIT Scores versus the National Distribution of RIT Scores \\n Fall 2012 Readin}
-\end{marginfigure}
+
 \blindtext
 \blindtext
 \section{Enrollment, Attrition, \& Attendence}
 \subsection{Attendence} 
-The school year for for KAPS and KAMS began on August 13, 2012 and on August 27, 2012 for KCCP.  Consequntly all of the attendance analysis is bassed on data pulled from PowerSchool for the time between August 13 and today (October 10, 2012).  
 
 
-
-<<get_Attendance_Data, cache=TRUE>>=
-#Establish connection ot PowerSchool.  Not you must have established the F5 BIG-IP VPN or this 
-#won't work. 
-pscon<-odbcConnect("PS", pwd="laidephy")
-
-#Get Attendance data.  
-# This SQL statement retrieves each enrolled student and their attendence status form PowerSchool 
-# by date for a given dateThi sis a table with each student for each day with status for the day
-Attendence<-sqlQuery(pscon, "
-SELECT 
-  m.schoolid, 
-	m.grade_level,
-	m.calendardate, 
-	m.studentid, 
-	m.Enrolled,
-	a.Att_Code,
-	a.Description as AttDescr,
-	CASE 
-		WHEN	a.Presence_Status_CD = 'Absent' THEN 1 
-		ELSE 0 
-	END as boolAbsent
-FROM (
-	SELECT
-		SchoolID,  
-		grade_level, 
-		calendardate, studentid, 
-		1 as Enrolled  
-	FROM PS_Membership_Defaults 
-	Where 	calendardate >= '13-AUG-12'
-		AND  calendardate <= '31-OCT-12'
-) m
-LEFT JOIN (
-	SELECT 
-		att.schoolid,
-		s.lastfirst, 
-		s.id as StudentID,
-		s.GRADE_LEVEL,
-		att.Att_Date,
-		attc.Att_Code,
-		attc.Description,
-		attc.Presence_Status_CD
-	FROM Attendance att
-  	INNER JOIN Attendance_Code attc ON att.Attendance_CodeID = attc.ID
- 	LEFT JOIN students s ON att.StudentID = s.id
-	WHERE 
-		att.Att_Mode_Code = 'ATT_ModeDaily'
-  		AND att.Att_Date >= '13-AUG-12'
-  		AND att.Att_Date <= '31-OCT-12'
-		AND (attc.att_code = 'A' OR attc.att_code = 'S')
-) a
-ON m.STUDENTID = a.studentid AND m.calendardate =a.Att_Date AND m.schoolID = a.schoolid
-ORDER BY schoolid, grade_level, calendardate
-")
-
+<<Attendance_polishing, cache=FALSE>>=
 #Summarize enrollments and absences by day
 
 DailyEnrollAttend<-ddply(Attendence, .(SCHOOLID, CALENDARDATE), summarise, Enrolled=sum(ENROLLED), Absent=sum(BOOLABSENT))
@@ -230,8 +482,8 @@ names(DailyEnrollAttendByGrade)<-c("SchoolID", "Grade","Date", "Enrolled", "Abse
 
 
 #transform dates
-DailyEnrollAttend$Date<-ymd(as.character(DailyEnrollAttend$Date))
-DailyEnrollAttendByGrade$Date<-ymd(as.character(DailyEnrollAttendByGrade$Date))
+DailyEnrollAttend$Date<-ymd_hms(DailyEnrollAttend$Date)
+DailyEnrollAttendByGrade$Date<-ymd_hms(DailyEnrollAttendByGrade$Date)
 
 #Some quick daily stats
 DailyEnrollAttend$Present<-DailyEnrollAttend$Enrolled-DailyEnrollAttend$Absent
@@ -242,7 +494,14 @@ DailyEnrollAttend$Present96PctBenchMark<-.96*DailyEnrollAttend$Enrolled
 DailyEnrollAttend$WeekInYear<-week(DailyEnrollAttend$Date)
 DailyEnrollAttend$WeekInSchoolYear<-DailyEnrollAttend$WeekInYear - min(DailyEnrollAttend$WeekInYear) +1
 DailyEnrollAttend$WeekOfDate<-floor_date(DailyEnrollAttend$Date, unit="week") + days(1) 
-DailyEnrollAttend$WeekOfDateLabel<-paste("Week of", month(DailyEnrollAttend$WeekOfDate,label=TRUE, abbr=TRUE), day(DailyEnrollAttend$WeekOfDate), sep=" ")
+
+#Long Week (of) label
+DailyEnrollAttend$WeekOfDateLabel<-paste("Week of \n", month(DailyEnrollAttend$WeekOfDate,label=TRUE, abbr=TRUE), day(DailyEnrollAttend$WeekOfDate), sep=" ")
+DailyEnrollAttend$WeekOfDateLabel<-factor(DailyEnrollAttend$WeekInSchoolYear, labels=unique(DailyEnrollAttend$WeekOfDateLabel))
+
+#Short Week  Label
+DailyEnrollAttend$WeekOfShortDateLabel<-paste(month(DailyEnrollAttend$WeekOfDate,label=TRUE, abbr=TRUE), day(DailyEnrollAttend$WeekOfDate), sep=" ")
+DailyEnrollAttend$WeekOfShortDateLabel<-factor(DailyEnrollAttend$WeekInSchoolYear, labels=unique(DailyEnrollAttend$WeekOfShortDateLabel))
 
 
 #add School Initials for graphics
@@ -252,24 +511,44 @@ DailyEnrollAttend$SchoolInitials[DailyEnrollAttend$SchoolID==400146]<-"KCCP"
 #head(DailyEnrollAttend)
 @
 
+<<Attendence_summaries, cache=FALSE>>=
 
-\begin{figure*}
-<<Plot_Attendance, fig.width=8, fig.height=3, out.width='\\linewidth', dev='pdf',echo=FALSE>>=
+#calculate attendence rate by week by school
+AttRateByWeekBySchool<-ddply(DailyEnrollAttend,.(SchoolInitials,WeekOfShortDateLabel), summarise, AttRate=sum(Present)/sum(Enrolled))
 
-#Melt DailyEnrollAttend into long file format
 
-ggplot(subset(DailyEnrollAttend,SchoolID!=400146), aes(x=wday(Date), y=Enrolled)) + 
+
+AttRateByWeekBySchool.table<-xtable(cast(AttRateByWeekBySchool, WeekOfShortDateLabel ~ SchoolInitials))
+names(AttRateByWeekBySchool.table)[1]<-"Week of" #a better column title
+@
+
+
+\begin{margintable}
+<<Attendence_table, results='asis', echo=FALSE>>=
+print(AttRateByWeekBySchool.table, include.rownames=FALSE, size="small", floating=FALSE, label="t:Att_by_Week")
+@
+\caption{KIPP Chicago Weekly Attendence Rates}
+\end{margintable}
+
+
+
+The KIPP Chicago \textbf{year-to-date attendence rate} is **96\%***. The YTD attendance rates for each of the three schools is 96\%, 96\%, and 96\% for KAPS, KAMS, and KCCP, respectively.\sidenote{The school year for for began on August 13, 2012 for KAPS and KAMS and on August 27, 2012 for KCCP.  Consequntly all of the attendance analysis is bassed on data pulled from PowerSchool for the time between August 13 and today (November 6, 2012).}   Table \ref{t:Att_by_week} shows weekly attendence rates for year school as well as YTD attendence rates. 
+
+Daily Enrollement, our consequent daily attendence goal (96\% of Enrollemt), and daily attendence are displayed for each day by week in Figure \ref{f:Enroll_Attend_Daily}.  Clearly the three schools have seen incresing enrollment over the first eight weeks of the school year (through the week of September 24 for KAPS and KAMS and the week of October 15 for KCCP).  
+
+\begin{figure*}[b!]
+<<Plot_Attendance, fig.width=8, fig.height=3, out.width='\\linewidth',echo=FALSE>>=
+
+
+ggplot(DailyEnrollAttend, aes(x=wday(Date), y=Enrolled)) + 
   geom_step(direction="hv", color="gray") + 
   geom_step(aes(y=Present), direction="hv") + 
   geom_step(aes(y=.96*Enrolled), direction="hv", color="green") + 
   scale_x_continuous(breaks = c(2,3,4,5,6), labels=c("M","T","W","R","F")) + #Change numberd week days to lettered
-  facet_grid(SchoolID~WeekInSchoolYear, scales="free_y") +
+  facet_grid(SchoolInitials~WeekOfDateLabel, scales="free_y") +
   theme_bw()
 @
-\end{figure*}
-
-
-
+\end{figure*}\label{f:Enroll_Attend_Daily}
 
 \section{Highlights from the 2011-12 School Year}
 \blindtext

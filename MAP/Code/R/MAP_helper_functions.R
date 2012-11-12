@@ -127,8 +127,24 @@ map_combined_histo_data <- function (kippdata=map.scores.KAMS, normsdata=nwea.no
   df.norm$Subject<-subj
   df.norm$Grade<-grade
   
-  RIT<-subset(kippdata, Subject==subj & Grade==grade)[,"Fall12_RIT"]
-  ID<-rep(schoolname,length(RIT))
+  
+  df<-subset(kippdata, Subject==subj & Grade==grade)
+  df<-arrange(df, SchoolName) #make sure that all students are sperated by school after subsetting
+  RIT<-df[,"Fall12_RIT"]
+  l<-length(schoolname)
+  if(l>1){
+    kippnames<-unique(kippdata$SchoolName)
+    l.name1<-nrow(subset(df, SchoolName==kippnames[1]))
+    l.name2<-nrow(subset(df, SchoolName==kippnames[2]))
+    
+    ID1<-rep(schoolname[1],l.name1)
+    ID2<-rep(schoolname[2],l.name2)
+    
+    ID<-c(ID1,ID2)
+    
+  }
+  else ID<-rep(schoolname,length(RIT))
+  
   Subject<-rep(subj,length(RIT))
   Grade<-rep(grade,length(RIT))
   
@@ -157,11 +173,18 @@ map_comparative_histograms <- function (df, legendpos="bottom", title=" ", schoo
     } else pctl75.vline<-pctl75 + 0.5*bw
   
   #Get means of simulated national and actual class distiribution for verticle line
-  mean.vline<-c(mean(subset(df, ID==schoolname)$RIT),mean(subset(df, ID=="National Norm")$RIT))
-  label.vline<-c(paste("Mean RIT = ", round(mean.vline[1]), sep=""), paste("Mean RIT = ", round(mean.vline[2]), sep=""))
+  mean.vline<-label.vline<-vector()
+  for(n in unique(df$ID)){
+    school.mean<-mean(subset(df, ID==n)$RIT)
+    mean.vline<-c(mean.vline,school.mean)
+    label.vline<-c(label.vline, paste("Mean RIT = ", round(school.mean), sep=""))
+  }
+      
+  #this whole section is hacky.  Is shcould probably put abbreviations in original data set
   
   #find means of both distributions for verticles lines representing means in plots
-  df.vline <- data.frame(ID=unique(df$ID), vl=mean.vline, mean.label=label.vline, p75=rep(pctl75,2), p75.label=rep(paste("75th %ile = ",round(pctl75),sep="")))
+  df.length<-length(mean.vline)
+  df.vline <- data.frame(ID=unique(df$ID), vl=mean.vline, mean.label=label.vline, p75=rep(pctl75,df.length), p75.label=rep(paste("75th %ile = ",round(pctl75),sep=""),df.length))
   #KIPP friendly colors
   kippcols <- c("#CFCCC1","#60A2D7")
   

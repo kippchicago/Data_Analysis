@@ -58,6 +58,7 @@
 \usepackage[english]{babel}
 \usepackage{blindtext}
 
+
 \title{Principal Packets Test}
 \author{Christopher J. Haid}
 
@@ -83,6 +84,12 @@ This document is a beta version of KIPP:Chicago's \textbf{Principal Packet}.  Th
 
 
 
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+
+
+{\ttfamily\noindent\textcolor{warningcolor}{\#\# Warning: invalid factor level, NAs generated}}\end{kframe}
+\end{knitrout}
 
 
 
@@ -92,7 +99,127 @@ This document is a beta version of KIPP:Chicago's \textbf{Principal Packet}.  Th
 
 
 
-\section{Graphics Test 1}
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+\section{Are we serving the children who need us?}
+This section should have a side table with region wide demographics from :
+  Ethnicity (by school?)
+  Gender
+  FRL
+  SPED
+  ELL
+  E
+
+
+
+
+
+We currently enroll **X** students of whom **Y** are female and **Z** are male. 
+\begin{margintable}
+
+% latex table generated in R 2.15.1 by xtable 1.7-0 package
+% Fri Nov  9 12:02:19 2012
+{\small
+\begin{tabular}{lllr}
+  \hline
+Grade & Girls & Boys & Total \\ 
+  \hline
+K & 49 (47\%) & 49 (53\%) & 105 \\ 
+  1st & 49 (46\%) & 49 (54\%) & 106 \\ 
+  2nd & 51 (48\%) & 51 (52\%) & 106 \\ 
+  5th & 95 (56\%) & 95 (44\%) & 173 \\ 
+  6th & 49 (55\%) & 49 (45\%) &  89 \\ 
+  7th & 43 (49\%) & 43 (51\%) &  88 \\ 
+  8th & 45 (55\%) & 45 (45\%) &  82 \\ 
+  Total & 381 (51\%) & 381 (49\%) & 749 \\ 
+   \hline
+\end{tabular}
+}
+
+
+
+\caption{KIPP Chicago Enrollment by Gender}
+\end{margintable}
+  
+Racially we our students are Y\% African American and Z\% Latino.  X\% qualify for free or reduced lunch and S\% have an accomodation.
+
+\begin{margintable}
+
+% latex table generated in R 2.15.1 by xtable 1.7-0 package
+% Fri Nov  9 12:02:19 2012
+{\small
+\begin{tabular}{lllrr}
+  \hline
+Grade & Black & Latino & NA & Total \\ 
+  \hline
+K & 99 (94\%) & 6 (6\%) &   0 & 105 \\ 
+  1st & 100 (94\%) & 6 (6\%) &   0 & 106 \\ 
+  2nd & 98 (92\%) & 8 (8\%) &   0 & 106 \\ 
+  5th & 166 (96\%) & 3 (2\%) &   4 & 173 \\ 
+  6th & 89 (100\%) & 0 (0\%) &   0 &  89 \\ 
+  7th & 87 (99\%) & 1 (1\%) &   0 &  88 \\ 
+  8th & 81 (99\%) & 1 (1\%) &   0 &  82 \\ 
+  Total & 720 (96\%) & 25 (3\%) &   4 & 749 \\ 
+   \hline
+\end{tabular}
+}
+
+
+
+\caption{KIPP Chicago Enrollment by Ethnicity}
+\end{margintable}
+
+
+
+Perhaps more pertinent the questoin denoting this section is to ask at what level are our studetns entering our schools and how does that compare to nationally?
+  
+  
+\section{Are our students staying with us?}
+This section should have a simply graph showing the proportions for kids leaving.  We should probably also look at numbers leaving and reasons by grade (Are we losing kids at a predictable point?).  A table should be included in a side bar showing reasons, counts, and percentages.
+
+
+Historical mobility and attrition data
+
+Enrollment and attendence
+
+\section{Are our students progressing and achieving academically?}
+
+ISAT last year
+MAP Results from last year
+MAP Results this year
+
+Look at percentile/quartile movement fall to fall?  
+
+Results by sped?
+
+\section{Are we supporting kids to and through collegte?}
+
+Graph of Selective versus no selective.
+
+\section{Do we attract and retain talented educators?}
+
+Teacher attrition rates
+Graph/table of exit reasons
+
+Q12 and HSR results 
+
+\section{Are we building a financially sustainable model?}
+
+Probably budget burn data here
 
 \newthought{This section is a test of graphing,} espeically of the marginal variety. 
 \blindtext
@@ -114,7 +241,6 @@ This document is a beta version of KIPP:Chicago's \textbf{Principal Packet}.  Th
 \blindtext
 \section{Enrollment, Attrition, \& Attendence}
 \subsection{Attendence} 
-The school year for for KAPS and KAMS began on August 13, 2012 and on August 27, 2012 for KCCP.  Consequntly all of the attendance analysis is bassed on data pulled from PowerSchool for the time between August 13 and today (October 10, 2012).  
 
 
 
@@ -122,7 +248,46 @@ The school year for for KAPS and KAMS began on August 13, 2012 and on August 27,
 
 
 
-\begin{figure*}
+
+
+\begin{margintable}
+
+% latex table generated in R 2.15.1 by xtable 1.7-0 package
+% Fri Nov  9 12:02:24 2012
+{\small
+\begin{tabular}{lrrr}
+  \hline
+Week of & KAMS & KAPS & KCCP \\ 
+  \hline
+Aug 13 & 0.99 & 0.98 &  \\ 
+  Aug 20 & 0.98 & 0.96 &  \\ 
+  Aug 27 & 0.96 & 0.97 & 0.99 \\ 
+  Sep 3 & 0.94 & 0.96 & 0.98 \\ 
+  Sep 10 & 0.95 & 0.95 & 0.91 \\ 
+  Sep 17 & 0.97 & 0.96 & 0.93 \\ 
+  Sep 24 & 0.96 & 0.96 & 0.97 \\ 
+  Oct 1 & 0.97 & 0.98 & 0.99 \\ 
+  Oct 8 & 0.94 & 0.96 & 0.97 \\ 
+  Oct 15 & 0.94 & 0.96 & 0.98 \\ 
+  Oct 22 & 0.96 & 0.97 & 0.96 \\ 
+  Oct 29 & 0.96 & 0.96 & 0.98 \\ 
+  Nov 5 & 0.96 & 0.97 & 0.96 \\ 
+   \hline
+\end{tabular}
+}
+
+
+
+\caption{KIPP Chicago Weekly Attendence Rates}
+\end{margintable}
+
+
+
+The KIPP Chicago \textbf{year-to-date attendence rate} is **96\%***. The YTD attendance rates for each of the three schools is 96\%, 96\%, and 96\% for KAPS, KAMS, and KCCP, respectively.\sidenote{The school year for for began on August 13, 2012 for KAPS and KAMS and on August 27, 2012 for KCCP.  Consequntly all of the attendance analysis is bassed on data pulled from PowerSchool for the time between August 13 and today (November 6, 2012).}   Table \ref{t:Att_by_week} shows weekly attendence rates for year school as well as YTD attendence rates. 
+
+Daily Enrollement, our consequent daily attendence goal (96\% of Enrollemt), and daily attendence are displayed for each day by week in Figure \ref{f:Enroll_Attend_Daily}.  Clearly the three schools have seen incresing enrollment over the first eight weeks of the school year (through the week of September 24 for KAPS and KAMS and the week of October 15 for KCCP).  
+
+\begin{figure*}[b!]
 \begin{knitrout}
 \definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}
 
@@ -133,10 +298,7 @@ The school year for for KAPS and KAMS began on August 13, 2012 and on August 27,
 
 \end{knitrout}
 
-\end{figure*}
-
-
-
+\end{figure*}\label{f:Enroll_Attend_Daily}
 
 \section{Highlights from the 2011-12 School Year}
 \blindtext
