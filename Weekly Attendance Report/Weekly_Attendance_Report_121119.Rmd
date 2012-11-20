@@ -180,14 +180,14 @@ ggplot(DailyEnrollAttend, aes(x=wday(Date), y=Enrolled)) +
   theme_bw()
 ```
 #### Student Attendance 
-```{r Student_Attendence, fig.width=11, fig.height=8}
+```{r Student_Attendence, fig.width=11, fig.height=20}
 AttByStudentBySchool<-arrange(ddply(Attendence, .(LASTFIRST, SchoolInitials, GRADE_LEVEL), summarise, Absences=sum(BOOLABSENT)), SchoolInitials, desc(Absences))
 
 AttByStudentBySchool<-na.omit(AttByStudentBySchool)
 names(AttByStudentBySchool)<-c("Student", "School", "Grade", "Absences")
 
 
-leaderboards<-function(df, schoolname="KAMS",height=c(.05,.5)){
+leaderboards<-function(df, schoolname="KAMS",height=c(.3,.7)){
   x<-df[df$School==schoolname,]
   x<-x[,-2]
   
@@ -197,7 +197,7 @@ leaderboards<-function(df, schoolname="KAMS",height=c(.05,.5)){
   arrangeGrob(t.title, t.table, heights=height, default.units="npc")
 }
 
-grid.arrange(leaderboards(AttByStudentBySchool, schoolname="KAPS"),leaderboards(AttByStudentBySchool, schoolname="KAMS"),leaderboards(AttByStudentBySchool, schoolname="KCCP"), ncol=2, nrow=2, heights=unit(.5, "npc"))
+grid.arrange(leaderboards(AttByStudentBySchool, schoolname="KAPS"),leaderboards(AttByStudentBySchool, schoolname="KAMS"),leaderboards(AttByStudentBySchool, schoolname="KCCP"), ncol=2, nrow=2, heights=unit(10, "inches"))
 ```
 
 
