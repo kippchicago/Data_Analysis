@@ -1,0 +1,268 @@
+KIPP Chicago Regional Attendance Report
+========================================================
+Week of November 19, 2012
+--------------------------------------------------------
+
+### Attendence
+```{r options, echo=FALSE}
+options(replace.assign=TRUE,width=60)
+opts_chunk$set( 
+               fig.align='center', 
+               #dev='tikz', 
+               fig.width=8, 
+               fig.height=10.5, 
+               dpi=200,
+               fig.show='hold', 
+               cache=FALSE, 
+               par=TRUE,
+               echo=FALSE,
+               message=FALSE,
+               warning=FALSE,
+               autodepend=TRUE
+               )
+```
+```{r load_libraries}
+setwd("~/Dropbox/Consulting/KIPP Ascend/Data Analysis/Weekly Attendance Report/")
+
+
+
+library(plyr)  #To manipulate data
+library(reshape) #More data manipulation
+library(ggplot2) #Graphics of grammer graphing
+library(grid) #More Graphing
+library(gridExtra) #better than par(mfrow=c(r,c)) for arranging ggplot2 and lattice graphics
+library(lubridate) #for dealing with dates
+library(xtable) #for pretty tables
+library(RJDBC) #To get data form PowerSchool DB
+library(RODBC) #To get data form PowerSchool DB
+#source MAP helper functions
+source("~/Dropbox/Consulting/KIPP Ascend/Data Analysis/MAP/Code/R/MAP_helper_functions.R")
+```
+```{r establsih_DB_connections}
+drvr <- JDBC("oracle.jdbc.driver.OracleDriver", "/Users/chaid/Dropbox/JDBC Drivers/ojdbc5.jar","")
+pscon <- dbConnect(drvr,"jdbc:oracle:thin:@10.160.29.47:1521:IL039","psnavigator","laidephy")
+```
+```{r get_Attendance_Data, cache=TRUE}
+#Get Attendance data.  
+# This SQL statement retrieves each enrolled student and their attendence status form PowerSchool 
+# by date for a given dateThi sis a table with each student for each day with status for the day
+Attendence<-dbGetQuery(pscon, "SELECT 
+  m.schoolid, 
+  m.grade_level,
+  m.calendardate, 
+	m.studentid, 
+  a.lastfirst,
+	m.Enrolled,
+	a.Att_Code,
+	a.Description as AttDescr,
+	CASE 
+		WHEN	a.Presence_Status_CD = 'Absent' THEN 1 
+		ELSE 0 
+	END as boolAbsent
+FROM (
+	SELECT
+		SchoolID,  
+		grade_level, 
+		calendardate, studentid, 
+		1 as Enrolled  
+	FROM PS_Membership_Defaults 
+	Where 	calendardate >= '13-AUG-12'
+		AND  calendardate <= '18-NOV-12'
+) m
+LEFT JOIN (
+	SELECT 
+		att.schoolid,
+		s.lastfirst, 
+		s.id as StudentID,
+		s.GRADE_LEVEL,
+		att.Att_Date,
+		attc.Att_Code,
+		attc.Description,
+		attc.Presence_Status_CD
+	FROM Attendance att
+  	INNER JOIN Attendance_Code attc ON att.Attendance_CodeID = attc.ID
+ 	LEFT JOIN students s ON att.StudentID = s.id
+	WHERE 
+		att.Att_Mode_Code = 'ATT_ModeDaily'
+  		AND att.Att_Date >= '13-AUG-12'
+  		AND att.Att_Date <= '18-NOV-12'
+		AND (attc.att_code = 'A' OR attc.att_code = 'S')
+) a
+ON m.STUDENTID = a.studentid AND m.calendardate =a.Att_Date AND m.schoolID = a.schoolid
+ORDER BY schoolid, grade_level, calendardate
+")
+```
+```{r polish_Attendance, cache=TRUE}
+
+Attendence$SchoolInitials[Attendence$SCHOOLID==7810]<-"KAMS"
+Attendence$SchoolInitials[Attendence$SCHOOLID==78102]<-"KAPS"
+Attendence$SchoolInitials[Attendence$SCHOOLID==400146]<-"KCCP"
+Attendence$SchoolInitials<-factor(Attendence$SchoolInitials, levels=c("KAPS", "KAMS", "KCCP"))
+
+
+#Summarize enrollments and absences by day
+
+
+
+DailyEnrollAttend<-ddply(Attendence, .(SCHOOLID, CALENDARDATE), summarise, Enrolled=sum(ENROLLED), Absent=sum(BOOLABSENT))
+
+DailyEnrollAttendByGrade<-ddply(Attendence, .(SCHOOLID, GRADE_LEVEL, CALENDARDATE), summarise, Enrolled=sum(ENROLLED), Absent=sum(BOOLABSENT))
+#rename some columns (becuase ALL CAPS is annoying)
+
+names(DailyEnrollAttend)<-c("SchoolID", "Date", "Enrolled", "Absent")
+names(DailyEnrollAttendByGrade)<-c("SchoolID", "Grade","Date", "Enrolled", "Absent")
+
+
+#transform dates
+DailyEnrollAttend$Date<-ymd_hms(DailyEnrollAttend$Date)
+DailyEnrollAttendByGrade$Date<-ymd_hms(DailyEnrollAttendByGrade$Date)
+
+#Some quick daily stats
+DailyEnrollAttend$Present<-DailyEnrollAttend$Enrolled-DailyEnrollAttend$Absent
+DailyEnrollAttend$PctAbsent<-DailyEnrollAttend$Absent/DailyEnrollAttend$Enrolled
+DailyEnrollAttend$PctPresent<-1-DailyEnrollAttend$PctAbsent
+DailyEnrollAttend$PctPresentGTE95<-DailyEnrollAttend$PctPresent>=.95
+DailyEnrollAttend$Present96PctBenchMark<-.96*DailyEnrollAttend$Enrolled
+DailyEnrollAttend$WeekInYear<-week(DailyEnrollAttend$Date)
+DailyEnrollAttend$WeekInSchoolYear<-DailyEnrollAttend$WeekInYear - min(DailyEnrollAttend$WeekInYear) +1
+DailyEnrollAttend$WeekOfDate<-floor_date(DailyEnrollAttend$Date, unit="week") + days(1) 
+
+#Long Week (of) label
+DailyEnrollAttend$WeekOfDateLabel<-paste("Week of \n", month(DailyEnrollAttend$WeekOfDate,label=TRUE, abbr=TRUE), day(DailyEnrollAttend$WeekOfDate), sep=" ")
+DailyEnrollAttend$WeekOfDateLabel<-factor(DailyEnrollAttend$WeekInSchoolYear, labels=unique(DailyEnrollAttend$WeekOfDateLabel))
+
+#Short Week  Label
+DailyEnrollAttend$WeekOfShortDateLabel<-paste(month(DailyEnrollAttend$WeekOfDate,label=TRUE, abbr=TRUE), day(DailyEnrollAttend$WeekOfDate), sep=" ")
+DailyEnrollAttend$WeekOfShortDateLabel<-factor(DailyEnrollAttend$WeekInSchoolYear, labels=unique(DailyEnrollAttend$WeekOfShortDateLabel))
+
+
+#add School Initials for graphics
+DailyEnrollAttend$SchoolInitials[DailyEnrollAttend$SchoolID==7810]<-"KAMS"
+DailyEnrollAttend$SchoolInitials[DailyEnrollAttend$SchoolID==78102]<-"KAPS"
+DailyEnrollAttend$SchoolInitials[DailyEnrollAttend$SchoolID==400146]<-"KCCP"
+DailyEnrollAttend$SchoolInitials<-factor(DailyEnrollAttend$SchoolInitials, levels=c("KAPS", "KAMS", "KCCP"))
+#head(DailyEnrollAttend)
+```
+```{r Attendance_Summaries}
+#calculate attendence rate by week by school
+AttRateByWeekBySchool<-ddply(DailyEnrollAttend,.(SchoolInitials,WeekOfShortDateLabel), summarise, AttRate=sum(Present)/sum(Enrolled)*100)
+
+AttRateYTDBySchool<-ddply(DailyEnrollAttend,.(SchoolInitials), summarise, AttRate=sum(Present)/sum(Enrolled)*100)
+
+AttRateYTDBySchool$WeekOfShortLabel<-"YTD"
+
+AttRateByWeekBySchool.table<-cast(AttRateByWeekBySchool, WeekOfShortDateLabel ~ SchoolInitials)
+
+AttRateYTDBySchool<-reshape(AttRateYTDBySchool, idvar="WeekOfShortLabel",timevar="SchoolInitials", direction="wide")
+names(AttRateYTDBySchool)<-c("WeekOfShortDateLabel", "KAMS", "KAPS", "KCCP")
+AttRateByWeekBySchool.table<-rbind(AttRateByWeekBySchool.table,AttRateYTDBySchool)
+AttRateByWeekBySchool.table[,c(2:4)] <- round(AttRateByWeekBySchool.table[,c(2:4)],1)
+
+
+
+
+names(AttRateByWeekBySchool.table)[1]<-"Week of" #a better column title
+AttRateByWeekBySchool.xtable<-xtable(AttRateByWeekBySchool.table)
+```
+
+#### Weekly & YTD Attendance by School
+```{r tbl_Weekly_Attendance, fig.width=7, fig.height=5}
+grid.table(AttRateByWeekBySchool.xtable, show.rownames=FALSE)
+```
+#### Daily Enrollment and Attendance by School
+The greeen line demarcates 96% of enrollment (i.e., our regional daily attendance goal).
+```{r fig_Daily_Attendence, fig.width=10, fig.height=4}
+ggplot(DailyEnrollAttend, aes(x=wday(Date), y=Enrolled)) + 
+  geom_step(direction="hv", color="gray") + 
+  geom_step(aes(y=Present), direction="hv") + 
+  geom_step(aes(y=.96*Enrolled), direction="hv", color="green") + 
+  scale_x_continuous(breaks = c(2,3,4,5,6), labels=c("M","T","W","R","F")) + #Change numberd week days to lettered
+  facet_grid(SchoolInitials~WeekOfDateLabel, scales="free_y") +
+  theme_bw()
+```
+#### Student Attendance 
+```{r Student_Attendence}
+AttByStudentBySchool<-arrange(ddply(Attendence, .(LASTFIRST, SchoolInitials, GRADE_LEVEL), summarise, Absences=sum(BOOLABSENT)), SchoolInitials, desc(Absences))
+
+AttByStudentBySchool<-na.omit(AttByStudentBySchool)
+names(AttByStudentBySchool)<-c("Student", "School", "Grade", "Absences")
+
+
+leaderboards<-function(df, schoolname="KAMS",height=c(.05,.5)){
+  x<-df[df$School==schoolname,]
+  x<-x[,-2]
+  
+  t.title<-textGrob(schoolname, just="bottom")
+  t.table<-tableGrob(x[1:15,], show.rownames=FALSE, as.table=TRUE)
+ 
+  arrangeGrob(t.title, t.table, heights=height, default.units="npc")
+}
+
+grid.arrange(leaderboards(AttByStudentBySchool, schoolname="KAPS"),leaderboards(AttByStudentBySchool, schoolname="KAMS"),leaderboards(AttByStudentBySchool, schoolname="KCCP"), ncol=2, nrow=2, heights=unit(.5, "npc"))
+```
+
+
+### Suspensions
+```{r Suspensions, cache=TRUE}
+Suspensions<-subset(Attendence, ATT_CODE=='S')
+
+Suspensions$WeekInYear<-week(Suspensions$CALENDARDATE)
+
+Suspensions$WeekOfDate<-floor_date(ymd_hms(Suspensions$CALENDARDATE), unit="week") + days(1) 
+
+Suspensions<-arrange(Suspensions, CALENDARDATE)
+
+Suspensions$WeekOfShortDateLabel<-paste(month(Suspensions$WeekOfDate,label=TRUE, abbr=TRUE), day(Suspensions$WeekOfDate), sep=" ")
+Suspensions$WeekOfShortDateLabel<-factor(Suspensions$WeekInYear, labels=unique(Suspensions$WeekOfShortDateLabel))
+
+Suspensions$SchoolInitials[Suspensions$SCHOOLID==7810]<-"KAMS"
+Suspensions$SchoolInitials[Suspensions$SCHOOLID==78102]<-"KAPS"
+Suspensions$SchoolInitials[Suspensions$SCHOOLID==400146]<-"KCCP"
+Suspensions$SchoolInitials<-factor(Suspensions$SchoolInitials, levels=c("KAPS", "KAMS", "KCCP"))
+
+DailySuspensionByGradeByWeek<-ddply(Suspensions, .(SchoolInitials, GRADE_LEVEL, WeekOfShortDateLabel), summarise, Suspended=sum(BOOLABSENT))
+
+#weekly suspension by school 
+WeeklySuspensionsBySchool.table<-cast(DailySuspensionByGradeByWeek, WeekOfShortDateLabel~SchoolInitials, sum, margins=TRUE)
+
+# Change Week of row (all) to Total
+levels(WeeklySuspensionsBySchool.table$WeekOfShortDateLabel)[levels(WeeklySuspensionsBySchool.table$WeekOfShortDateLabel)=="(all)"]<-"Total"
+
+names(WeeklySuspensionsBySchool.table)<-c("Week of", "KAPS", "KAMS", "Total")
+levels(WeeklySuspensionsBySchool.table[,1])[levels(WeeklySuspensionsBySchool.table[,1])=="(all)"]<-"Total"
+
+WeeklySuspensionsBySchool.xtable<-xtable(WeeklySuspensionsBySchool.table, digits=0)
+
+
+#YTD Suspsesnions by Grade By School
+YTDSuspensionsByGradeBySchool.table<-cast(DailySuspensionByGradeByWeek, GRADE_LEVEL~SchoolInitials, sum, margins=TRUE)
+
+names(YTDSuspensionsByGradeBySchool.table)<-c("Grade", "KAPS", "KAMS", "Total")
+levels(YTDSuspensionsByGradeBySchool.table[,1])[levels(YTDSuspensionsByGradeBySchool.table[,1])=="(all)"]<-"Total"
+
+YTDSuspensionsByGradeBySchool.xtable<-xtable(YTDSuspensionsByGradeBySchool.table, digits=0)
+
+
+
+#YTD Suspsesnions by Grade by Week
+YTDSuspensionsByWeekByGrade.table<-cast(DailySuspensionByGradeByWeek, WeekOfShortDateLabel~GRADE_LEVEL, sum, margins=TRUE)
+
+names(YTDSuspensionsByWeekByGrade.table)<-c("Week of", "2nd", "5th","6th", "7th", "8th", "Total")
+levels(YTDSuspensionsByWeekByGrade.table[,1])[levels(YTDSuspensionsByWeekByGrade.table[,1])=="(all)"]<-"Total"
+
+YTDSuspensionsByWeekByGrade.xtable<-xtable(YTDSuspensionsByWeekByGrade.table, digits=0)
+```
+#### Total YTD Suspensions by School & by Week
+```{r tbl_Suspensions, fig.height=4}
+tbl.susp.1<-tableGrob(YTDSuspensionsByGradeBySchool.xtable, show.rownames=FALSE, as.table=TRUE,main="YTD Suspsensions by School")
+tbl.susp.2<-tableGrob(YTDSuspensionsByWeekByGrade.xtable,show.rownames=FALSE)
+
+grid.arrange(tbl.susp.1,tbl.susp.2, ncol=2)
+```
+#### YTD Students Suspended (ordered by number of suspensions)
+```{r tbl_Suspensions_Leaderboard, fig.width=11, fig.height=8}
+Sups.leaders<-arrange(ddply(Suspensions, .(LASTFIRST, SchoolInitials, GRADE_LEVEL), summarise, Suspensions=sum(BOOLABSENT)), desc(Suspensions))
+names(Sups.leaders)<-c("Student", "School", "Grade", "Suspensions")
+grid.table(Sups.leaders)
+```
+
