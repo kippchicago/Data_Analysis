@@ -11,7 +11,6 @@ opts_chunk$set(
                #dev='tikz', 
                fig.width=8, 
                fig.height=10.5, 
-               dpi=200,
                fig.show='hold', 
                cache=FALSE, 
                par=TRUE,
@@ -181,7 +180,7 @@ ggplot(DailyEnrollAttend, aes(x=wday(Date), y=Enrolled)) +
   theme_bw()
 ```
 #### Student Attendance 
-```{r Student_Attendence}
+```{r Student_Attendence, fig.width=11, fig.height=8}
 AttByStudentBySchool<-arrange(ddply(Attendence, .(LASTFIRST, SchoolInitials, GRADE_LEVEL), summarise, Absences=sum(BOOLABSENT)), SchoolInitials, desc(Absences))
 
 AttByStudentBySchool<-na.omit(AttByStudentBySchool)
