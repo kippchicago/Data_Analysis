@@ -157,7 +157,7 @@ map_combined_histo_data <- function (kippdata=map.scores.KAMS, normsdata=nwea.no
 
 ####And now for the small mulitples, comparative histograms
 
-map_comparative_histograms <- function (df, legendpos="bottom", title=" ", schoolname="KAMS",...) {
+map_comparative_histograms <- function (df, legendpos="bottom", title=" ",...) {
   
   #get RIT score of 75th percentile of simulated national distributoin
   pctl75<-quantile(x=subset(df, ID=="National Norm")$RIT,probs=.75)

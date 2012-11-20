@@ -65,6 +65,7 @@
 
 \makeatother
 
+
 \begin{document}
 
 
@@ -82,14 +83,6 @@ This document is a beta version of KIPP:Chicago's \textbf{Principal Packet}.  Th
 
 
 
-
-
-\begin{knitrout}
-\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
-
-
-{\ttfamily\noindent\textcolor{warningcolor}{\#\# Warning: invalid factor level, NAs generated}}\end{kframe}
-\end{knitrout}
 
 
 
@@ -132,7 +125,7 @@ We currently enroll **X** students of whom **Y** are female and **Z** are male.
 \begin{margintable}
 
 % latex table generated in R 2.15.1 by xtable 1.7-0 package
-% Fri Nov  9 12:02:19 2012
+% Mon Nov 19 22:04:00 2012
 {\small
 \begin{tabular}{lllr}
   \hline
@@ -141,11 +134,11 @@ Grade & Girls & Boys & Total \\
 K & 49 (47\%) & 49 (53\%) & 105 \\ 
   1st & 49 (46\%) & 49 (54\%) & 106 \\ 
   2nd & 51 (48\%) & 51 (52\%) & 106 \\ 
-  5th & 95 (56\%) & 95 (44\%) & 173 \\ 
+  5th & 97 (57\%) & 97 (43\%) & 173 \\ 
   6th & 49 (55\%) & 49 (45\%) &  89 \\ 
   7th & 43 (49\%) & 43 (51\%) &  88 \\ 
   8th & 45 (55\%) & 45 (45\%) &  82 \\ 
-  Total & 381 (51\%) & 381 (49\%) & 749 \\ 
+  Total & 383 (51\%) & 383 (49\%) & 749 \\ 
    \hline
 \end{tabular}
 }
@@ -157,23 +150,23 @@ K & 49 (47\%) & 49 (53\%) & 105 \\
   
 Racially we our students are Y\% African American and Z\% Latino.  X\% qualify for free or reduced lunch and S\% have an accomodation.
 
-\begin{margintable}
+\begin{margintable}[7\baselineskip]
 
 % latex table generated in R 2.15.1 by xtable 1.7-0 package
-% Fri Nov  9 12:02:19 2012
+% Mon Nov 19 22:04:00 2012
 {\small
-\begin{tabular}{lllrr}
+\begin{tabular}{lllr}
   \hline
-Grade & Black & Latino & NA & Total \\ 
+Grade & Black & Latino & Total \\ 
   \hline
-K & 99 (94\%) & 6 (6\%) &   0 & 105 \\ 
-  1st & 100 (94\%) & 6 (6\%) &   0 & 106 \\ 
-  2nd & 98 (92\%) & 8 (8\%) &   0 & 106 \\ 
-  5th & 166 (96\%) & 3 (2\%) &   4 & 173 \\ 
-  6th & 89 (100\%) & 0 (0\%) &   0 &  89 \\ 
-  7th & 87 (99\%) & 1 (1\%) &   0 &  88 \\ 
-  8th & 81 (99\%) & 1 (1\%) &   0 &  82 \\ 
-  Total & 720 (96\%) & 25 (3\%) &   4 & 749 \\ 
+K & 99 (94\%) & 6 (6\%) & 105 \\ 
+  1st & 100 (94\%) & 6 (6\%) & 106 \\ 
+  2nd & 98 (92\%) & 8 (8\%) & 106 \\ 
+  5th & 170 (98\%) & 3 (2\%) & 173 \\ 
+  6th & 89 (100\%) & 0 (0\%) &  89 \\ 
+  7th & 87 (99\%) & 1 (1\%) &  88 \\ 
+  8th & 81 (99\%) & 1 (1\%) &  82 \\ 
+  Total & 724 (97\%) & 25 (3\%) & 749 \\ 
    \hline
 \end{tabular}
 }
@@ -185,11 +178,74 @@ K & 99 (94\%) & 6 (6\%) &   0 & 105 \\
 
 
 
-Perhaps more pertinent the questoin denoting this section is to ask at what level are our studetns entering our schools and how does that compare to nationally?
+Perhaps more pertinent the question denoting this section is to ask at what level of academic achievemnt are our  students newly entering our schools and how does that compare to national levels of achievement?
+
+
+
+
+
+\begin{figure}
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}
+
+{\centering \includegraphics[width=\linewidth]{figure/MAP_KAMS_KCCP_Histo_Math} 
+
+}
+
+
+\end{knitrout}
+
+\caption{KAMS and KCCP 5th Grade Distribution of RIT Scores versus the National Distribution of RIT Scores, Fall 2012}
+\end{figure}
+
+
+\begin{figure}
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}
+
+{\centering \includegraphics[width=\linewidth]{figure/MAP_KAPS_Histo_Math} 
+
+}
+
+
+\end{knitrout}
+
+\caption{KAPS Kindergarten Distribution of RIT Scores versus the National Distribution of RIT Scores, Fall 2012}
+\end{figure}
+
+
   
   
 \section{Are our students staying with us?}
 This section should have a simply graph showing the proportions for kids leaving.  We should probably also look at numbers leaving and reasons by grade (Are we losing kids at a predictable point?).  A table should be included in a side bar showing reasons, counts, and percentages.
+
+Last year 
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{verbatim}
+##    School_ID Exit_Reason count      pct
+## 1       7810       2e+00     9 0.016760
+## 2       7810       3e+00     7 0.013035
+## 3       7810       5e+00     1 0.001862
+## 4       7810       6e+00     1 0.001862
+## 5       7810       7e+00     1 0.001862
+## 6       7810       9e+00     3 0.005587
+## 7       7810       1e+01     6 0.011173
+## 8       7810       1e+06    77 0.143389
+## 9       7810          NA   231 0.430168
+## 10     78102       2e+00     6 0.011173
+## 11     78102       3e+00    11 0.020484
+## 12     78102       6e+00     1 0.001862
+## 13     78102       7e+00     2 0.003724
+## 14     78102       9e+00     1 0.001862
+## 15     78102       1e+01     4 0.007449
+## 16     78102          NA   176 0.327747
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+
+
 
 
 Historical mobility and attrition data
@@ -224,19 +280,7 @@ Probably budget burn data here
 \newthought{This section is a test of graphing,} espeically of the marginal variety. 
 \blindtext
 \blindtext
-\begin{marginfigure}
-\begin{knitrout}
-\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}
 
-{\centering \includegraphics[width=\linewidth]{figure/test_plot} 
-
-}
-
-
-\end{knitrout}
-
-\caption{KAPS Kindergarten Distribution of RIT Scores versus the National Distribution of RIT Scores \\n Fall 2012 Readin}
-\end{marginfigure}
 \blindtext
 \blindtext
 \section{Enrollment, Attrition, \& Attendence}
@@ -253,7 +297,7 @@ Probably budget burn data here
 \begin{margintable}
 
 % latex table generated in R 2.15.1 by xtable 1.7-0 package
-% Fri Nov  9 12:02:24 2012
+% Mon Nov 19 22:04:04 2012
 {\small
 \begin{tabular}{lrrr}
   \hline
@@ -272,6 +316,7 @@ Aug 13 & 0.99 & 0.98 &  \\
   Oct 22 & 0.96 & 0.97 & 0.96 \\ 
   Oct 29 & 0.96 & 0.96 & 0.98 \\ 
   Nov 5 & 0.96 & 0.97 & 0.96 \\ 
+  Nov 12 & 0.93 & 0.94 & 0.95 \\ 
    \hline
 \end{tabular}
 }
@@ -300,12 +345,114 @@ Daily Enrollement, our consequent daily attendence goal (96\% of Enrollemt), and
 
 \end{figure*}\label{f:Enroll_Attend_Daily}
 
-\section{Highlights from the 2011-12 School Year}
-\blindtext
-\blindtext
-\section{MAP Results}
-\blindtext
-\blindtext
+\subsection{Suspensions}
+
+
+
+
+\begin{margintable}
+
+% latex table generated in R 2.15.1 by xtable 1.7-0 package
+% Mon Nov 19 22:04:13 2012
+{\small
+\begin{tabular}{lrrr}
+  \hline
+Grade & KAMS & KAPS & Total \\ 
+  \hline
+2 & 0 & 7 & 7 \\ 
+  5 & 2 & 0 & 2 \\ 
+  6 & 9 & 0 & 9 \\ 
+  7 & 19 & 0 & 19 \\ 
+  8 & 4 & 0 & 4 \\ 
+  Total & 34 & 7 & 41 \\ 
+   \hline
+\end{tabular}
+}
+
+
+
+\caption{KIPP Chicago YTD Suspension Totals by Grade and Sxchool}
+\end{margintable}
+
+\begin{margintable}[3\baselineskip]
+
+% latex table generated in R 2.15.1 by xtable 1.7-0 package
+% Mon Nov 19 22:04:13 2012
+{\small
+\begin{tabular}{lrrrrrr}
+  \hline
+Week of & 2nd & 5th & 6th & 7th & 8th & Total \\ 
+  \hline
+Aug 13 & 1 & 0 & 0 & 0 & 0 & 1 \\ 
+  Aug 27 & 0 & 0 & 0 & 6 & 0 & 6 \\ 
+  Sep 10 & 0 & 0 & 4 & 0 & 1 & 5 \\ 
+  Sep 17 & 0 & 0 & 3 & 0 & 1 & 4 \\ 
+  Sep 24 & 2 & 0 & 2 & 0 & 1 & 5 \\ 
+  Oct 1 & 0 & 0 & 0 & 1 & 0 & 1 \\ 
+  Oct 8 & 0 & 2 & 0 & 2 & 1 & 5 \\ 
+  Oct 15 & 0 & 0 & 0 & 7 & 0 & 7 \\ 
+  Oct 22 & 0 & 0 & 0 & 3 & 0 & 3 \\ 
+  Oct 29 & 4 & 0 & 0 & 0 & 0 & 4 \\ 
+  Total & 7 & 2 & 9 & 19 & 4 & 41 \\ 
+   \hline
+\end{tabular}
+}
+
+
+
+\caption{KIPP Chicago Weekly Suspension Totals by Week and Grade}
+\end{margintable}
+
+\begin{knitrout}
+\definecolor{shadecolor}{rgb}{0.969, 0.969, 0.969}\color{fgcolor}\begin{kframe}
+\begin{verbatim}
+##    SCHOOLID GRADE_LEVEL                    LASTFIRST
+## 1     78102           2               Pride, Brian T
+## 2      7810           7       Henderson, Ikea Alicia
+## 3      7810           7                 McDavis, Ivy
+## 4      7810           7       Henderson, Ikea Alicia
+## 5      7810           7                 McDavis, Ivy
+## 6      7810           7       Henderson, Ikea Alicia
+## 7      7810           7                 McDavis, Ivy
+## 8      7810           8             Donahue, Wonshon
+## 9      7810           6              Protho, Antonio
+## 10     7810           6              Higgins, Pierre
+## 11     7810           6              Higgins, Pierre
+## 12     7810           6              Protho, Antonio
+## 13     7810           6              Higgins, Pierre
+## 14     7810           6              Higgins, Pierre
+## 15     7810           6              Higgins, Pierre
+## 16     7810           8             Donahue, Wonshon
+## 17     7810           6                Toney, Davion
+## 18    78102           2                 Davis, Brian
+## 19     7810           6                Toney, Davion
+## 20    78102           2                 Davis, Brian
+## 21     7810           8            Campbell, Alchino
+## 22     7810           7              Campbell, Aaron
+## 23     7810           5             Powell, Sharrond
+## 24     7810           7               Currie, Sequan
+## 25     7810           7             Cleveland, Ahmad
+## 26     7810           8             Donahue, Wonshon
+## 27     7810           5       Nolton, Davion Antonio
+## 28     7810           7        Nance, Markia Marshae
+## 29     7810           7         McCoy, Delois Malika
+## 30     7810           7              Campbell, Aaron
+## 31     7810           7         Williams Jr., Ronnie
+## 32     7810           7         Hollingworth, Symone
+## 33     7810           7             Campbell, Andrea
+## 34     7810           7               Burns, Terrell
+## 35     7810           7 Carldwell, Dashawn Christian
+## 36     7810           7 Carldwell, Dashawn Christian
+## 37     7810           7 Carldwell, Dashawn Christian
+## 38    78102           2               Noble, Vonda'e
+## 39    78102           2          Pruitt, Tyriontae D
+## 40    78102           2      Williams, Rueben-O'neal
+## 41    78102           2               Noble, Vonda'e
+\end{verbatim}
+\end{kframe}
+\end{knitrout}
+
+
 
 
 \end{document}
