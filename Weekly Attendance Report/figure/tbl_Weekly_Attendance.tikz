@@ -1,0 +1,716 @@
+% Created by tikzDevice version 0.6.2 on 2012-11-20 12:16:36
+% !TEX encoding = UTF-8 Unicode
+\documentclass[10pt]{article}
+
+\nonstopmode
+
+\usepackage{tikz}
+
+\usepackage[active,tightpage,psfixbb]{preview}
+
+\PreviewEnvironment{pgfpicture}
+
+\setlength\PreviewBorder{0pt}
+\begin{document}
+
+\begin{tikzpicture}[x=1pt,y=1pt]
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+\definecolor[named]{fillColor}{rgb}{1.00,1.00,1.00}
+\fill[color=fillColor,fill opacity=0.00,] (0,0) rectangle (505.89,361.35);
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.90,0.90,0.90}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (159.81,308.55) rectangle (211.82,326.83);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (185.82,314.24) {\bfseries Week of};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (159.81,290.28) rectangle (211.82,308.55);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (185.82,295.97) {Aug 13};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (159.81,272.01) rectangle (211.82,290.28);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (185.82,277.70) {Aug 20};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (159.81,253.74) rectangle (211.82,272.01);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (185.82,259.43) {Aug 27};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (159.81,235.47) rectangle (211.82,253.74);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (185.82,241.16) {Sep 3};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (159.81,217.20) rectangle (211.82,235.47);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (185.82,222.90) {Sep 10};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (159.81,198.94) rectangle (211.82,217.20);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (185.82,204.63) {Sep 17};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (159.81,180.67) rectangle (211.82,198.94);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (185.82,186.36) {Sep 24};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (159.81,162.40) rectangle (211.82,180.67);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (185.82,168.09) {Oct 1};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (159.81,144.13) rectangle (211.82,162.40);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (185.82,149.82) {Oct 8};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (159.81,125.86) rectangle (211.82,144.13);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (185.82,131.55) {Oct 15};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (159.81,107.59) rectangle (211.82,125.86);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (185.82,113.29) {Oct 22};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (159.81, 89.33) rectangle (211.82,107.59);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (185.82, 95.02) {Oct 29};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (159.81, 71.06) rectangle (211.82, 89.33);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (185.82, 76.75) {Nov 5};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (159.81, 52.79) rectangle (211.82, 71.06);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (185.82, 58.48) {Nov 12};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (159.81, 34.52) rectangle (211.82, 52.79);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (185.82, 40.21) {YTD};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.90,0.90,0.90}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (211.82,308.55) rectangle (255.15,326.83);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (233.49,314.24) {\bfseries KAPS};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (211.82,290.28) rectangle (255.15,308.55);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (233.49,295.97) {98.4};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (211.82,272.01) rectangle (255.15,290.28);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (233.49,277.70) {96.3};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (211.82,253.74) rectangle (255.15,272.01);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (233.49,259.43) {96.6};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (211.82,235.47) rectangle (255.15,253.74);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (233.49,241.16) {96.4};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (211.82,217.20) rectangle (255.15,235.47);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (233.49,222.90) {95.4};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (211.82,198.94) rectangle (255.15,217.20);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (233.49,204.63) {96.0};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (211.82,180.67) rectangle (255.15,198.94);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (233.49,186.36) {96.3};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (211.82,162.40) rectangle (255.15,180.67);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (233.49,168.09) {97.6};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (211.82,144.13) rectangle (255.15,162.40);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (233.49,149.82) {96.5};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (211.82,125.86) rectangle (255.15,144.13);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (233.49,131.55) {95.9};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (211.82,107.59) rectangle (255.15,125.86);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (233.49,113.29) {97.4};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (211.82, 89.33) rectangle (255.15,107.59);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (233.49, 95.02) {96.3};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (211.82, 71.06) rectangle (255.15, 89.33);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (233.49, 76.75) {96.6};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (211.82, 52.79) rectangle (255.15, 71.06);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (233.49, 58.48) {94.2};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (211.82, 34.52) rectangle (255.15, 52.79);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (233.49, 40.21) {96.0};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.90,0.90,0.90}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (255.15,308.55) rectangle (301.54,326.83);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (278.35,314.24) {\bfseries KAMS};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (255.15,290.28) rectangle (301.54,308.55);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (278.35,295.97) {99.4};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (255.15,272.01) rectangle (301.54,290.28);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (278.35,277.70) {97.7};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (255.15,253.74) rectangle (301.54,272.01);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (278.35,259.43) {96.4};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (255.15,235.47) rectangle (301.54,253.74);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (278.35,241.16) {94.4};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (255.15,217.20) rectangle (301.54,235.47);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (278.35,222.90) {94.9};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (255.15,198.94) rectangle (301.54,217.20);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (278.35,204.63) {96.9};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (255.15,180.67) rectangle (301.54,198.94);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (278.35,186.36) {96.5};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (255.15,162.40) rectangle (301.54,180.67);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (278.35,168.09) {96.8};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (255.15,144.13) rectangle (301.54,162.40);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (278.35,149.82) {93.8};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (255.15,125.86) rectangle (301.54,144.13);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (278.35,131.55) {94.6};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (255.15,107.59) rectangle (301.54,125.86);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (278.35,113.29) {95.7};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (255.15, 89.33) rectangle (301.54,107.59);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (278.35, 95.02) {96.2};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (255.15, 71.06) rectangle (301.54, 89.33);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (278.35, 76.75) {96.6};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (255.15, 52.79) rectangle (301.54, 71.06);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (278.35, 58.48) {93.9};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (255.15, 34.52) rectangle (301.54, 52.79);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (278.35, 40.21) {96.4};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.90,0.90,0.90}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (301.54,308.55) rectangle (346.08,326.83);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (323.81,314.24) {\bfseries KCCP};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (301.54,290.28) rectangle (346.08,308.55);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (323.81,295.97) {NA};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (301.54,272.01) rectangle (346.08,290.28);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (323.81,277.70) {NA};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (301.54,253.74) rectangle (346.08,272.01);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (323.81,259.43) {98.6};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (301.54,235.47) rectangle (346.08,253.74);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (323.81,241.16) {98.0};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (301.54,217.20) rectangle (346.08,235.47);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (323.81,222.90) {90.6};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (301.54,198.94) rectangle (346.08,217.20);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (323.81,204.63) {93.3};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (301.54,180.67) rectangle (346.08,198.94);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (323.81,186.36) {96.9};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (301.54,162.40) rectangle (346.08,180.67);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (323.81,168.09) {98.7};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (301.54,144.13) rectangle (346.08,162.40);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (323.81,149.82) {96.8};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (301.54,125.86) rectangle (346.08,144.13);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (323.81,131.55) {97.5};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (301.54,107.59) rectangle (346.08,125.86);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (323.81,113.29) {96.3};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (301.54, 89.33) rectangle (346.08,107.59);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (323.81, 95.02) {97.6};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (301.54, 71.06) rectangle (346.08, 89.33);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (323.81, 76.75) {96.4};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (301.54, 52.79) rectangle (346.08, 71.06);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (323.81, 58.48) {94.9};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\definecolor[named]{drawColor}{rgb}{1.00,1.00,1.00}
+\definecolor[named]{fillColor}{rgb}{0.95,0.95,0.95}
+
+\draw[color=drawColor,line cap=round,line join=round,fill=fillColor,] (301.54, 34.52) rectangle (346.08, 52.79);
+\definecolor[named]{drawColor}{rgb}{0.00,0.00,0.00}
+
+\node[color=drawColor,anchor=base,inner sep=0pt, outer sep=0pt, scale=  1.00] at (323.81, 40.21) {96.3};
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\end{scope}
+\begin{scope}
+\path[clip] (  0.00,  0.00) rectangle (505.89,361.35);
+\end{scope}
+\end{tikzpicture}
+
+\end{document}
