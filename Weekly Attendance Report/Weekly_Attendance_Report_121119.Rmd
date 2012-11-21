@@ -66,7 +66,7 @@ FROM (
 		1 as Enrolled  
 	FROM PS_Membership_Defaults 
 	Where 	calendardate >= '13-AUG-12'
-		AND  calendardate <= '18-NOV-12'
+		AND  calendardate <= '20-NOV-12'
 ) m
 LEFT JOIN (
 	SELECT 
@@ -84,14 +84,14 @@ LEFT JOIN (
 	WHERE 
 		att.Att_Mode_Code = 'ATT_ModeDaily'
   		AND att.Att_Date >= '13-AUG-12'
-  		AND att.Att_Date <= '18-NOV-12'
-		AND (attc.att_code = 'A' OR attc.att_code = 'S')
+  		AND att.Att_Date <= '20-NOV-12'
+		AND (attc.att_code = 'A' OR attc.att_code = 'S' or attc.att_code = 'X' or attc.att_code = 'H')
 ) a
 ON m.STUDENTID = a.studentid AND m.calendardate =a.Att_Date AND m.schoolID = a.schoolid
 ORDER BY schoolid, grade_level, calendardate
 ")
 ```
-```{r polish_Attendance, cache=TRUE}
+```{r polish_Attendance, cache=FALSE}
 
 Attendence$SchoolInitials[Attendence$SCHOOLID==7810]<-"KAMS"
 Attendence$SchoolInitials[Attendence$SCHOOLID==78102]<-"KAPS"
