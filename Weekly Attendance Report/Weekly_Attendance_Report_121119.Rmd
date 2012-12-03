@@ -1,6 +1,6 @@
 KIPP Chicago Regional Attendance Report
 ========================================================
-Week of November 19, 2012
+Week of November 26, 2012
 --------------------------------------------------------
 
 ### Attendence
@@ -72,7 +72,7 @@ FROM (
 	FROM PS_Membership_Defaults psmd
 	LEFT JOIN students s ON psmd.StudentID = s.id
 	Where 	calendardate >= '13-AUG-12'
-		AND  calendardate <= '23-NOV-12'
+		AND  calendardate <= '30-NOV-12'
 ) m
 LEFT JOIN (
 	SELECT 
@@ -88,7 +88,7 @@ LEFT JOIN (
 	WHERE 
 		att.Att_Mode_Code = 'ATT_ModeDaily'
   		AND att.Att_Date >= '13-AUG-12'
-  		AND att.Att_Date <= '23-NOV-12'
+  		AND att.Att_Date <= '30-NOV-12'
 		AND (attc.att_code = 'A' OR attc.att_code = 'S' or attc.att_code = 'X' or attc.att_code = 'H')
 ) a
 ON m.STUDENTID = a.studentid AND m.calendardate =a.Att_Date AND m.schoolID = a.schoolid
@@ -182,14 +182,23 @@ AttRateByWeekBySchool<-ddply(DailyEnrollAttend,.(SchoolInitials,WeekOfShortDateL
 
 AttRateYTDBySchool<-ddply(DailyEnrollAttend,.(SchoolInitials), summarise, AttRate=sum(Present)/sum(Enrolled)*100)
 
-AttRateYTDBySchool$WeekOfShortLabel<-"YTD"
+AttRateYTDBySchool$WeekOfShortLabel<-"YTD Each School"
 
 AttRateByWeekBySchool.table<-cast(AttRateByWeekBySchool, WeekOfShortDateLabel ~ SchoolInitials)
 
 AttRateYTDBySchool<-reshape(AttRateYTDBySchool, idvar="WeekOfShortLabel",timevar="SchoolInitials", direction="wide")
 names(AttRateYTDBySchool)<-c("WeekOfShortDateLabel", "KAMS", "KAPS", "KCCP")
-AttRateByWeekBySchool.table<-rbind(AttRateByWeekBySchool.table,AttRateYTDBySchool)
-AttRateByWeekBySchool.table[,c(2:4)] <- round(AttRateByWeekBySchool.table[,c(2:4)],1)
+
+
+
+
+AttRateYTDRegion<-data.frame(WeekOfShortDateLabel="YTD Region", KAPS=sum(DailyEnrollAttend$Present)/sum(DailyEnrollAttend$Enrolled)*100, KAMS=NA,KCCP=NA)
+
+AttRateYTDKAPSKAMS<-data.frame(WeekOfShortDateLabel="YTD KAPS & KAMS", KAPS=sum(subset(DailyEnrollAttend, SchoolInitials!="KCCP")$Present)/sum(subset(DailyEnrollAttend, SchoolInitials!="KCCP")$Enrolled)*100, KAMS=NA,KCCP=NA)
+  
+  
+AttRateByWeekBySchool.table<-rbind(AttRateByWeekBySchool.table,AttRateYTDBySchool,AttRateYTDKAPSKAMS, AttRateYTDRegion)
+AttRateByWeekBySchool.table[,c(2:4)] <- round(AttRateByWeekBySchool.table[,c(2:4)],1)  
 
 
 
@@ -199,7 +208,7 @@ AttRateByWeekBySchool.xtable<-xtable(AttRateByWeekBySchool.table)
 ```
 
 #### Weekly & YTD Attendance by School
-```{r tbl_Weekly_Attendance, fig.width=7, fig.height=5}
+```{r tbl_Weekly_Attendance, fig.width=7, fig.height=6}
 grid.table(AttRateByWeekBySchool.xtable, show.rownames=FALSE)
 ```
 #### Daily Enrollment and Attendance by School
