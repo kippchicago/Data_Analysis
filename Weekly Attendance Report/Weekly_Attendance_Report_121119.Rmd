@@ -245,7 +245,7 @@ grid.arrange(leaderboards(AttByStudentBySchool, schoolname="KAPS", height=c(.1,.
 
 
 ### Suspensions
-```{r Suspensions, cache=TRUE}
+```{r Suspensions, cache=FALSE}
 Suspensions<-subset(Attendence, ATT_CODE=='S')
 
 Suspensions$WeekInYear<-week(Suspensions$CALENDARDATE)
@@ -295,7 +295,7 @@ levels(YTDSuspensionsByWeekByGrade.table[,1])[levels(YTDSuspensionsByWeekByGrade
 YTDSuspensionsByWeekByGrade.xtable<-xtable(YTDSuspensionsByWeekByGrade.table, digits=0)
 ```
 #### Total YTD Suspensions by School & by Week
-```{r tbl_Suspensions, fig.height=4}
+```{r tbl_Suspensions, fig.height=6}
 tbl.susp.1<-tableGrob(YTDSuspensionsByGradeBySchool.xtable, show.rownames=FALSE, as.table=TRUE,main="YTD Suspsensions by School")
 tbl.susp.2<-tableGrob(YTDSuspensionsByWeekByGrade.xtable,show.rownames=FALSE)
 
