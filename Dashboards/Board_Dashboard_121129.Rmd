@@ -1,0 +1,695 @@
+# KIPP Chicago DRAFT Performance Dashboard
+
+
+```{r options, echo=FALSE}
+options(replace.assign=TRUE,width=60)
+opts_chunk$set( 
+  fig.align='center', 
+  #dev='tikz', 
+  fig.width=8, 
+  fig.height=10.5, 
+  fig.show='hold', 
+  cache=FALSE, 
+  par=TRUE,
+  echo=FALSE,
+  message=FALSE,
+  warning=FALSE,
+  autodepend=TRUE
+)
+```
+```{r load_libraries}
+setwd("~/Dropbox/Consulting/KIPP Ascend/Data Analysis/Dashboards/")
+
+
+
+library(plyr)  #To manipulate data
+library(reshape) #More data manipulation
+library(ggplot2) #Graphics of grammer graphing
+library(grid) #More Graphing
+library(gridExtra) #better than par(mfrow=c(r,c)) for arranging ggplot2 and lattice graphics
+library(lubridate) #for dealing with dates
+library(xtable) #for pretty tables
+library(RJDBC) #To get data form PowerSchool DB
+library(RODBC) #To get data form PowerSchool DB
+#source MAP helper functions
+source("~/Dropbox/Consulting/KIPP Ascend/Data Analysis/MAP/Code/R/MAP_helper_functions.R")
+```
+
+```{r functions, cache=FALSE}
+#This function matches cohort data to their respective grade years, based on H graduation year
+align.cohort <- function (kippdata,cpsdata, collegeyear) {
+  X<-data.frame()
+  for(i in  collegeyear){
+    y=i-4
+    kipp<-rbind(subset(kippdata, Grade=="8th Grade" & Year==y), 
+                subset(kippdata, Grade=="7th Grade" & Year==y-1),
+                subset(kippdata, Grade=="6th Grade" & Year==y-2),
+                subset(kippdata, Grade=="5th Grade" & Year==y-3)
+    )
+    cps<-rbind(subset(cpsdata, Grade=="8th Grade" & Year==y), 
+               subset(cpsdata, Grade=="7th Grade" & Year==y-1),
+               subset(cpsdata, Grade=="6th Grade" & Year==y-2),
+               subset(cpsdata, Grade=="5th Grade" & Year==y-3)
+    )
+    
+    cps<-subset(cps, variable=="Pct_ME" & (Subject=="Reading"|Subject=="Math"))
+    x<-rbind(kipp, cps)
+    #Need to reorder Grades level
+    x$Grade<-ordered(x$Grade, 
+                     levels=c("5th Grade", "6th Grade", "7th Grade", "8th Grade"))
+    x$Class <- i
+    X<-rbind(X,x)
+  }
+  X$Class<-factor(X$Class)
+  X$Level<-factor(X$Level, levels=c("CPS", "KIPP Ascend"))
+  X<-arrange(X, Level, Class, Subject, Year)
+  X  
+}
+
+#This function draws line graphs for ISAT cohort analsyis 
+plot.isat.cohort <- function (cohortdata, title=" ", type="line") {
+  if(length(unique(cohortdata$Level))>1){
+    kipp.colors <- c("#CFCCC1","#60A2D7")
+  }
+  if(length(unique(cohortdata$Level))==1){
+    kipp.colors <- c("#60A2D7")
+  }
+  
+  stripfillcol<-"#CFCCC1"
+  
+  
+  p.blue.isat.cohort <- ggplot(cohortdata)
+  
+  if(type=="line"){
+    p.blue.isat.cohort <- p.blue.isat.cohort + geom_point(aes(x=Grade, y=value, group=Level, color=Level), size=5)
+    p.blue.isat.cohort <- p.blue.isat.cohort + geom_line(aes(x=Grade, y=value,  group=Level, color=Level), size=3) 
+    p.blue.isat.cohort <- p.blue.isat.cohort + geom_text(aes(x=Grade, y=value, label=round(value,0), group=Level), size=2,vjust=.5, hjust=.5)
+  }
+  if(type=="bar"){
+    p.blue.isat.cohort <- p.blue.isat.cohort + geom_text(aes(x=Grade, y=value, label=round(value,2), group=Level), position = position_dodge(width=1), vjust=-.5)
+    p.blue.isat.cohort <- p.blue.isat.cohort + geom_bar(aes(x=Grade, y=value,  group=Level, color=Level, fill=Level), stat="identity",position="dodge")
+    p.blue.isat.cohort <- p.blue.isat.cohort + scale_fill_manual("",values=kipp.colors)
+  }
+
+    if(type=="point"){
+    p.blue.isat.cohort <- p.blue.isat.cohort + geom_point(aes(x=Grade, y=value,  group=Level, color=Level, fill=Level), stat="identity",position="dodge", size=10)
+    p.blue.isat.cohort <- p.blue.isat.cohort + geom_text(aes(x=Grade, y=value, label=round(value,2), group=Level), position = position_dodge(width=1), vjust=-.5)
+    p.blue.isat.cohort <- p.blue.isat.cohort + scale_fill_manual("",values=kipp.colors)
+  }
+  
+  if(length(unique(cohortdata$Class))>1){
+    p.blue.isat.cohort <- p.blue.isat.cohort + facet_grid(Class~Subject)  
+    }
+  if(length(unique(cohortdata$Class))==1){
+    p.blue.isat.cohort <- p.blue.isat.cohort + facet_grid(.~Subject)  
+    }
+  p.blue.isat.cohort <- p.blue.isat.cohort + scale_color_manual("",values=kipp.colors)
+  
+ 
+  
+  p.blue.isat.cohort <- p.blue.isat.cohort + theme(panel.margin = unit(1, "cm")) 
+  
+  
+  p.blue.isat.cohort <- p.blue.isat.cohort + scale_x_discrete("")
+   if(type=="line"){
+    p.blue.isat.cohort <- p.blue.isat.cohort + scale_y_continuous("% Meets/Exceeds", limits=c(50,100))
+  }
+  else{p.blue.isat.cohort <- p.blue.isat.cohort + scale_y_continuous("% Meets/Exceeds", limits=c(0,105))}
+  #p.blue.isat.cohort <- p.blue.isat.cohort + theme(panel.background = element_rect(colour = stripfillcol, fill = 'white', size = 1)) 
+  #p.blue.isat.cohort <- p.blue.isat.cohort + theme(panel.border = element_rect(colour = stripfillcol)) 
+  #p.blue.isat.cohort <- p.blue.isat.cohort + theme(panel.grid.minor = element_line(colour = stripfillcol, size=.4))
+  #p.blue.isat.cohort <- p.blue.isat.cohort + theme(panel.grid.major = element_line(colour = 'white', size=.5))
+  #p.blue.isat.cohort <- p.blue.isat.cohort + theme(strip.background = element_rect(fill=stripfillcol, colour = NA))
+  
+  #p.blue.isat.cohort <- p.blue.isat.cohort + theme(strip.text.x = element_text(size=15))
+  #p.blue.isat.cohort <- p.blue.isat.cohort + theme(strip.text.y = element_text(size=15, angle = 90))
+  
+  #p.blue.isat.cohort <- p.blue.isat.cohort + theme(legend.text = element_text(size=11))
+  #p.blue.isat.cohort <- p.blue.isat.cohort + theme(axis.title.y = element_text(size=13))
+  #p.blue.isat.cohort <- p.blue.isat.cohort + theme(axis.text.x = element_text(size=12))
+  #p.blue.isat.cohort <- p.blue.isat.cohort + theme(axis.text.y = element_text(size=12))
+  
+  
+  p.blue.isat.cohort <- p.blue.isat.cohort + theme(legend.position="bottom", legend.direction="horizontal")
+  
+  p.blue.isat.cohort
+}
+
+#Function to provide ordered id numbers to groups based on a given ranking criteria (v1)
+orderid<-function(df,v1){
+x<-arrange(df,v1)
+x$OrderID<-c(1:nrow(x))
+return(x)
+}
+
+#For Gant chart/Arrow diagrams comparing KIPP Network Schools
+arrowdiagr<-function(data, t=" ", ranking="Fall", schoolname="KIPP Ascend Charter School"){
+    X<-NA
+    rvar<-NA
+    X<-data
+    comment(X)<-"X"  #provides a hacked means to use X in the paste on the next line
+    if(ranking=="Fall"|ranking=="Spring"){
+        
+        rvar <- paste(comment(X),"$",ranking,".RIT",sep="") 
+        
+        X<-orderid(X,eval(parse(text=rvar))) 
+        
+        p <- ggplot(X, aes(x=Fall.RIT, y=OrderID)) + geom_segment(aes(xend=Spring.RIT, yend=OrderID, color=-posdiff),size=3, arrow=arrow(ends="last", length=unit(0.4, "cm"), type= "open", angle=20))
+        p <- p + geom_segment(data=X[X$School_Display_Name==schoolname,],aes(x=Fall.RIT, y=OrderID, xend=Spring.RIT, yend=OrderID), color="green", size=4, arrow=arrow(length=unit(0.4, "cm"), type= "open", angle=20))
+        p <- p + geom_text(aes(x=Spring.RIT-1, y=OrderID, label=Spring.RIT), size=2.5, hjust=1, vjust=.5,color="white", fontface="bold")
+        p <- p + geom_text(aes(x=Fall.RIT+1.5, y=OrderID, label=Fall.RIT), size=2.5, hjust=1, vjust=.5,color="white", fontface="bold")
+        p <- p  + scale_y_continuous(" ", breaks=X$OrderID, labels=X$School_Display_Name)
+        p <- p + theme(axis.text.y = element_text(size=7, hjust=1))
+        p <- p + theme(title=t)
+        p <- p + theme(legend.position = "none")
+        p <- p + scale_x_continuous("RIT Score")
+    }
+    
+    if(ranking=="diff"){
+        rvar <- paste(comment(X),"$",ranking,sep="") 
+        
+        X<-orderid(X,eval(parse(text=rvar))) 
+        
+        p <- ggplot(X, aes(x=0, y=OrderID)) + geom_segment(aes(xend=diff, yend=OrderID, color=-posdiff),size=3, arrow=arrow(ends="last", length=unit(0.4, "cm"), type= "open", angle=20))
+        p <- p + geom_segment(data=X[X$School_Display_Name==schoolname,],aes(x=0, y=OrderID, xend=diff, yend=OrderID), color="green", size=3, arrow=arrow(length=unit(0.4, "cm"), type= "open", angle=20))
+        p <- p + geom_text(aes(x=diff+1, y=OrderID, label=diff), size=3, hjust=-1, vjust=.5,color="white", fontface="bold")
+        p <- p  + scale_y_continuous(" ", breaks=X$OrderID, labels=X$School_Display_Name)
+        p <- p + theme(axis.text.y = element_text(size=7, hjust=1))
+        p <- p + theme(title=t)
+        p <- p + theme(legend.position = "none")
+        p <- p + scale_x_continuous("Fall to Spring Change  in RIT Score")
+    } 
+    if(ranking=="PctGrowth"){
+        rvar <- paste(comment(X),"$","Percent_Met_Growth_Target",sep="") 
+        
+        X<-orderid(X,eval(parse(text=rvar))) 
+        
+        p <- ggplot(X, aes(x=0, y=OrderID)) + geom_segment(aes(xend=Percent_Met_Growth_Target, yend=OrderID), color="blue",size=3)
+        p <- p + geom_segment(data=X[X$School_Display_Name==schoolname,],aes(x=0, y=OrderID, xend=Percent_Met_Growth_Target, yend=OrderID), color="green", size=3)
+        p <- p + geom_text(aes(x=Percent_Met_Growth_Target, y=OrderID, label=Percent_Met_Growth_Target), size=3, hjust=-1, vjust=.5,color="black", fontface="bold")
+        p <- p  + scale_y_continuous(" ", breaks=X$OrderID, labels=X$School_Display_Name)
+        p <- p + theme(axis.text.y = element_text(size=7, hjust=1))
+        p <- p + theme(title=t)
+        p <- p + theme(legend.position = "none")
+        p <- p + scale_x_continuous("% Meeting Growth Target")
+    }   
+    p
+}
+```
+
+```{r establsih_DB_connections}
+drvr <- JDBC("oracle.jdbc.driver.OracleDriver", "/Users/chaid/Dropbox/JDBC Drivers/ojdbc5.jar","")
+pscon <- dbConnect(drvr,"jdbc:oracle:thin:@10.160.29.47:1521:IL039","psnavigator","laidephy")
+```
+
+## Are we serving the children who need us?
+```{r get_Enrollment_Data, cache=TRUE}
+Enrollment<-dbGetQuery(pscon,"
+                       
+                      SELECT  sd.Student_Number,
+                              sd.Name,
+	                            sd.CURRENT_GRADE_LEVEL as Grade,
+	                            sd.CURRENT_SCHOOL_ABBREVIATION as SchoolInitials,
+	                            sd.GENDER,
+	                            sd.ETHNICITY_NAME,
+	                            sd.ETHNICITY_CODE,
+	                            sd.MEMBERSHIPSHARE,
+                              cs_iep.text_value AS SPED,
+	                            cs_lii.char_value AS FRL,
+	                            cs_lep.char_value AS ELL
+                        FROM 
+	                            PSSIS_STUDENT_DEMOGRAPHICS sd
+	                      LEFT OUTER JOIN 
+                              PVSIS_CUSTOM_STUDENTS cs_lii ON sd.STUDENT_NUMBER = cs_lii.STUDENT_NUMBER AND cs_lii.FIELD_NAME='IL_LII'
+	                      LEFT OUTER JOIN 
+                              PVSIS_CUSTOM_STUDENTS cs_iep ON sd.STUDENT_NUMBER = cs_iep.STUDENT_NUMBER AND cs_iep.FIELD_Name='IL_IEP'
+	                      LEFT OUTER JOIN 
+                              PVSIS_CUSTOM_STUDENTS cs_lep ON sd.STUDENT_NUMBER = cs_lep.STUDENT_NUMBER AND cs_lep.FIELD_Name='IL_LEP'
+                       ")
+```
+
+```{r build_Enrollment_Table}
+
+Enrollment$FRL<-as.numeric(Enrollment$FRL)
+Enrollment$ELL<-as.numeric(Enrollment$ELL)
+Enrollment$SPED<-as.numeric(Enrollment$SPED)
+
+Enrollment.table<-ddply(Enrollment, .(GRADE), summarise, Enrolled=sum(MEMBERSHIPSHARE),PctMale=sum(GENDER=="M")/sum(MEMBERSHIPSHARE), PctFemale=sum(GENDER=="M")/sum(MEMBERSHIPSHARE),PctBlack=sum(ETHNICITY_CODE==2)/sum(MEMBERSHIPSHARE), PctLatino=sum(ETHNICITY_CODE==5)/sum(MEMBERSHIPSHARE),PctFRM=sum(FRL, na.rm=TRUE)/sum(MEMBERSHIPSHARE), PctELL=sum(ELL, na.rm=TRUE)/sum(MEMBERSHIPSHARE), PctSPED=sum(SPED, na.rm=TRUE)/sum(MEMBERSHIPSHARE)) 
+
+attach(Enrollment)
+Enrollment.table.totals<-data.frame(GRADE="Total",Enrolled=sum(MEMBERSHIPSHARE),PctMale=sum(GENDER=="M")/sum(MEMBERSHIPSHARE), PctFemale=sum(GENDER=="M")/sum(MEMBERSHIPSHARE),PctBlack=sum(ETHNICITY_CODE==2)/sum(MEMBERSHIPSHARE), PctLatino=sum(ETHNICITY_CODE==5)/sum(MEMBERSHIPSHARE),PctFRM=sum(FRL, na.rm=TRUE)/sum(MEMBERSHIPSHARE), PctELL=sum(ELL, na.rm=TRUE)/sum(MEMBERSHIPSHARE), PctSPED=sum(SPED, na.rm=TRUE)/sum(MEMBERSHIPSHARE))
+detach(Enrollment)
+
+Enrollment.table<-rbind(Enrollment.table, Enrollment.table.totals)
+
+Enrollment.table[,c(3:9)]<-round(Enrollment.table[,c(3:9)]*100,0)
+
+names(Enrollment.table)<-c("Grade", "Enrollment", "%\nMale", "%\nFemale", "%\nBlack", "%\nLatino", "%\nFRM", "%\nELL", "%\nSPED")
+```
+
+```{r Enrollement_table, fig.height=3.25, fig.width=8}
+g<-grid.table(Enrollment.table, gpar.corefill=gpar(fill="#A7CFEE", alpha=.5, col="white"), h.odd.alpha=.25, gpar.colfill=gpar(fill="#60A2D7", col="white"),gpar.coltext=gpar(col="white", fontface="bold"), show.rownames=FALSE)
+```
+
+
+
+
+## Are our students staying with us?
+```{r Mob_Attr_data, echo=FALSE, cache=TRUE}
+df.attrition <- read.csv("/Users/chaid/Dropbox/Consulting/KIPP Ascend/Presentations/Charter Renewal/KAM_v_CPS_Mobility_Attrition_120910.csv")
+df.attrition.melt<-melt(df.attrition)
+
+colnames(df.attrition.melt)<-c("Variable", "Year", "value")
+
+
+df.attrition.melt$Year<-sub("(X)(\\w+)","\\2" ,df.attrition.melt$Year)
+
+df.attrition.melt$Year<-factor(df.attrition.melt$Year, levels=c("2004","2005","2006","2007","2008","2009","2010","2011","2012"))
+
+df.attrition.melt$varType[grepl("Mobility",df.attrition.melt$Variable)]<-"Mobility"
+df.attrition.melt$varType[grepl("Attrition",df.attrition.melt$Variable)]<-"Attrition"
+
+df.attrition.melt$varType<-factor(df.attrition.melt$varType, levels=c("Mobility", "Attrition"))
+df.attrition.melt$Variable<-factor(df.attrition.melt$Variable, levels=c("KIPP Ascend Attrition","CPS Mobility","KIPP Ascend Mobility"))
+```
+
+```{r Mob_Attr_Plot, echo=FALSE, fig.width=8, fig.height=4}
+colours <- c("#439539", "#CFCCC1", "#60A2D7")
+
+
+
+p <- ggplot(df.attrition.melt, aes(x=Year, y=value)) 
+p <- p + geom_line(aes(color=Variable, group=Variable), size=3) 
+p <- p + geom_point(aes(color=Variable), size=5) 
+p <- p + facet_grid(varType~.)
+p <- p + scale_color_manual("",values=colours)
+p <- p + scale_y_continuous("")
+p <- p + theme(
+    panel.background = element_rect(fill = "transparent",colour = "#CFCCC1"), # or element_blank()
+    panel.grid.major = element_line(colour="#CFCCC1"),
+    panel.grid.minor = element_line(colour="transparent"),
+    strip.background = element_rect(colour="#CFCCC1", fill="#CFCCC1"),
+
+    plot.background = element_rect(fill = "transparent",colour = NA),
+    axis.text.x = element_text(size=15),
+     
+    legend.position = "bottom",
+    legend.text=element_text(size=12)
+)
+p
+
+```
+
+## Are our students progressing and achieving academically?
+```{r ISAT_Data_Prep, echo=FALSE, cache=FALSE}
+#CPS Data
+ISAT.CPS.historical.overall.data<-read.csv('/Users/chaid/Dropbox/Consulting/KIPP Ascend/Testing Analysis/ISAT/Results/isat_district_PRELIMINARY_2001_to_2012_mexc_yracross_by_grade_Without_ELL_reshaped_120806.csv')
+
+names(ISAT.CPS.historical.overall.data)[4:15]<-c(2001:2012)
+
+ISAT.CPS.historical.overall.melt<-melt(ISAT.CPS.historical.overall.data, id=c("Grade", "Subject", "Variable"))
+names(ISAT.CPS.historical.overall.melt)[3:4]<-c("variable", "Year")
+
+ISAT.CPS.historical.overall.melt<-ISAT.CPS.historical.overall.melt[,c(1,2,4,3,5)] #reorder columns to conform with earlier work
+ISAT.CPS.historical.overall.melt$Level<-"CPS"
+
+#This is KAMS data
+ISAT.historical.overall.data<-read.csv('/Users/chaid/Dropbox/Consulting/KIPP Ascend/Testing Analysis/ISAT/Results/ISAT_historical_results_2012.csv')
+ISAT.overall.melt<-melt(ISAT.historical.overall.data[,c("Grade","Year","Read_M_E","Math_M_E")],id=c("Grade","Year"))
+
+#Add subject column and fix variable field 
+ISAT.overall.melt$Subject[ISAT.overall.melt$variable=="Math_M_E"]<-"Math"
+ISAT.overall.melt$Subject[ISAT.overall.melt$variable=="Read_M_E"]<-"Reading"
+ISAT.overall.melt$variable <- "Pct_ME"
+ISAT.overall.melt$Level <- "KIPP Ascend"
+
+ISAT.plot.data<-align.cohort(ISAT.overall.melt, ISAT.CPS.historical.overall.melt, c(2013, 2014 ,2015, 2016, 2017, 2018))
+
+
+p.isat<-plot.isat.cohort(subset(ISAT.plot.data, (Class==2015 | Class==2016 )&(Grade=="5th Grade"|Grade=="8th Grade")), type="line") +  ggtitle("ISAT KIPP vs CPS")
+```
+```{r MAP_Data_Prep, echo=FALSE, cache=TRUE}
+
+con<-odbcConnect("kippchidata2") 
+###Averages Data
+MAP.math.averages.F10S12<-sqlQuery(con,"CALL GetMAPAverageByGradeByPeriod('Mathematics',NULL,'Fall10', 'Spring12');")
+MAP.reading.averages.F10S12<-sqlQuery(con,"CALL GetMAPAverageByGradeByPeriod('Reading',NULL,'Fall10', 'Spring12');")
+names(MAP.math.averages.F10S12)<-c("Grade", "Count", "Fall 10", "Spring 12")
+names(MAP.reading.averages.F10S12)<-c("Grade", "Count", "Fall 10", "Spring 12")
+
+MAP.math.averages.F10S12$Subject<-"Math"
+MAP.reading.averages.F10S12$Subject<-"Reading"
+
+MAP.reading.averages.F10S12 <- MAP.reading.averages.F10S12[MAP.reading.averages.F10S12$Grade!=1,]
+MAP.math.averages.F10S12 <- MAP.math.averages.F10S12[MAP.math.averages.F10S12$Grade!=1,]
+MAP.reading.averages.F10S12 <- MAP.reading.averages.F10S12[MAP.reading.averages.F10S12$Grade!=5,]
+MAP.math.averages.F10S12 <- MAP.math.averages.F10S12[MAP.math.averages.F10S12$Grade!=5,]
+
+
+MAP.averages.F10S12<-rbind(MAP.math.averages.F10S12,MAP.reading.averages.F10S12)
+
+MAP.averages.F10S12.melt<-melt(MAP.averages.F10S12, id=c("Grade", "Subject"))
+#MAP.averages.F10S12.melt<-MAP.averages.F10S12.melt[MAP.averages.F10S12.melt$variable!="Count"&MAP.averages.F10S12.melt$Grade!=5,] 
+MAP.averages.F10S12.melt<-MAP.averages.F10S12.melt[MAP.averages.F10S12.melt$variable!="Count",]
+
+MAP.averages.F10S12.melt$Level<-rep("KIPP Ascend",12)
+
+#MAP.averages.F10S12.melt[MAP.averages.F10S12.melt$variable=="Fall 09","Grade"]<-MAP.averages.F10S12.melt[MAP.averages.F10S12.melt$variable=="Fall 09","Grade"]-1
+
+
+MAP.NWEA.Averages.F10S12<-data.frame(Grade=rep(6:8,4))
+MAP.NWEA.Averages.F10S12$Subject<-c(rep(c(rep("Math",3),rep("Reading",3)),2))
+MAP.NWEA.Averages.F10S12$variable<-c(rep("Fall 10",6),rep("Spring 12",6))
+
+MAP.NWEA.Averages.F10S12$value<-c(219.6,225.6,230.2,212.3,216.3,219.3,225.6,230.5,234.5,216.4,219.7,222.4)
+MAP.NWEA.Averages.F10S12$Level<-rep("NWEA Norm",12)
+
+#MAP.KIPPNational.Averages.F10S12<-data.frame(Grade=rep(5:8,4))
+#MAP.KIPPNational.Averages.F10S12$Subject<-c(rep(c(rep("Math",4),rep("Reading",4)),2))
+#MAP.KIPPNational.Averages.F10S12$variable<-c(rep("Fall 09",8),rep("Spring 11",8))
+
+#MAP.KIPPNational.Averages.F10S12$value<-c(205.5,213.7, 222.8,230.5,200.6, 207.4,214,219.7,216.5,222.7,230.2,237.2,208.2,213,218.4,223.5)
+#MAP.KIPPNational.Averages.F10S12$Level<-rep("KIPP National",16)
+
+MAP.Averages.F10S12.plot.data<-rbind(MAP.averages.F10S12.melt,MAP.NWEA.Averages.F10S12)
+
+MAP.Averages.F10S12.plot.data$Grade<-as.factor(MAP.Averages.F10S12.plot.data$Grade)
+levels(MAP.Averages.F10S12.plot.data$Grade)<-c("6th","7th","8th")
+
+
+###Quartile Data
+matched.data<-sqlQuery(con, "CALL GetMAPQuartilesCohortMatchedByPeriod('Fall08', 'Spring12', 5, 8);") #gets matched data from DB
+
+map.508812.cohort.melt<-melt(matched.data, id.var=c("Subject")) #melt to long format 
+
+map.508812.cohort.melt$ExamDate[grepl("Fall", map.508812.cohort.melt$variable)]<-"Fall 2008"
+map.508812.cohort.melt$ExamDate[grepl("Spring", map.508812.cohort.melt$variable)]<-"Spring 2012"
+
+map.508812.cohort.melt$variable<-as.character(map.508812.cohort.melt$variable)
+map.508812.cohort.melt$variable[grepl("_Q1", map.508812.cohort.melt$variable)]<-"1st Quartile"
+map.508812.cohort.melt$variable[grepl("_Q2", map.508812.cohort.melt$variable)]<-"2nd Quartile"
+map.508812.cohort.melt$variable[grepl("_Q3", map.508812.cohort.melt$variable)]<-"3rd Quartile"
+map.508812.cohort.melt$variable[grepl("_Q4", map.508812.cohort.melt$variable)]<-"4th Quartile"
+map.508812.cohort.melt$variable[grepl("N_Tested", map.508812.cohort.melt$variable)]<-"Number Tested"
+
+
+#create center of x coordinates
+map.508812.cohort.melt$x[map.508812.cohort.melt$ExamDate=="Fall 2008"]<-1
+map.508812.cohort.melt$x[map.508812.cohort.melt$ExamDate=="Spring 2012"]<-2
+
+#create y start and y end coordinates
+plot.data<-ddply(map.508812.cohort.melt[map.508812.cohort.melt$variable!="Number Tested",c(1:5)],  .(Subject, ExamDate), transform, cum=cumsum(value))
+plot.data<-ddply(plot.data,  .(Subject, ExamDate), transform, yend=cum+(50-cum[2]))
+plot.data<-ddply(plot.data,  .(Subject, ExamDate), transform, ystart=c(50-cum[2],head(yend,-1)))
+
+#drop any values less than 10 %
+
+plot.data$label[plot.data$value>=8]<-plot.data$value[plot.data$value>=8]
+```
+```{r MAP_Quartile_Cohort_Plot, cache=FALSE}
+kipp.colours <- c("#CFCCC1","#F4EFEB", "#BCD631", "#439539")
+
+p <- ggplot(plot.data[plot.data$Subject=="Mathematics"|plot.data$Subject=="Reading",], 
+    	aes(ExamDate, fill=variable, label=label)) 
+p <- p + geom_rect(aes(x=ExamDate, xmin=x - 0.36, xmax = x + 0.36, ymin = ystart, ymax=yend))
+p <- p + facet_grid(. ~ Subject)
+
+p <- p + scale_fill_manual("",values=kipp.colours) 
+p <- p + scale_x_discrete("")
+p <- p + scale_y_continuous("")
+
+p <- p +geom_text(aes(y=(yend+ystart)/2))
+p <- p + geom_hline(y=50, color="#8D8685")
+p <- p + theme(
+    panel.background = element_rect(fill = "transparent",colour = NA), # or element_blank()
+    panel.grid.minor = element_blank(), 
+    panel.grid.major = element_blank(),
+    plot.background = element_rect(fill = "transparent",colour = NA),
+    strip.text.x = element_text(size=15),
+
+    axis.ticks = element_blank(), 
+   
+    axis.text.y = element_blank(),
+    legend.position = "none"
+)
+
+labels <- data.frame(Subject=c("Mathematics","Reading"),  #panel
+                variable=c("1st Quartile","1st Quartile"),        #color
+                 xtext=c(2,2.49),                            #x-coordinate of label
+                ytext= c(50,50),                         #y-coordinate of label
+                 Text=c("", "Grade\nLevel"))
+# add labels to plot:
+p.map.quartile<-p + geom_text(data=labels, aes(label=Text, x=xtext, y=ytext),  show_guide=FALSE, size=3, hjust=.5, color="#8D8685") 
+```
+```{r MAP_Averages_2year_Plot, echo=FALSE}
+colours2 <- c("#CFCCC1","#60A2D7")
+shapes <- c(18, 19)
+xaxis <- c()
+
+MAP.Averages.F10S12.cast<- cast(MAP.Averages.F10S12.plot.data, ...~ variable)
+
+MAP.Averages.F10S12.cast$Grade1[MAP.Averages.F10S12.cast$Grade=="5th"]<-5
+MAP.Averages.F10S12.cast$Grade1[MAP.Averages.F10S12.cast$Grade=="6th"]<-6
+MAP.Averages.F10S12.cast$Grade1[MAP.Averages.F10S12.cast$Grade=="7th"]<-7
+MAP.Averages.F10S12.cast$Grade1[MAP.Averages.F10S12.cast$Grade=="8th"]<-8
+                                                                     
+MAP.Averages.F10S12.cast$Grade2[MAP.Averages.F10S12.cast$Grade=="5th"]<-5.7
+MAP.Averages.F10S12.cast$Grade2[MAP.Averages.F10S12.cast$Grade=="6th"]<-6.7
+MAP.Averages.F10S12.cast$Grade2[MAP.Averages.F10S12.cast$Grade=="7th"]<-7.7
+MAP.Averages.F10S12.cast$Grade2[MAP.Averages.F10S12.cast$Grade=="8th"]<-8.7
+
+names(MAP.Averages.F10S12.cast)<-c("Grade", "Subject", "Level", "Fall09", "Spring11", "Grade1", "Grade2")
+
+MAP.Averages.F10S12.cast$Level<-relevel(factor(MAP.Averages.F10S12.cast$Level), ref="NWEA Norm")
+
+p.map.averages.slope <-ggplot(subset(MAP.Averages.F10S12.cast, Subject=="Reading"),aes(color=Level) ,stat=identity)
+p.map.averages.slope <- p.map.averages.slope + geom_segment(aes(x=Grade1, y=Fall09, xend=Grade2, yend=Spring11),size=4)
+p.map.averages.slope <- p.map.averages.slope + geom_point(aes(x=Grade1, y=Fall09,shape=Level), size=8)
+p.map.averages.slope <- p.map.averages.slope + geom_text(aes(x=Grade1, y=Fall09,label=round(Fall09,0)), size=3.25, color="black")
+
+p.map.averages.slope <- p.map.averages.slope + geom_point(aes(x=Grade2, y=Spring11,shape=Level), size=8)
+p.map.averages.slope <- p.map.averages.slope + geom_text(aes(x=Grade2, y=Spring11,label=round(Spring11,0)), size=3.25, color="black")
+
+
+#p.map.averages.slope <- p.map.averages.slope + facet_grid(.~Subject)
+#p.map.averages.slope <- p.map.averages.slope + scale_color_manual("",values=colours2)
+
+p.map.averages.slope <- p.map.averages.slope  + theme(legend.position="bottom", legend.direction="horizontal")
+p.map.averages.slope <- p.map.averages.slope  + scale_color_manual("",values=colours2)
+p.map.averages.slope <- p.map.averages.slope  + scale_shape_manual("", values=shapes) #need scale_color_manual AND scale_shape to have same title for one legend
+
+p.map.averages.slope <- p.map.averages.slope  + scale_x_continuous("", breaks = c(6.35,7.35,8.35),labels=c("6th Grade", "7th Grade", "8th Grade"))
+p.map.averages.slope <- p.map.averages.slope  + scale_y_continuous("RIT Score")
+
+#p.map.averages.slope <- p.map.averages.slope  + theme(panel.background = element_rect(colour = 'gray', fill = 'white', size = 1)) 
+#p.map.averages.slope <- p.map.averages.slope  + theme(panel.border = element_rect(colour = 'gray')) 
+#p.map.averages.slope <- p.map.averages.slope  + theme(panel.grid.minor = element_line(colour = 'lightgray', size=.4))
+#p.map.averages.slope <- p.map.averages.slope  + theme(panel.grid.major = element_line(colour = 'white', size=.5))
+#p.map.averages.slope <- p.map.averages.slope  + theme(strip.text.x = element_text(size=15))
+#p.map.averages.slope <- p.map.averages.slope  + theme(strip.background = element_rect(colour="#CFCCC1", fill="#CFCCC1"))
+#p.map.averages.slope <- p.map.averages.slope  + theme(legend.text = element_text(size=11))
+#p.map.averages.slope <- p.map.averages.slope  + theme(axis.title.y = element_text(size=13))
+#p.map.averages.slope <- p.map.averages.slope  + theme(axis.text.x = element_text(size=12))
+#p.map.averages.slope <- p.map.averages.slope  + theme(axis.text.y = element_text(size=12))
+p.map.averages.slope <- p.map.averages.slope  + theme(legend.position="bottom", legend.direction="horizontal") + ggtitle("MAP Average Score By Class:\nFall 10 - Spring 12")
+```
+
+```{r graph_Academic_Progress, fig.width=8, fig.height=10}
+blankPanel<-rectGrob(gp=gpar(col="white"))
+grid.arrange(p.isat, blankPanel, p.map.averages.slope, p.map.quartile, nrow=2)
+```
+
+
+
+## Are our alumni climbing the mountain to and through college?
+
+```{r get_KTC_Selectivity_Data, cache=TRUE}
+KIPP.Enrollments <- read.csv("~/Dropbox/Consulting/KIPP Ascend/Marketing Materials/Year End Update/2012.08.07_ChicagoProjectedEnrollments.csv")
+
+
+KIPP.Enrollments$adj.SCR<-sub("(\\w+)([+|*])|(\\w+)([+*])", "\\1\\5" ,KIPP.Enrollments$SchoolCompetitivenessRanking)
+
+
+KIPP.Enrollments$adj.SCR[KIPP.Enrollments$adj.SCR==""]<- "2 Year College"
+
+KIPP.Enrollments$adj.SCR<-factor(KIPP.Enrollments$adj.SCR, levels=c("2 Year College", "Not Competitive", "Less Competitive", "Competitive", "Very Competitive", "Highly Competitive", "Most Competitive"))
+
+KIPP.Enrollments$adj.Selectivity[KIPP.Enrollments$adj.SCR=="2 Year College"]<- "2-Year\nCollege"
+KIPP.Enrollments$adj.Selectivity[KIPP.Enrollments$adj.SCR=="Not Competitive"|KIPP.Enrollments$adj.SCR=="Less Competitive"]<- "Non\nSelective"
+KIPP.Enrollments$adj.Selectivity[KIPP.Enrollments$adj.SCR=="Competitive"]<- "Somewhat\nSelective"
+KIPP.Enrollments$adj.Selectivity[KIPP.Enrollments$adj.SCR=="Very Competitive"]<- "Selective"
+KIPP.Enrollments$adj.Selectivity[KIPP.Enrollments$adj.SCR=="Highly Competitive"|KIPP.Enrollments$adj.SCR=="Most Competitive"]<- "Very\nSelective"
+
+
+
+
+
+
+
+selectivity.kipp.v.cps<-cbind(prop.table(table(KIPP.Enrollments$adj.Selectivity[KIPP.Enrollments$KIPP.HS.Class==2012])),(c(0.261370916,0.134529148,0.125560538,0.355861627,0.122677771))) #values from CPS.Selectivity.Calcs.xls derived from Potholes on the Road to College
+
+
+
+
+colnames(selectivity.kipp.v.cps)<-c("KIPP Chicago", "CPS")
+
+
+selectivity.plot.data<-melt(selectivity.kipp.v.cps)
+colnames(selectivity.plot.data)<-c("Selectivity", "System", "value")
+
+
+selectivity.plot.data$Selectivity<-factor(selectivity.plot.data$Selectivity, levels=c("2-Year\nCollege", "Non\nSelective", "Somewhat\nSelective", "Selective", "Very\nSelective"))
+selectivity.plot.data$System<-factor(selectivity.plot.data$System, levels=c("CPS", "KIPP Chicago"))
+
+selectivity.plot.data$Competitiveness[selectivity.plot.data$Selectivity=="2-Year\nCollege"|selectivity.plot.data$Selectivity=="Non\nSelective"]<-"Not\nSelective"
+selectivity.plot.data$Competitiveness[selectivity.plot.data$Selectivity=="Somewhat\nSelective"|selectivity.plot.data$Selectivity=="Selective"]<-"Selective"
+selectivity.plot.data$Competitiveness[selectivity.plot.data$Selectivity=="Very\nSelective"]<-"Very\nSelective"
+```
+```{r grap_KTC_selectivity, fig.width=4, fig.height=3.25}
+competetive.plot.data<-ddply(selectivity.plot.data, .(System, Competitiveness), summarise, value=sum(value))
+
+
+colours <- c("#CFCCC1", "#439539")
+
+p <- ggplot(competetive.plot.data, aes(x = Competitiveness, y= value, fill=System)) + geom_histogram(stat="identity",position="dodge")
+p <- p + geom_histogram(stat="identity",position="dodge")
+p <- p + geom_text(aes(y=value, label=paste(round(value*100,0),"%",sep=""), ymax=.64) , position=position_dodge(width=.9),vjust=-.5)
+
+p <- p + scale_fill_manual("",values=colours) 
+p <- p + scale_x_discrete("")
+p <- p + scale_y_continuous("")
+p <- p + theme(
+    panel.background = element_rect(fill = "transparent",colour = NA), # or element_blank()
+    panel.grid.minor = element_blank(), 
+    panel.grid.major = element_blank(),
+    plot.background = element_rect(fill = "transparent",colour = NA),
+    axis.text.x = element_text(size=15),
+  
+    axis.ticks = element_blank(), 
+  axis.text.y = element_blank(),   
+    legend.position = "bottom",
+    legend.text=element_text(size=12)
+)
+
+p
+```
+
+
+
+## Are we building a sustainable people model?
+
+```{r fn_Net_Stacked, cache=TRUE}
+net_stacked<-function(x) {
+  
+  ## x: a data.frame or list, where each column is a ordered factor with the same levels
+  ## lower levels are presumed to be "negative" responses; middle value presumed to be neutral
+  ## returns a ggplot2 object of a net stacked distribution plot
+  
+  require(ggplot2)
+  
+  ## Test that all elements of x have the same levels, are ordered, etc.
+  all_levels <- levels(x[[1]])
+  n <- length(all_levels)
+  levelscheck <- all(sapply(x, function(y)
+    all(c(is.ordered(y), levels(y) == all_levels))
+  ))
+  if(!levelscheck)
+    stop("All levels of x must be ordered factors with the same levels")
+  
+  ## Reverse order of columns (to make ggplot2 output look right after coord_flip)
+  x <- x[length(x):1]
+  
+  ## Identify middle and "negative" levels
+  if(n %% 2 == 1)
+    neutral <- all_levels[ceiling(n/2)]
+  else
+    neutral <- NULL
+  
+  negatives <- all_levels[1:floor(n/2)]
+  positives <- setdiff(all_levels, c(negatives, neutral))
+  
+  ## remove neutral, summarize as proportion
+  listall <- lapply(names(x), function(y) {
+    column <- (na.omit(x[[y]]))
+    out <- data.frame(Question = y, prop.table(table(column)))
+    names(out) <- c("Question", "Response", "Freq")
+    
+    if(!is.null(neutral))
+      out <- out[out$Response != neutral,]
+    
+    out
+  })
+  
+  dfall <- do.call(rbind, listall)
+  
+  ## split by positive/negative
+  pos <- dfall[dfall$Response %in% positives,]
+  neg <- dfall[dfall$Response %in% negatives,]
+  
+  ## Negate the frequencies of negative responses, reverse order
+  neg$Freq <- -neg$Freq
+  neg$Response <- ordered(neg$Response, levels = rev(levels(neg$Response)))
+  
+  stackedchart <- ggplot() +
+    aes(Question, Freq, fill = Response, order = Response) + 
+    geom_bar(data = neg, stat = "identity") +
+    geom_bar(data = pos, stat = "identity") + geom_hline(yintercept=0) +
+    scale_y_continuous(name = "",
+                       labels = paste0(seq(-40, 100, 20), "%"),
+                       limits = c(-.4, 1),
+                       breaks = seq(-.4, 1, .2)) +
+    scale_fill_manual(limits = c(negatives, positives), values=c("#E27425", "#FEBC11", "#A7CFEE","#255694")) +
+    coord_flip()
+  
+  stackedchart
+}
+```
+
+
+```{r get_Q12, cache=TRUE}
+Q12<-read.csv('/Users/chaid/Dropbox/Consulting/KIPP Ascend/Data Analysis/Q12/Q12_All_Responces_121113.csv')
+
+
+Q12<-Q12[,c(1,5:16)]
+
+quests<-names(Q12)[-1]
+
+
+for(n in quests){
+  Q12[,n] <- factor(x=Q12[,n], levels=c("Strongly Disagree", "Disagree", "Neutral", "Agree", "Strongly Agree"))
+  Q12[,n] <- ordered(x=Q12[,n])
+}
+
+
+Q12.list<-as.list(Q12[,-1])
+for(i in 1:length(Q12.list)){
+  Q12.list[[i]]<-Q12.list[[i]][!is.na(Q12.list[[i]])]
+  levels(Q12.list[[i]])<-c("Strongly Disagree", "Disagree", "Neutral", "Agree", "Strongly Agree")
+}
+
+#Change list attributes to full question statements (yes, that is oxymoronic)
+names(Q12.list)<-c(
+                  "1. I know what is expected\nof me at work.",
+                  "2. I have the materials and\nequipment needed to do my work.",
+                  "3. At work I have the opportunity\nto do what I do best everyday.",
+                  "4. In the last seven days I have\nreceived praise or recognition at work.",
+                  "5. My supervisor, or someone at work,\ncares about me as a person.",
+                  "6. Someone at work\nencourages my development.",
+                  "7. At work, my opinions\nseem to matter.",
+                  "8. The mission of my organization makes\nme feel like my job is important.",
+                  "9. My coworkers are committed to\ndoing high-quality work.",
+                  "10. I have a best\nfriend at work.",
+                  "11. In the last six months someone at work\nhas talked to me about my progress.",
+                  "12. In the last year I have had\nopportunities to learn and grow.")
+```
+
+```{r graph_Q12, fig.width=8, fig.height=4.0}
+Q12.graph<-net_stacked(Q12.list)
+Q12.graph + theme(legend.position=c(.5,-.13), legend.direction="horizontal")
+```
+
+
+
+## Are we building a sustainable finacial model 
+
+
