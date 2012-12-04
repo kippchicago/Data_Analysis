@@ -690,6 +690,6 @@ Q12.graph + theme(legend.position=c(.5,-.13), legend.direction="horizontal")
 
 
 
-## Are we building a sustainable finacial model 
+## Are we building a sustainable financial model 
 
 

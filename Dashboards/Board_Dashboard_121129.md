@@ -70,6 +70,6 @@
 
 
 
-## Are we building a sustainable finacial model 
+## Are we building a sustainable financial model 
 
 
