@@ -1,0 +1,283 @@
+IMPACT and PowerSchool Attendence Reconcilation
+========================================================
+
+```{r options, echo=FALSE}
+options(replace.assign=TRUE,width=60)
+opts_chunk$set( 
+               fig.align='center', 
+               #dev='tikz', 
+               fig.width=8, 
+               fig.height=10.5, 
+               fig.show='hold', 
+               cache=FALSE, 
+               par=TRUE,
+               echo=FALSE,
+               message=FALSE,
+               warning=FALSE,
+               autodepend=TRUE
+               )
+```
+```{r load_libraries}
+setwd("~/Dropbox/Consulting/KIPP Ascend/Data Analysis/Weekly Attendance Report/")
+
+
+
+library(plyr)  #To manipulate data
+library(reshape) #More data manipulation
+library(ggplot2) #Graphics of grammer graphing
+library(grid) #More Graphing
+library(gridExtra) #better than par(mfrow=c(r,c)) for arranging ggplot2 and lattice graphics
+library(lubridate) #for dealing with dates
+library(xtable) #for pretty tables
+library(RJDBC) #To get data form PowerSchool DB
+library(RODBC) #To get data form PowerSchool DB
+#source MAP helper functions
+source("~/Dropbox/Consulting/KIPP Ascend/Data Analysis/MAP/Code/R/MAP_helper_functions.R")
+```
+```{r establsih_DB_connections}
+drvr <- JDBC("oracle.jdbc.driver.OracleDriver", "/Users/chaid/Dropbox/JDBC Drivers/ojdbc5.jar","")
+pscon <- dbConnect(drvr,"jdbc:oracle:thin:@10.160.29.47:1521:IL039","psnavigator","laidephy")
+```
+```{r get_Attendance_Data, cache=TRUE}
+#Get Attendance data.  
+# This SQL statement retrieves each enrolled student and their attendence status form PowerSchool 
+# by date for a given dateThi sis a table with each student for each day with status for the day
+Attendence<-dbGetQuery(pscon, "SELECT 
+    m.schoolid, 
+    m.grade_level,
+  	m.calendardate, 
+	m.STUDENT_NUMBER AS StudentID, 
+  	m.lastfirst,
+	m.Enrolled,
+	a.Att_Code,
+	a.Description as AttDescr,
+	a.Presence_Status_CD,
+	a.COURSE_CREDIT_POINTS,
+	CASE 
+		WHEN	a.Presence_Status_CD = 'Absent' THEN a.COURSE_CREDIT_POINTS 
+		ELSE 0 
+	END as Absent
+FROM (
+	SELECT
+		psmd.SchoolID,  
+		psmd.grade_level, 
+		psmd.calendardate, 
+		psmd.studentid,
+		s.STUDENT_NUMBER,
+		s.LASTFIRST, 
+		1 as Enrolled  
+	FROM PS_Membership_Defaults psmd
+	LEFT JOIN students s ON psmd.StudentID = s.id
+	Where 	calendardate >= '13-AUG-12'
+		AND  calendardate <= '22-NOV-12'
+) m
+LEFT JOIN (
+	SELECT 
+		att.schoolid, 
+		att.StudentID,
+		att.Att_Date,
+		attc.Att_Code,
+		attc.Description,
+		attc.Presence_Status_CD,
+		attc.COURSE_CREDIT_POINTS
+	FROM Attendance att
+  	INNER JOIN Attendance_Code attc ON att.Attendance_CodeID = attc.ID
+	WHERE 
+		att.Att_Mode_Code = 'ATT_ModeDaily'
+  		AND att.Att_Date >= '13-AUG-12'
+  		AND att.Att_Date <= '22-NOV-12'
+		AND (attc.att_code = 'A' OR attc.att_code = 'S' or attc.att_code = 'X' or attc.att_code = 'H')
+) a
+ON m.STUDENTID = a.studentid AND m.calendardate =a.Att_Date AND m.schoolID = a.schoolid
+ORDER BY schoolid, grade_level, calendardate
+")
+```
+```{r polish_Attendance, cache=FALSE}
+
+Attendence$SchoolInitials[Attendence$SCHOOLID==7810]<-"KAMS"
+Attendence$SchoolInitials[Attendence$SCHOOLID==78102]<-"KAPS"
+Attendence$SchoolInitials[Attendence$SCHOOLID==400146]<-"KCCP"
+Attendence$SchoolInitials<-factor(Attendence$SchoolInitials, levels=c("KAPS", "KAMS", "KCCP"))
+
+
+#Summarize enrollments and absences by day
+
+
+
+DailyEnrollAttend<-ddply(Attendence, .(SCHOOLID, CALENDARDATE), summarise, Enrolled=sum(ENROLLED), Absent=sum(ABSENT))
+
+DailyEnrollAttendByGrade<-ddply(Attendence, .(SCHOOLID, GRADE_LEVEL, CALENDARDATE), summarise, Enrolled=sum(ENROLLED), Absent=sum(ABSENT))
+#rename some columns (becuase ALL CAPS is annoying)
+
+names(DailyEnrollAttend)<-c("SchoolID", "Date", "Enrolled", "Absent")
+names(DailyEnrollAttendByGrade)<-c("SchoolID", "Grade","Date", "Enrolled", "Absent")
+
+
+#transform dates
+DailyEnrollAttend$Date<-ymd_hms(DailyEnrollAttend$Date)
+DailyEnrollAttendByGrade$Date<-ymd_hms(DailyEnrollAttendByGrade$Date)
+
+
+#Some quick daily stats
+DailyEnrollAttend$Present<-DailyEnrollAttend$Enrolled-DailyEnrollAttend$Absent
+DailyEnrollAttendByGrade$Present<-DailyEnrollAttendByGrade$Enrolled-DailyEnrollAttendByGrade$Absent
+
+DailyEnrollAttend$PctAbsent<-DailyEnrollAttend$Absent/DailyEnrollAttend$Enrolled
+DailyEnrollAttendByGrade$PctAbsent<-DailyEnrollAttendByGrade$Absent/DailyEnrollAttendByGrade$Enrolled
+
+DailyEnrollAttend$PctPresent<-1-DailyEnrollAttend$PctAbsent
+DailyEnrollAttendByGrade$PctPresent<-1-DailyEnrollAttendByGrade$PctAbsent
+
+DailyEnrollAttend$PctPresentGTE95<-DailyEnrollAttend$PctPresent>=.95
+DailyEnrollAttendByGrade$PctPresentGTE95<-DailyEnrollAttendByGrade$PctPresent>=.95
+
+DailyEnrollAttend$Present96PctBenchMark<-.96*DailyEnrollAttend$Enrolled
+DailyEnrollAttendByGrade$Present96PctBenchMark<-.96*DailyEnrollAttendByGrade$Enrolled
+
+DailyEnrollAttend$WeekInYear<-week(DailyEnrollAttend$Date)
+DailyEnrollAttendByGrade$WeekInYear<-week(DailyEnrollAttendByGrade$Date)
+
+DailyEnrollAttend$WeekInSchoolYear<-DailyEnrollAttend$WeekInYear - min(DailyEnrollAttend$WeekInYear) +1
+DailyEnrollAttendByGrade$WeekInSchoolYear<-DailyEnrollAttendByGrade$WeekInYear - min(DailyEnrollAttendByGrade$WeekInYear) +1
+
+DailyEnrollAttend$WeekOfDate<-floor_date(DailyEnrollAttend$Date, unit="week") + days(1) 
+DailyEnrollAttendByGrade$WeekOfDate<-floor_date(DailyEnrollAttendByGrade$Date, unit="week") + days(1) 
+
+#Long Week (of) label
+DailyEnrollAttend$WeekOfDateLabel<-paste("Week of \n", month(DailyEnrollAttend$WeekOfDate,label=TRUE, abbr=TRUE), day(DailyEnrollAttend$WeekOfDate), sep=" ")
+DailyEnrollAttendByGrade$WeekOfDateLabel<-paste("Week of \n", month(DailyEnrollAttendByGrade$WeekOfDate,label=TRUE, abbr=TRUE), day(DailyEnrollAttendByGrade$WeekOfDate), sep=" ")
+
+DailyEnrollAttend$WeekOfDateLabel<-factor(DailyEnrollAttend$WeekInSchoolYear, labels=unique(DailyEnrollAttend$WeekOfDateLabel))
+DailyEnrollAttendByGrade$WeekOfDateLabel<-factor(DailyEnrollAttendByGrade$WeekInSchoolYear, labels=unique(DailyEnrollAttendByGrade$WeekOfDateLabel))
+
+#Short Week  Label
+DailyEnrollAttend$WeekOfShortDateLabel<-paste(month(DailyEnrollAttend$WeekOfDate,label=TRUE, abbr=TRUE), day(DailyEnrollAttend$WeekOfDate), sep=" ")
+DailyEnrollAttendByGrade$WeekOfShortDateLabel<-paste(month(DailyEnrollAttendByGrade$WeekOfDate,label=TRUE, abbr=TRUE), day(DailyEnrollAttendByGrade$WeekOfDate), sep=" ")
+
+
+DailyEnrollAttend$WeekOfShortDateLabel<-factor(DailyEnrollAttend$WeekInSchoolYear, labels=unique(DailyEnrollAttend$WeekOfShortDateLabel))
+DailyEnrollAttendByGrade$WeekOfShortDateLabel<-factor(DailyEnrollAttendByGrade$WeekInSchoolYear, labels=unique(DailyEnrollAttendByGrade$WeekOfShortDateLabel))
+
+
+#add School Initials for graphics
+DailyEnrollAttend$SchoolInitials[DailyEnrollAttend$SchoolID==7810]<-"KAMS"
+DailyEnrollAttendByGrade$SchoolInitials[DailyEnrollAttendByGrade$SchoolID==7810]<-"KAMS"
+
+DailyEnrollAttend$SchoolInitials[DailyEnrollAttend$SchoolID==78102]<-"KAPS"
+DailyEnrollAttendByGrade$SchoolInitials[DailyEnrollAttendByGrade$SchoolID==78102]<-"KAPS"
+
+DailyEnrollAttend$SchoolInitials[DailyEnrollAttend$SchoolID==400146]<-"KCCP"
+DailyEnrollAttendByGrade$SchoolInitials[DailyEnrollAttendByGrade$SchoolID==400146]<-"KCCP"
+
+DailyEnrollAttend$SchoolInitials<-factor(DailyEnrollAttend$SchoolInitials, levels=c("KAPS", "KAMS", "KCCP"))
+DailyEnrollAttendByGrade$SchoolInitials<-factor(DailyEnrollAttendByGrade$SchoolInitials, levels=c("KAPS", "KAMS", "KCCP"))
+#head(DailyEnrollAttend)
+```
+```{r Attendance_Summaries}
+#calculate attendence rate by week by school
+AttRateByWeekBySchool<-ddply(DailyEnrollAttend,.(SchoolInitials,WeekOfShortDateLabel), summarise, AttRate=sum(Present)/sum(Enrolled)*100)
+
+AttRateYTDBySchool<-ddply(DailyEnrollAttend,.(SchoolInitials), summarise, AttRate=sum(Present)/sum(Enrolled)*100)
+
+AttRateYTDBySchool$WeekOfShortLabel<-"YTD"
+
+AttRateByWeekBySchool.table<-cast(AttRateByWeekBySchool, WeekOfShortDateLabel ~ SchoolInitials)
+
+AttRateYTDBySchool<-reshape(AttRateYTDBySchool, idvar="WeekOfShortLabel",timevar="SchoolInitials", direction="wide")
+names(AttRateYTDBySchool)<-c("WeekOfShortDateLabel", "KAMS", "KAPS", "KCCP")
+AttRateByWeekBySchool.table<-rbind(AttRateByWeekBySchool.table,AttRateYTDBySchool)
+AttRateByWeekBySchool.table[,c(2:4)] <- round(AttRateByWeekBySchool.table[,c(2:4)],1)
+
+
+
+
+names(AttRateByWeekBySchool.table)[1]<-"Week of" #a better column title
+AttRateByWeekBySchool.xtable<-xtable(AttRateByWeekBySchool.table)
+```
+
+```{r table_function}
+attend_tables<-function(tbl, title){
+  require(grid)
+  
+  #get number of lines in table plus header row
+  n<-nrow(tbl) + 1 #+ 1 is the header row 
+  
+  #divide viewport
+  grid.newpage()
+  pushViewport(viewport(layout = grid.layout(2,1, heights=unit(c(2,n+2), c("lines", "lines")))))
+  pushViewport(viewport(layout.pos.row=2))
+  grid.table(tbl, just="bottom")
+  upViewport()
+  pushViewport(viewport(layout.pos.row=1))
+  grid.text(title, just="bottom")
+  popViewport(0)
+}
+```
+
+
+
+# KAPS & KAMS
+These tables match the format weekly reports from IMPACT, but are populated with Data from PowerSchool
+```{r Table_Week_1, fig.height=3}
+attend_tables(subset(arrange(ddply(subset(DailyEnrollAttendByGrade, SchoolInitials!="KCCP"),.(Grade,WeekOfShortDateLabel), summarise, Enrolled=sum(Enrolled),DaysPresent=sum(Present),DaysAbsent=sum(Absent),AttRate=sum(Present)/sum(Enrolled)*100), WeekOfShortDateLabel),WeekOfShortDateLabel=="Aug 13"),"Week 1 (Week of Aug 13)")
+```
+
+```{r Table_Week_2, fig.height=3}
+attend_tables(subset(arrange(ddply(subset(DailyEnrollAttendByGrade, SchoolInitials!="KCCP"),.(Grade,WeekOfShortDateLabel), summarise, Enrolled=sum(Enrolled),DaysPresent=sum(Present),DaysAbsent=sum(Absent),AttRate=sum(Present)/sum(Enrolled)*100), WeekOfShortDateLabel),WeekOfShortDateLabel=="Aug 20"),"Week 2 (Week of Aug 20)")
+```
+
+```{r Table_Week_3, fig.height=3}
+attend_tables(subset(arrange(ddply(subset(DailyEnrollAttendByGrade, SchoolInitials!="KCCP"),.(Grade,WeekOfShortDateLabel), summarise, Enrolled=sum(Enrolled),DaysPresent=sum(Present),DaysAbsent=sum(Absent),AttRate=sum(Present)/sum(Enrolled)*100), WeekOfShortDateLabel),WeekOfShortDateLabel=="Aug 27"),"Week 3 (Week of Aug 27)")
+```
+
+
+```{r Table_Week_4, fig.height=3}
+attend_tables(subset(arrange(ddply(subset(DailyEnrollAttendByGrade, SchoolInitials!="KCCP"),.(Grade,WeekOfShortDateLabel), summarise, Enrolled=sum(Enrolled),DaysPresent=sum(Present),DaysAbsent=sum(Absent),AttRate=sum(Present)/sum(Enrolled)*100), WeekOfShortDateLabel),WeekOfShortDateLabel=="Sep 3"),"Week 4 (Week of Sep 3)")
+```
+
+```{r Table_Week_5, fig.height=3}
+attend_tables(subset(arrange(ddply(subset(DailyEnrollAttendByGrade, SchoolInitials!="KCCP"),.(Grade,WeekOfShortDateLabel), summarise, Enrolled=sum(Enrolled),DaysPresent=sum(Present),DaysAbsent=sum(Absent),AttRate=sum(Present)/sum(Enrolled)*100), WeekOfShortDateLabel),WeekOfShortDateLabel=="Sep 10"),"Week 5 (Week of Sep 10)")
+```
+
+```{r Table_Week_6, fig.height=3}
+attend_tables(subset(arrange(ddply(subset(DailyEnrollAttendByGrade, SchoolInitials!="KCCP"),.(Grade,WeekOfShortDateLabel), summarise, Enrolled=sum(Enrolled),DaysPresent=sum(Present),DaysAbsent=sum(Absent),AttRate=sum(Present)/sum(Enrolled)*100), WeekOfShortDateLabel),WeekOfShortDateLabel=="Sep 17"),"Week 6 (Week of Sep 17)")
+```
+
+```{r Table_Week_7, fig.height=3}
+attend_tables(subset(arrange(ddply(subset(DailyEnrollAttendByGrade, SchoolInitials!="KCCP"),.(Grade,WeekOfShortDateLabel), summarise, Enrolled=sum(Enrolled),DaysPresent=sum(Present),DaysAbsent=sum(Absent),AttRate=sum(Present)/sum(Enrolled)*100), WeekOfShortDateLabel),WeekOfShortDateLabel=="Sep 24"),"Week 7 (Week of Sep 24)")
+```
+
+```{r Table_Week_8, fig.height=3}
+attend_tables(subset(arrange(ddply(subset(DailyEnrollAttendByGrade, SchoolInitials!="KCCP"),.(Grade,WeekOfShortDateLabel), summarise, Enrolled=sum(Enrolled),DaysPresent=sum(Present),DaysAbsent=sum(Absent),AttRate=sum(Present)/sum(Enrolled)*100), WeekOfShortDateLabel),WeekOfShortDateLabel=="Oct 1"),"Week 8 (Week of Oct 1)")
+```
+
+
+```{r Table_Week_9, fig.height=3}
+attend_tables(subset(arrange(ddply(subset(DailyEnrollAttendByGrade, SchoolInitials!="KCCP"),.(Grade,WeekOfShortDateLabel), summarise, Enrolled=sum(Enrolled),DaysPresent=sum(Present),DaysAbsent=sum(Absent),AttRate=sum(Present)/sum(Enrolled)*100), WeekOfShortDateLabel),WeekOfShortDateLabel=="Oct 8"),"Week 9 (Week of Oct 8)")
+```
+
+```{r Table_Week_10, fig.height=3}
+attend_tables(subset(arrange(ddply(subset(DailyEnrollAttendByGrade, SchoolInitials!="KCCP"),.(Grade,WeekOfShortDateLabel), summarise, Enrolled=sum(Enrolled),DaysPresent=sum(Present),DaysAbsent=sum(Absent),AttRate=sum(Present)/sum(Enrolled)*100), WeekOfShortDateLabel),WeekOfShortDateLabel=="Oct 15"),"Week 10 (Week of Oct 15)")
+```
+
+```{r Table_Week_11, fig.height=3}
+attend_tables(subset(arrange(ddply(subset(DailyEnrollAttendByGrade, SchoolInitials!="KCCP"),.(Grade,WeekOfShortDateLabel), summarise, Enrolled=sum(Enrolled),DaysPresent=sum(Present),DaysAbsent=sum(Absent),AttRate=sum(Present)/sum(Enrolled)*100), WeekOfShortDateLabel),WeekOfShortDateLabel=="Oct 22"),"Week 11 (Week of Oct 22)")
+```
+
+```{r Table_Week_12, fig.height=3}
+attend_tables(subset(arrange(ddply(subset(DailyEnrollAttendByGrade, SchoolInitials!="KCCP"),.(Grade,WeekOfShortDateLabel), summarise, Enrolled=sum(Enrolled),DaysPresent=sum(Present),DaysAbsent=sum(Absent),AttRate=sum(Present)/sum(Enrolled)*100), WeekOfShortDateLabel),WeekOfShortDateLabel=="Oct 29"),"Week 12 (Week of OCt 29)")
+```
+
+
+```{r Table_Week_13, fig.height=3}
+attend_tables(subset(arrange(ddply(subset(DailyEnrollAttendByGrade, SchoolInitials!="KCCP"),.(Grade,WeekOfShortDateLabel), summarise, Enrolled=sum(Enrolled),DaysPresent=sum(Present),DaysAbsent=sum(Absent),AttRate=sum(Present)/sum(Enrolled)*100), WeekOfShortDateLabel),WeekOfShortDateLabel=="Nov 5"),"Week 13 (Week of Nov 5)")
+```
+
+```{r Table_Week_14, fig.height=3}
+attend_tables(subset(arrange(ddply(subset(DailyEnrollAttendByGrade, SchoolInitials!="KCCP"),.(Grade,WeekOfShortDateLabel), summarise, Enrolled=sum(Enrolled),DaysPresent=sum(Present),DaysAbsent=sum(Absent),AttRate=sum(Present)/sum(Enrolled)*100), WeekOfShortDateLabel),WeekOfShortDateLabel=="Nov 12"),"Week 14 (Week of Nov 12)")
+```
+
+```{r Table_Week_15, fig.height=3}
+attend_tables(subset(arrange(ddply(subset(DailyEnrollAttendByGrade, SchoolInitials!="KCCP"),.(Grade,WeekOfShortDateLabel), summarise, Enrolled=sum(Enrolled),DaysPresent=sum(Present),DaysAbsent=sum(Absent),AttRate=sum(Present)/sum(Enrolled)*100), WeekOfShortDateLabel),WeekOfShortDateLabel=="Nov 19"),"Week 15 (Week of Nov 19)")
+```
+
