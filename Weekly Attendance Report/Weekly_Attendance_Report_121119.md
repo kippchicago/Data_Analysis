@@ -18,7 +18,7 @@ Week of December 3, 2012
 
 
 #### Weekly & YTD Attendance by School
-![plot of chunk tbl_Weekly_Attendance](figure/tbl_Weekly_Attendance.png) 
+<img src="figure/tbl_Weekly_Attendance.png" width="400"   alt="plot of chunk tbl_Weekly_Attendance" title="plot of chunk tbl_Weekly_Attendance" /> 
 
 #### Daily Enrollment and Attendance by School
 The greeen line demarcates 96% of enrollment (i.e., our regional daily attendance goal).
@@ -37,5 +37,9 @@ The greeen line demarcates 96% of enrollment (i.e., our regional daily attendanc
 
 #### YTD Students Suspended (ordered by number of suspensions)
 ![plot of chunk tbl_Suspensions_Leaderboard](figure/tbl_Suspensions_Leaderboard.png) 
+
+#### Students Suspended, Previous 2 Weeks (ordered by number of suspensions)
+![plot of chunk tbl_Suspension_most_recent_week](figure/tbl_Suspension_most_recent_week.png) 
+
 
 

@@ -72,7 +72,7 @@ FROM (
 	FROM PS_Membership_Defaults psmd
 	LEFT JOIN students s ON psmd.StudentID = s.id
 	Where 	calendardate >= '13-AUG-12'
-		AND  calendardate <= '07-DEC-12'
+		AND  calendardate <= '14-DEC-12'
 ) m
 LEFT JOIN (
 	SELECT 
@@ -88,7 +88,7 @@ LEFT JOIN (
 	WHERE 
 		att.Att_Mode_Code = 'ATT_ModeDaily'
   		AND att.Att_Date >= '13-AUG-12'
-  		AND att.Att_Date <= '07-DEC-12'
+  		AND att.Att_Date <= '14-DEC-12'
 		AND (attc.att_code = 'A' OR attc.att_code = 'S' or attc.att_code = 'X' or attc.att_code = 'H')
 ) a
 ON m.STUDENTID = a.studentid AND m.calendardate =a.Att_Date AND m.schoolID = a.schoolid
@@ -208,7 +208,7 @@ AttRateByWeekBySchool.xtable<-xtable(AttRateByWeekBySchool.table)
 ```
 
 #### Weekly & YTD Attendance by School
-```{r tbl_Weekly_Attendance, fig.width=7, fig.height=6}
+```{r tbl_Weekly_Attendance, dpi=300, out.width=400, fig.width=4, fig.height=7, fig.align='left'}
 grid.table(AttRateByWeekBySchool.xtable, show.rownames=FALSE)
 ```
 #### Daily Enrollment and Attendance by School
@@ -302,9 +302,20 @@ tbl.susp.2<-tableGrob(YTDSuspensionsByWeekByGrade.xtable,show.rownames=FALSE)
 grid.arrange(tbl.susp.1,tbl.susp.2, ncol=2)
 ```
 #### YTD Students Suspended (ordered by number of suspensions)
-```{r tbl_Suspensions_Leaderboard, fig.width=11, fig.height=8}
+```{r tbl_Suspensions_Leaderboard, fig.width=11, fig.height=10}
 Sups.leaders<-arrange(ddply(Suspensions, .(LASTFIRST, SchoolInitials, GRADE_LEVEL), summarise, Suspensions=sum(ABSENT)), desc(Suspensions))
 names(Sups.leaders)<-c("Student", "School", "Grade", "Suspensions")
 grid.table(Sups.leaders)
 ```
+#### Students Suspended, Previous 2 Weeks (ordered by number of suspensions)
+```{r tbl_Suspension_most_recent_week, fig.height=4}
+Sups.lastweek<-arrange(subset(Suspensions, WeekOfDate>=ymd("2012-12-03"), select=c(CALENDARDATE, GRADE_LEVEL, LASTFIRST, SchoolInitials)),SchoolInitials, GRADE_LEVEL, CALENDARDATE, LASTFIRST)
+Sups.lastweek$Date<-paste(month(Sups.lastweek$CALENDARDATE, label=TRUE),day(Sups.lastweek$CALENDARDATE), sep=" ") 
+
+Sups.lastweek.table<-Sups.lastweek[,c("Date", "SchoolInitials","GRADE_LEVEL", "LASTFIRST")]
+names(Sups.lastweek.table)<-c("Date", "School","Grade", "Student Name")
+grid.table(Sups.lastweek.table)
+
+```
+
 
