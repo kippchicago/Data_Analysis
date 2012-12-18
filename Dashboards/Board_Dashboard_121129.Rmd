@@ -301,6 +301,7 @@ p
 ```
 
 \newpage
+
 ## Are our students progressing and achieving academically?
 ```{r ISAT_Data_Prep, echo=FALSE, cache=FALSE}
 #CPS Data
@@ -495,13 +496,14 @@ p.map.averages.slope <- p.map.averages.slope  + scale_y_continuous("RIT Score")
 p.map.averages.slope <- p.map.averages.slope  + theme(legend.position="bottom", legend.direction="horizontal") + ggtitle("MAP Average Score By Class:\nFall 10 - Spring 12")
 ```
 
-```{r graph_Academic_Progress, fig.width=8, fig.height=10}
+```{r graph_Academic_Progress, fig.width=8, fig.height=9}
 blankPanel<-rectGrob(gp=gpar(col="white"))
 grid.arrange(p.isat, blankPanel, p.map.averages.slope, p.map.quartile, nrow=2)
 ```
 
 
-\newpage
+
+
 ## Are our alumni climbing the mountain to and through college?
 
 ```{r get_KTC_Selectivity_Data, cache=TRUE}
@@ -576,6 +578,7 @@ p
 ```
 
 
+\newpage
 
 ## Are we building a sustainable people model?
 
@@ -689,11 +692,12 @@ Q12.graph<-net_stacked(Q12.list)
 Q12.graph + theme(legend.position=c(.5,-.13), legend.direction="horizontal")
 ```
 
-
-
 ## Are we building a sustainable financial model
+
 \newpage
+
 # DRAFT Details
+
 ## Are we serving the children who need us?
 
 ```{r get_Attendance_Data, cache=TRUE}
@@ -867,11 +871,15 @@ AttRateByWeek<-ddply(DailyEnrollAttend,.(WeekOfShortDateLabel), summarise, AttRa
 names(AttRateByWeek)<-c("Week", "AttRate")
 
 ```
+
 ### Weekly Attendance, Region
+
 ```{r plot_Weekly_Attendance, fig.height=3}
 ggplot(AttRateByWeek, aes(x=Week, y=AttRate)) + geom_bar(fill="#255694") +  coord_cartesian(ylim = c(90,100)) + geom_hline(yintercept=96, color="#E27425")
 ```
+
 ### Daily Attendance by School
+
 ```{r fig_Daily_Attendence, fig.width=8, fig.height=3}
 ggplot(DailyEnrollAttend, aes(x=wday(Date), y=Enrolled)) + 
   geom_step(direction="hv", color="gray") + 
@@ -884,6 +892,7 @@ ggplot(DailyEnrollAttend, aes(x=wday(Date), y=Enrolled)) +
 
 
 \newpage
+
 ## Are our students staying with us?
   
 ```{r get_Transfer_data, cache=TRUE}
@@ -994,6 +1003,4 @@ grid.newpage()
 grid.arrange(g.plot, g.tbl, heights=c(.8,.4),nrow=2)
 ```
 
-
-  
 ## Are our students progressing and achieving academically?
