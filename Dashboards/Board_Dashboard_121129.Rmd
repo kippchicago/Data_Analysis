@@ -16,6 +16,8 @@ opts_chunk$set(
   warning=FALSE,
   autodepend=TRUE
 )
+
+opts_knit$set(progress=TRUE, concordence=TRUE)
 ```
 ```{r load_libraries}
 setwd("~/Dropbox/Consulting/KIPP Ascend/Data Analysis/Dashboards/")
@@ -197,7 +199,7 @@ arrowdiagr<-function(data, t=" ", ranking="Fall", schoolname="KIPP Ascend Charte
 }
 ```
 
-```{r establsih_DB_connections}
+```{r establsih_DB_connections, cache=FALSE}
 drvr <- JDBC("oracle.jdbc.driver.OracleDriver", "/Users/chaid/Dropbox/JDBC Drivers/ojdbc5.jar","")
 pscon <- dbConnect(drvr,"jdbc:oracle:thin:@10.160.29.47:1521:IL039","psnavigator","laidephy")
 ```
@@ -270,17 +272,18 @@ df.attrition.melt$varType[grepl("Mobility",df.attrition.melt$Variable)]<-"Mobili
 df.attrition.melt$varType[grepl("Attrition",df.attrition.melt$Variable)]<-"Attrition"
 
 df.attrition.melt$varType<-factor(df.attrition.melt$varType, levels=c("Mobility", "Attrition"))
-df.attrition.melt$Variable<-factor(df.attrition.melt$Variable, levels=c("KIPP Ascend Attrition","CPS Mobility","KIPP Ascend Mobility"))
+df.attrition.melt$Variable<-factor(df.attrition.melt$Variable, levels=c( "CPS Mobility","KIPP Chicago Mobility","KIPP Network Attrition","KIPP Chicago Attrition"))
 ```
 
 ```{r Mob_Attr_Plot, echo=FALSE, fig.width=8, fig.height=4}
-colours <- c("#439539", "#CFCCC1", "#60A2D7")
+colours <- c( "#CFCCC1", "#60A2D7", "#8D8685", "#439539")
 
 
 
 p <- ggplot(df.attrition.melt, aes(x=Year, y=value)) 
-p <- p + geom_line(aes(color=Variable, group=Variable), size=3) 
 p <- p + geom_point(aes(color=Variable), size=5) 
+p <- p + geom_line(aes(color=Variable, group=Variable), size=3) 
+
 p <- p + facet_grid(varType~.)
 p <- p + scale_color_manual("",values=colours)
 p <- p + scale_y_continuous("")
@@ -496,9 +499,9 @@ p.map.averages.slope <- p.map.averages.slope  + scale_y_continuous("RIT Score")
 p.map.averages.slope <- p.map.averages.slope  + theme(legend.position="bottom", legend.direction="horizontal") + ggtitle("MAP Average Score By Class:\nFall 10 - Spring 12")
 ```
 
-```{r graph_Academic_Progress, fig.width=8, fig.height=9}
+```{r graph_Academic_Progress, fig.width=8, fig.height=4}
 blankPanel<-rectGrob(gp=gpar(col="white"))
-grid.arrange(p.isat, blankPanel, p.map.averages.slope, p.map.quartile, nrow=2)
+grid.arrange(p.map.averages.slope, p.map.quartile, ncol=2)
 ```
 
 
@@ -731,7 +734,7 @@ FROM (
 	FROM PS_Membership_Defaults psmd
 	LEFT JOIN students s ON psmd.StudentID = s.id
 	Where 	calendardate >= '13-AUG-12'
-		AND  calendardate <= '14-DEC-12'
+		AND  calendardate <= '20-JAN-13'
 ) m
 LEFT JOIN (
 	SELECT 
@@ -747,7 +750,7 @@ LEFT JOIN (
 	WHERE 
 		att.Att_Mode_Code = 'ATT_ModeDaily'
   		AND att.Att_Date >= '13-AUG-12'
-  		AND att.Att_Date <= '14-DEC-12'
+  		AND att.Att_Date <= '20-JAN-13'
 		AND (attc.att_code = 'A' OR attc.att_code = 'S' or attc.att_code = 'X' or attc.att_code = 'H')
 ) a
 ON m.STUDENTID = a.studentid AND m.calendardate =a.Att_Date AND m.schoolID = a.schoolid
@@ -875,16 +878,22 @@ names(AttRateByWeek)<-c("Week", "AttRate")
 ### Weekly Attendance, Region
 
 ```{r plot_Weekly_Attendance, fig.height=3}
-ggplot(AttRateByWeek, aes(x=Week, y=AttRate)) + geom_bar(fill="#255694") +  coord_cartesian(ylim = c(90,100)) + geom_hline(yintercept=96, color="#E27425")
+ggplot(AttRateByWeek, aes(x=Week, y=AttRate)) + 
+  geom_bar(fill="#255694") +  
+  coord_cartesian(ylim = c(90,100)) + 
+  geom_hline(yintercept=95, color="#E27425") +
+  annotate("rect", xmin=10, xmax=14, ymin=97, ymax=98, alpha=.2) + 
+  annotate("text", x=12, y=97.5, label=paste("YTD = ", round(AttRateYTDRegion[2],2), sep="")) + 
+  theme(axis.text.x = element_text(angle=45, size=8))
 ```
 
 ### Daily Attendance by School
 
 ```{r fig_Daily_Attendence, fig.width=8, fig.height=3}
-ggplot(DailyEnrollAttend, aes(x=wday(Date), y=Enrolled)) + 
+  ggplot(DailyEnrollAttend, aes(x=wday(Date), y=Enrolled)) + 
   geom_step(direction="hv", color="gray") + 
   geom_step(aes(y=Present), direction="hv") + 
-  geom_step(aes(y=.96*Enrolled), direction="hv", color="green") + 
+  geom_step(aes(y=.95*Enrolled), direction="hv", color="green") + 
   scale_x_continuous(breaks = c(2,3,4,5,6), labels=c("M","T","W","R","F")) + #Change numberd week days to lettered
   facet_grid(SchoolInitials~WeekOfDateLabel, scales="free_y") +
   theme_bw()
@@ -916,91 +925,290 @@ s.EXITCOMMENT
 FROM PS_Membership_Defaults m
 JOIN STUDENTS s
 ON m.studentid = s.id
-WHERE m.calendardate = '3-OCT-12'
+WHERE m.calendardate = '03-OCT-12'
 ORDER BY schoolid, grade_level
 ")
 
 #all Students enrolled on Oct 31 who have exit dates prior to 6/14/2013
 
-Xfers.HSR<-subset(Enrolled.121003, ymd_hms(Enrolled.121003$EXITDATE)<ymd("13-06-14"))
+Xfers.HSR.1213<-subset(Enrolled.121003, ymd_hms(Enrolled.121003$EXITDATE)<ymd("13-06-14"))
+
+#same as above but for prior year (i.e., 2010-11)
+
+Enrolled.110930<-dbGetQuery(pscon, "SELECT
+m.SchoolID,
+s.student_number as StudentID,
+s.first_name,
+s.middle_name,
+s.last_name,
+m.grade_level,
+s.ethnicity AS Race_ID,
+s.gender,
+s.dob,
+s.entrydate,
+s.SCHOOLENTRYDATE,
+s.DISTRICTENTRYDATE,
+s.EXITDATE,
+s.exitcode,
+s.EXITCOMMENT
+FROM PS_Membership_Defaults m
+JOIN STUDENTS s
+ON m.studentid = s.id
+WHERE m.calendardate = '30-SEP-11'
+ORDER BY schoolid, grade_level
+")
+
+
+Xfers.HSR.1112<-subset(Enrolled.110930, ymd_hms(Enrolled.110930$EXITDATE)<ymd("12-09-30") & EXITCODE!="GR") #Remove graduated students
+
 ```
 
 ```{r prep_Transfer_data}
+
+
+#xfer.total.monthly.by.school<-arrange(ddply(Xfers.HSR.1213, .(SCHOOLID, Month), summarise, N=length(Month)), Month)
+
+#xfer.total.weekly.by.school<-arrange(ddply(Xfers.HSR.1213, .(SCHOOLID, Week), summarise, N=length(Week)), Week)
+
+#xfer.total.cum.monthly<-ddply(xfer.total.monthly.by.school, .(SCHOOLID), transform, YTD=cumsum(N))
+
+#xfer.total.cum.weekly<-ddply(xfer.total.weekly.by.school, .(SCHOOLID), transform, YTD=cumsum(N))
+
 #extract month and date of transfers
-Xfers.HSR$Month<-month(ymd_hms(Xfers.HSR$EXITDATE), label=TRUE)
-Xfers.HSR$Week<-week(ymd_hms(Xfers.HSR$EXITDATE))
+  #need cumulative summation that handles NAs as 0s for next function to work
+  cum.na <- function(x) { 
+    x[which(is.na(x))] <- 0 
+    return(cumsum(x)) 
+  } 
+transferplot.data.prep <- function (transfers.data, enrolled.data) {
+  require(lubridate)
+  require(reshape)
+ 
+  transfers.data$Month<-month(ymd_hms(transfers.data$EXITDATE), label=TRUE)
+  transfers.data$Week<-week(ymd_hms(transfers.data$EXITDATE))
+  
+  monthly.by.school<-arrange(ddply(transfers.data, .(SCHOOLID, Month), summarise, N=length(Month)), Month)
+  
+  cum.monthly<-ddply(monthly.by.school, .(SCHOOLID), transform, YTD=cumsum(N))
+  
+  cum.monthly$School[cum.monthly$SCHOOLID==78102]<-"KAPS"
+  cum.monthly$School[cum.monthly$SCHOOLID==7810]<-"KAMS"
+  cum.monthly$School[cum.monthly$SCHOOLID==400146]<-"KCCP"
+  
+  ####Need to build data fram that contains actual YTD, as well as 10% annual ceiling for each school.  Months need to 
+  # start with October
+  mons<-c("Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep")
+  mons<-factor(mons, levels=mons, ordered=TRUE)
+  
+  #School<-c("KAPS", "KAMS", "KCCP")
+  School<-unique(cum.monthly$School)
+  School<-factor(School, levels=School)
+  
+cum.monthly$School<-factor(cum.monthly$School, level=School)
+  
+  
+  
+  redline<-ddply(enrolled.data, .(SCHOOLID), summarise, N.Enrolled=length(STUDENTID))
+  redline$N.10pct<-redline$N.Enrolled*.1
+  redline$line.month<-redline$N.10pct/12
+  redline$School<-School
+  redline<-redline[,c("School", "line.month")]
+  
+  
+  
+  
+  xferplot.data<-expand.grid(Month=mons, School=School, Variable=c("Cumulative Transfers", "Ceiling"))
+  xferplot.data<-merge(x=xferplot.data, y=redline, by="School",all.x=TRUE )
+  names(xferplot.data)[4]<-"Value"
+  xferplot.data$Value[xferplot.data$Variable=="Cumulative Transfers"]<-NA
+  
+  xfer.cums<-cum.monthly[,c("School", "Month", "N")]
+  xfer.cums$Variable<-"Cumulative Transfers"
+  xferplot.merge<-merge(xferplot.data, xfer.cums, by=c("School", "Month", "Variable"), all.x=TRUE)
+  xferplot.merge$Value[!is.na(xferplot.merge$N)]<-xferplot.merge$N[!is.na(xferplot.merge$N)]
+  xferplot.merge<-arrange(xferplot.merge[,c(1:4)], School, Variable, Month)
+  
+  cum.na <- function(x) { 
+    x[which(is.na(x))] <- 0 
+    return(cumsum(x)) 
+  } 
+  
+  xferplot<-arrange(ddply(xferplot.merge, .(School, Variable), transform, CumVal= cum.na(Value)),School, Variable, Month)
+  
+  xferplot$Value[!is.na(xferplot$Value)]<-xferplot$CumVal[!is.na(xferplot$Value)]
+  
+  xferplot
+}
 
-xfer.total.monthly.by.school<-arrange(ddply(Xfers.HSR, .(SCHOOLID, Month), summarise, N=length(Month)), Month)
+xferplot.1213<-transferplot.data.prep(Xfers.HSR.1213, Enrolled.121003)
+xferplot.1112<-transferplot.data.prep(Xfers.HSR.1112, Enrolled.110930)
 
-xfer.total.weekly.by.school<-arrange(ddply(Xfers.HSR, .(SCHOOLID, Week), summarise, N=length(Week)), Week)
-
-xfer.total.cum.monthly<-ddply(xfer.total.monthly.by.school, .(SCHOOLID), transform, YTD=cumsum(N))
-
-xfer.total.cum.weekly<-ddply(xfer.total.weekly.by.school, .(SCHOOLID), transform, YTD=cumsum(N))
-
-xfer.total.cum.monthly$School[xfer.total.cum.monthly$SCHOOLID==78102]<-"KAPS"
-xfer.total.cum.monthly$School[xfer.total.cum.monthly$SCHOOLID==7810]<-"KAMS"
-xfer.total.cum.monthly$School[xfer.total.cum.monthly$SCHOOLID==400146]<-"KCCP"
-
-####Need to build data fram that contains actual YTD, as well as 10% annual ceiling for each school.  Months need to 
-# start with October
-mons<-c("Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep")
-mons<-factor(mons, levels=mons, ordered=TRUE)
-
-School<-c("KAPS", "KAMS", "KCCP")
-School<-factor(School, levels=School)
-
-xfer.total.cum.monthly$School<-factor(xfer.total.cum.monthly$School, level=School)
-
-
-
-redline<-ddply(Enrolled.121003, .(SCHOOLID), summarise, N.Enrolled=length(STUDENTID))
-redline$N.10pct<-redline$N.Enrolled*.1
-redline$line.month<-redline$N.10pct/12
-redline$School<-School
-redline<-redline[,c("School", "line.month")]
-
-
-
-
-xferplot.data<-expand.grid(Month=mons, School=School, Variable=c("Cumulative Transfers", "Ceiling"))
-xferplot.data<-merge(x=xferplot.data, y=redline, by="School",all.x=TRUE )
-names(xferplot.data)[4]<-"Value"
-xferplot.data$Value[xferplot.data$Variable=="Cumulative Transfers"]<-NA
-
-xfer.cums<-xfer.total.cum.monthly[,c("School", "Month", "N")]
-xfer.cums$Variable<-"Cumulative Transfers"
-xferplot.merge<-merge(xferplot.data, xfer.cums, by=c("School", "Month", "Variable"), all.x=TRUE)
-xferplot.merge$Value[!is.na(xferplot.merge$N)]<-xferplot.merge$N[!is.na(xferplot.merge$N)]
-xferplot.merge<-arrange(xferplot.merge[,c(1:4)], School, Variable, Month)
-
-cum.na <- function(x) { 
-  x[which(is.na(x))] <- 0 
-  return(cumsum(x)) 
-} 
-
-xferplot<-arrange(ddply(xferplot.merge, .(School, Variable), transform, CumVal= cum.na(Value)),School, Variable, Month)
-
-xferplot$Value[!is.na(xferplot$Value)]<-xferplot$CumVal[!is.na(xferplot$Value)]
 ```
 
-```{r plot_Transfers, fig.width=8, fig.height=7}
-g.plot<-ggplot(data=subset(xferplot, Variable=="Ceiling"), aes(x=Month, y=Value)) + geom_line(aes(group=Variable), color="#E27425") + geom_bar(data=subset(xferplot, Variable!="Ceiling"), aes(x=Month, y=Value), fill="#439539", width=.5) +  facet_grid(School~., scale="free_y")
+```{r plot_Transfers, fig.width=12, fig.height=4}
+
+t10pct.df<-data.frame(School=c("KAMS","KAPS", "KCCP"), Month="May", Variable="10% Limit", Value=c(30, 28,7))
+tly.df<-data.frame(School=c("KAMS", "KAPS"), Month="May", Variable="Last Year", Value=c(12,5))
+
+g.plot<-ggplot(data=subset(xferplot.1213, Variable=="Ceiling"), aes(x=Month, y=Value)) + 
+  geom_line(aes(group=Variable), color="#E27425") + 
+  geom_line(data=subset(xferplot.1112, Variable!="Ceiling"), aes(x=Month, y=CumVal, group=Variable), color="#17345B") + 
+  geom_bar(data=subset(xferplot.1213, Variable!="Ceiling"), aes(x=Month, y=Value), fill="#439539", width=.5) + 
+  facet_grid(School~., scale="free_y") +
+  geom_text(data=t10pct.df, aes(label=Variable), color="#E27425", size=3.7) + 
+  geom_text(data=tly.df, aes(label=Variable), color="#17345B", size=3.7)
+
 
 #table of Transfers by schoool 
 
 Xfersreasons<-data.frame(EXITCODE=c(1:11,99),Reason=c("Dropped Out", "Moved", "Transport", "Expelled", "Behavior/Discipline", "Academics", "Avoid Retention", "Special Needs", "Other", "Don't Know", "Xfer Other KIPP", "DNA"))
 
-Xfer.table<-merge(Xfers.HSR,Xfersreasons, all.x=TRUE)
+Xfer.table<-merge(Xfers.HSR.1213,Xfersreasons, all.x=TRUE)
 Xfer.table<-cast( ddply(Xfer.table, .(Reason, SCHOOLID), function(df)c(N=nrow(df))), Reason~SCHOOLID, margins=TRUE, fun.aggregate=sum)
 names(Xfer.table)<-c("Tranfer Reason", "KAMS", "KAPS", "KCCP", "Region")
 levels(Xfer.table[,1])[13]<-"Total"
 Xfer.table<-Xfer.table[,c("Tranfer Reason", "KAPS", "KAMS", "KCCP", "Region")]
-g.tbl<-tableGrob(xtable(Xfer.table), )
+g.tbl<-tableGrob(xtable(Xfer.table), show.rownames=FALSE)
 
 #Combine plot
 grid.newpage()
-grid.arrange(g.plot, g.tbl, heights=c(.8,.4),nrow=2)
+grid.arrange(g.plot, g.tbl, widths=c(.6,.4),ncol=2)
 ```
 
 ## Are our students progressing and achieving academically?
+
+```{r prep_ANet_Data, fig.width=12, fig.height=6}
+
+#Get data from CSV file compiled from ANet reporting website
+ANet.A1A2<-read.csv('/Users/chaid/Dropbox/Consulting/KIPP Ascend/Data Analysis/ANet/Results/ANET_Results_A1A2_130124.csv')
+kippcols=c("#439539", "#BCD631", "#CFCCC1")
+
+#ANet.A1A2<-data.frame(
+#  School=rep(c(rep("KAP/MS",5), rep("ANet", 5), "KCCP"),2), 
+#  Grade=rep(c(rep(c(2,5:8),2),5),2),
+#  Subject=c(rep("Math",11),rep("ELA",11)),
+#  Percent=c(72,56,64,45,45,60,48,50,46,48,37,48,50,58,56,57,50,54,55,54,61,47)
+#)
+
+ANet.A1A2$School<-factor(ANet.A1A2$School, levels=c("KAP/MS", "KCCP", "Anet"), labels=c("KAP/MS", "KCCP", "ANet"))
+ANet.A1A2$Subject<-factor(ANet.A1A2$Subject, levels=c("Math", "ELA"))
+ANet.A1A2$Grade<-factor(ANet.A1A2$Grade, levels=c(2,5,6,7,8))
+ANet.A1A2$Test<-factor(ANet.A1A2$Test, levels=c("A1","A2","A1A2"), labels=c("A1", "A2", "A1 & A2 Combined"))
+
+
+
+
+
+anet.A1A2.combine.plot<-ggplot(subset(ANet.A1A2, Test=="A1 & A2 Combined"), aes(x=Grade, y=Percent)) + 
+  geom_text(aes(y=Percent+1,label=Percent, color=School), position = position_dodge(width=1), vjust=0, size=6) +
+  geom_bar(aes(fill=School), position="dodge", stat='identity') + 
+  facet_grid(Subject ~ .) +
+  scale_fill_manual("",values=kippcols) +
+  scale_colour_manual("",values=kippcols) +
+  ylim(0,80) + 
+  theme_bw() + 
+  theme(legend.position="bottom")
+  
+anet.A1A2.combined.plot 
+
+
+anet.A1A2.plot<-ggplot(subset(ANet.A1A2, Test!="A1 & A2 Combined"), aes(x=Grade, y=Percent)) + 
+  geom_text(aes(y=Percent+1,label=Percent, color=School), position = position_dodge(width=1), vjust=0, size=6) +
+  geom_bar(aes(fill=School), position="dodge", stat='identity') + 
+  facet_grid(Subject ~ Test) +
+  scale_fill_manual("",values=kippcols) +
+  scale_colour_manual("",values=kippcols) +
+  ylim(0,85) + 
+  theme_bw() + 
+  theme(legend.position="bottom")
+  
+anet.A1A2.plot 
+
+
+
+anet.A1A2.pct60.plot<-ggplot(subset(ANet.A1A2, Test!="A1 & A2 Combined"), aes(x=Grade, y=Pct60Above)) + 
+  geom_text(aes(y=Pct60Above+1,label=Pct60Above, color=School), position = position_dodge(width=1), vjust=0, size=6) +
+  geom_bar(aes(fill=School), position="dodge", stat='identity') + 
+  facet_grid(Subject ~ Test) +
+  scale_fill_manual("",values=kippcols) +
+  scale_colour_manual("",values=kippcols) +
+  ylim(0,105) + 
+  theme_bw() + 
+  theme(legend.position="bottom")
+  
+anet.A1A2.pct60.plot 
+
+#Create plot showing performance above or below average
+
+ANet.Percent.cast<-cast(ANet.A1A2.melt, Test + Grade + Subject ~ School + variable, subset=variable=="Percent")
+names(ANet.Percent.cast)<-c("Test", "Grade", "Subject", "Ascend", "Create", "ANet")
+
+ANet.Percent<-within(ANet.Percent.cast, {
+  KAPMS<-(Ascend - ANet)/ANet 
+  KCCP <- (Create-ANet)/ANet
+  variable<-"Percent" 
+       })
+
+ANet.Sixty.cast<-cast(ANet.A1A2.melt, Test + Grade + Subject ~ School + variable, subset=variable=="Pct60Above")
+names(ANet.Sixty.cast)<-c("Test", "Grade", "Subject", "Ascend", "Create", "ANet")
+
+ANet.Sixty<-within(ANet.Sixty.cast, {
+  KAPMS<-Ascend - ANet 
+  KCCP <- Create-ANet
+  variable<-"Pct60Above" 
+       })
+
+ANet.Diffs<-rbind(ANet.Percent, ANet.Sixty)
+
+ANet.Diffs<-ANet.Diffs[,-c(4:6)]
+
+ANet.Diffs.melt<-melt(as.data.frame(ANet.Diffs), measure=c("KCCP", "KAPMS"), variable_name="School", na.rm=TRUE)#use as.data.frame() trick to strip deleted melt info per hadely's suggestion at https://stat.ethz.ch/pipermail/r-help/2009-January/185755.html
+
+ANet.Diffs.melt$Pos<-ANet.Diffs.melt$value>0
+
+
+ANet.Diffs.melt$School<-factor(ANet.Diffs.melt$School, levels=c("KAP/MS", "KCCP", "Anet"), labels=c("KAP/MS", "KCCP", "ANet"))
+ANet.Diffs.melt$Subject<-factor(ANet.Diffs.melt$Subject, levels=c("Math", "ELA"))
+ANet.Diffs.melt$Grade<-factor(ANet.Diffs.melt$Grade, levels=c(2,5,6,7,8))
+ANet.Diffs.melt$Test<-factor(ANet.Diffs.melt$Test, levels=c("A1","A2","A1A2"), labels=c("A1", "A2", "A1 & A2 Combined"))
+
+
+ggplot(subset(ANet.Diffs.melt,variable=="Percent"), aes(x=Grade, y=value)) +
+    geom_point(aes(color=Pos, shape=School), size=7 ) +
+  facet_grid(Subject ~ Test)
+  
+
+ggplot(subset(ANet.Diffs.melt,variable=="Percent"), aes(x=as.factor(Grade), y=value)) +
+    geom_bar(aes(fill=Pos, alpha=School), position="dodge", stat="identity" ) +
+  facet_grid(Subject ~ Test) + 
+  scale_fill_manual(values=c("#E27425","#439539")) +
+  scale_alpha_discrete(range=c(.6,.8))
+
+
+```
+
+## Are our alumni climbing the mountain to and through college?
+```{r prep_ktc_detail_data, fig.width=12, fig.height=6}
+
+KTC.detail<-expand.grid(Class=c(2011,2012), Network=c("KIPP Chicago", "KIPP Network"),Metric=c("HS Graduation", "College Matriculation", "College Persistence"))
+
+
+KTC.detail$Percent<-c(96,88,91,83,94,81,81,69,88,78,81,69)
+
+
+KTC.lt.hline<-data.frame(Metric=c("HS Graduation", "College Matriculation"), Percent=c(93,83), Network="LT Avg", Class=2012.3)
+
+kippcols=c("#439539", "#CFCCC1")
+
+ggplot(KTC.detail, aes(x=Class, y=Percent)) + 
+  geom_bar(aes(fill=Network), position="dodge", stat="identity") +
+  geom_hline(aes(yintercept=Percent), KTC.lt.hline, show_guide=FALSE, color="#E27425") +
+  geom_text(aes(y=Percent+1,label=Percent, color=Network), position = position_dodge(width=1), vjust=0, size=6) +
+ geom_text(data=KTC.lt.hline, aes(label=paste("Historic Network Avg = ", Percent, "%",sep="")), color="#E27425", vjust=0) +
+  scale_fill_manual(values=kippcols) +
+  scale_colour_manual(values=kippcols) +
+  facet_grid(Metric~.) +
+  coord_cartesian(ylim = c(40, 105)) +
+  theme_bw() + theme(legend.position="bottom")
+
+```

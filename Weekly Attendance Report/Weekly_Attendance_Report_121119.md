@@ -1,6 +1,6 @@
 KIPP Chicago Regional Attendance Report
 ========================================================
-Week of December 3, 2012
+Week of January 28, 2013
 --------------------------------------------------------
 
 ### Attendence
@@ -17,12 +17,14 @@ Week of December 3, 2012
 
 
 
+#### Daily Enrollment and Attendance by School (last 20 weeks)
+The greeen line demarcates 95% of enrollment (i.e., our regional daily attendance goal).
+![plot of chunk fig_Daily_Attendence](figure/fig_Daily_Attendence.png) 
+
+
 #### Weekly & YTD Attendance by School
 <img src="figure/tbl_Weekly_Attendance.png" width="400"   alt="plot of chunk tbl_Weekly_Attendance" title="plot of chunk tbl_Weekly_Attendance" /> 
 
-#### Daily Enrollment and Attendance by School
-The greeen line demarcates 96% of enrollment (i.e., our regional daily attendance goal).
-![plot of chunk fig_Daily_Attendence](figure/fig_Daily_Attendence.png) 
 
 #### Student Attendance 
 ![plot of chunk Student_Attendence](figure/Student_Attendence.png) 

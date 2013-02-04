@@ -1,6 +1,6 @@
 KIPP Chicago Regional Attendance Report
 ========================================================
-Week of December 3, 2012
+Week of January 28, 2013
 --------------------------------------------------------
 
 ### Attendence
@@ -37,7 +37,7 @@ library(RODBC) #To get data form PowerSchool DB
 #source MAP helper functions
 source("~/Dropbox/Consulting/KIPP Ascend/Data Analysis/MAP/Code/R/MAP_helper_functions.R")
 ```
-```{r establsih_DB_connections}
+```{r establsih_DB_connections, cache=FALSE}
 drvr <- JDBC("oracle.jdbc.driver.OracleDriver", "/Users/chaid/Dropbox/JDBC Drivers/ojdbc5.jar","")
 pscon <- dbConnect(drvr,"jdbc:oracle:thin:@10.160.29.47:1521:IL039","psnavigator","laidephy")
 ```
@@ -72,7 +72,7 @@ FROM (
 	FROM PS_Membership_Defaults psmd
 	LEFT JOIN students s ON psmd.StudentID = s.id
 	Where 	calendardate >= '13-AUG-12'
-		AND  calendardate <= '14-DEC-12'
+		AND  calendardate <= '03-FEB-13'
 ) m
 LEFT JOIN (
 	SELECT 
@@ -88,7 +88,7 @@ LEFT JOIN (
 	WHERE 
 		att.Att_Mode_Code = 'ATT_ModeDaily'
   		AND att.Att_Date >= '13-AUG-12'
-  		AND att.Att_Date <= '14-DEC-12'
+  		AND att.Att_Date <= '03-Feb-13'
 		AND (attc.att_code = 'A' OR attc.att_code = 'S' or attc.att_code = 'X' or attc.att_code = 'H')
 ) a
 ON m.STUDENTID = a.studentid AND m.calendardate =a.Att_Date AND m.schoolID = a.schoolid
@@ -140,7 +140,7 @@ DailyEnrollAttendByGrade$Present96PctBenchMark<-.96*DailyEnrollAttendByGrade$Enr
 DailyEnrollAttend$WeekInYear<-week(DailyEnrollAttend$Date)
 DailyEnrollAttendByGrade$WeekInYear<-week(DailyEnrollAttendByGrade$Date)
 
-DailyEnrollAttend$WeekInSchoolYear<-DailyEnrollAttend$WeekInYear - min(DailyEnrollAttend$WeekInYear) +1
+DailyEnrollAttend$WeekInSchoolYear<-(intv<-floor_date(DailyEnrollAttend$Date, unit="week")-min(floor_date(DailyEnrollAttend$Date, unit="week")))/dweeks(1)+1
 DailyEnrollAttendByGrade$WeekInSchoolYear<-DailyEnrollAttendByGrade$WeekInYear - min(DailyEnrollAttendByGrade$WeekInYear) +1
 
 DailyEnrollAttend$WeekOfDate<-floor_date(DailyEnrollAttend$Date, unit="week") + days(1) 
@@ -207,21 +207,36 @@ names(AttRateByWeekBySchool.table)[1]<-"Week of" #a better column title
 AttRateByWeekBySchool.xtable<-xtable(AttRateByWeekBySchool.table)
 ```
 
+#### Daily Enrollment and Attendance by School (last 20 weeks)
+The greeen line demarcates 95% of enrollment (i.e., our regional daily attendance goal).
+```{r fig_Daily_Attendence, fig.width=10, fig.height=4}
+
+last15weeks<-ymd(as.character(floor_date(today() -weeks(20), unit="week")+1))
+
+DailyEnrollAttend.plotdata<-subset(DailyEnrollAttend, Date>=last15weeks)
+DailyEnrollAttend.plotdata$Day <- wday(DailyEnrollAttend.plotdata$Date)
+DailyEnrollAttend.plotdata$Enrolled95Pct <- DailyEnrollAttend.plotdata$Enrolled*.95
+DailyEnrollAttend.plotdata.melt<-melt(DailyEnrollAttend.plotdata, id=c("Date", "Day", "SchoolInitials", "WeekOfDateLabel"), measure.vars=c("Enrolled", "Enrolled95Pct", "Present"))
+
+DailyEnrollAttend.plotdata.melt$variable<-factor(DailyEnrollAttend.plotdata.melt$variable, labels=c("Enrolled", "95% of Enrolled", "Attended"))
+
+ggplot(DailyEnrollAttend.plotdata.melt, aes(x=Day, y=value)) + 
+    geom_step(direction="hv", aes(color=variable)) + 
+    scale_x_continuous(breaks = c(2,3,4,5,6), labels=c("M","T","W","R","F")) + #Change numberd week days to lettered
+    scale_y_continuous("# of Students") + 
+    scale_colour_manual("", values=c("#8D8685", "#439539", "black")) +
+    facet_grid(SchoolInitials~WeekOfDateLabel, scales="free_y") +
+    theme_bw() + 
+    theme(legend.position="bottom")
+
+
+```
+
 #### Weekly & YTD Attendance by School
-```{r tbl_Weekly_Attendance, dpi=300, out.width=400, fig.width=4, fig.height=7, fig.align='left'}
+```{r tbl_Weekly_Attendance, dpi=300, out.width=400, fig.width=4, fig.height=9, fig.align='left'}
 grid.table(AttRateByWeekBySchool.xtable, show.rownames=FALSE)
 ```
-#### Daily Enrollment and Attendance by School
-The greeen line demarcates 96% of enrollment (i.e., our regional daily attendance goal).
-```{r fig_Daily_Attendence, fig.width=10, fig.height=4}
-ggplot(DailyEnrollAttend, aes(x=wday(Date), y=Enrolled)) + 
-  geom_step(direction="hv", color="gray") + 
-  geom_step(aes(y=Present), direction="hv") + 
-  geom_step(aes(y=.96*Enrolled), direction="hv", color="green") + 
-  scale_x_continuous(breaks = c(2,3,4,5,6), labels=c("M","T","W","R","F")) + #Change numberd week days to lettered
-  facet_grid(SchoolInitials~WeekOfDateLabel, scales="free_y") +
-  theme_bw()
-```
+
 #### Student Attendance 
 ```{r Student_Attendence, fig.width=11, fig.height=20}
 AttByStudentBySchool<-arrange(ddply(Attendence, .(LASTFIRST, SchoolInitials, GRADE_LEVEL), summarise, Absences=sum(ABSENT)), SchoolInitials, desc(Absences))
@@ -307,9 +322,12 @@ Sups.leaders<-arrange(ddply(Suspensions, .(LASTFIRST, SchoolInitials, GRADE_LEVE
 names(Sups.leaders)<-c("Student", "School", "Grade", "Suspensions")
 grid.table(Sups.leaders)
 ```
-#### Students Suspended, Previous 2 Weeks (ordered by number of suspensions)
-```{r tbl_Suspension_most_recent_week, fig.height=4}
-Sups.lastweek<-arrange(subset(Suspensions, WeekOfDate>=ymd("2012-12-03"), select=c(CALENDARDATE, GRADE_LEVEL, LASTFIRST, SchoolInitials)),SchoolInitials, GRADE_LEVEL, CALENDARDATE, LASTFIRST)
+#### Students Suspended, Previous 4 Weeks (ordered by number of suspensions)
+```{r tbl_Suspension_most_recent_week, fig.height=6}
+
+last4weeks<-ymd(as.character(floor_date(today() -weeks(4), unit="week")+1))
+
+Sups.lastweek<-arrange(subset(Suspensions, WeekOfDate>=last4weeks, select=c(CALENDARDATE, GRADE_LEVEL, LASTFIRST, SchoolInitials)),SchoolInitials, GRADE_LEVEL, CALENDARDATE, LASTFIRST)
 Sups.lastweek$Date<-paste(month(Sups.lastweek$CALENDARDATE, label=TRUE),day(Sups.lastweek$CALENDARDATE), sep=" ") 
 
 Sups.lastweek.table<-Sups.lastweek[,c("Date", "SchoolInitials","GRADE_LEVEL", "LASTFIRST")]
