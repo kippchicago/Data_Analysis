@@ -72,7 +72,7 @@ FROM (
 	FROM PS_Membership_Defaults psmd
 	LEFT JOIN students s ON psmd.StudentID = s.id
 	Where 	calendardate >= '13-AUG-12'
-		AND  calendardate <= '03-FEB-13'
+		AND  calendardate <= '10-FEB-13'
 ) m
 LEFT JOIN (
 	SELECT 
@@ -88,7 +88,7 @@ LEFT JOIN (
 	WHERE 
 		att.Att_Mode_Code = 'ATT_ModeDaily'
   		AND att.Att_Date >= '13-AUG-12'
-  		AND att.Att_Date <= '03-Feb-13'
+  		AND att.Att_Date <= '10-Feb-13'
 		AND (attc.att_code = 'A' OR attc.att_code = 'S' or attc.att_code = 'X' or attc.att_code = 'H')
 ) a
 ON m.STUDENTID = a.studentid AND m.calendardate =a.Att_Date AND m.schoolID = a.schoolid
@@ -209,7 +209,7 @@ AttRateByWeekBySchool.xtable<-xtable(AttRateByWeekBySchool.table)
 
 #### Daily Enrollment and Attendance by School (last 20 weeks)
 The greeen line demarcates 95% of enrollment (i.e., our regional daily attendance goal).
-```{r fig_Daily_Attendence, fig.width=10, fig.height=4}
+```{r fig_Daily_Attendence, fig.height=3, fig.width = 7, dpi=300, out.height=450, out.width=1050}
 
 last15weeks<-ymd(as.character(floor_date(today() -weeks(20), unit="week")+1))
 
@@ -220,6 +220,7 @@ DailyEnrollAttend.plotdata.melt<-melt(DailyEnrollAttend.plotdata, id=c("Date", "
 
 DailyEnrollAttend.plotdata.melt$variable<-factor(DailyEnrollAttend.plotdata.melt$variable, labels=c("Enrolled", "95% of Enrolled", "Attended"))
 
+
 ggplot(DailyEnrollAttend.plotdata.melt, aes(x=Day, y=value)) + 
     geom_step(direction="hv", aes(color=variable)) + 
     scale_x_continuous(breaks = c(2,3,4,5,6), labels=c("M","T","W","R","F")) + #Change numberd week days to lettered
@@ -227,7 +228,9 @@ ggplot(DailyEnrollAttend.plotdata.melt, aes(x=Day, y=value)) +
     scale_colour_manual("", values=c("#8D8685", "#439539", "black")) +
     facet_grid(SchoolInitials~WeekOfDateLabel, scales="free_y") +
     theme_bw() + 
-    theme(legend.position="bottom")
+    theme(legend.position="bottom", 
+          strip.text.x=theme_text(size=4.75),
+          axis.text.x=theme_text(size=4))
 
 
 ```
@@ -265,12 +268,16 @@ Suspensions<-subset(Attendence, ATT_CODE=='S')
 
 Suspensions$WeekInYear<-week(Suspensions$CALENDARDATE)
 
+
+
+Suspensions$WeekInSchoolYear<-(floor_date(ymd_hms(Suspensions$CALENDARDATE), unit="week")-min(floor_date(ymd_hms(Suspensions$CALENDARDATE), unit="week")))/dweeks(1)+1
+
 Suspensions$WeekOfDate<-floor_date(ymd_hms(Suspensions$CALENDARDATE), unit="week") + days(1) 
 
 Suspensions<-arrange(Suspensions, CALENDARDATE)
 
 Suspensions$WeekOfShortDateLabel<-paste(month(Suspensions$WeekOfDate,label=TRUE, abbr=TRUE), day(Suspensions$WeekOfDate), sep=" ")
-Suspensions$WeekOfShortDateLabel<-factor(Suspensions$WeekInYear, labels=unique(Suspensions$WeekOfShortDateLabel))
+Suspensions$WeekOfShortDateLabel<-factor(Suspensions$WeekInSchoolYear, labels=unique(Suspensions$WeekOfShortDateLabel))
 
 Suspensions$SchoolInitials[Suspensions$SCHOOLID==7810]<-"KAMS"
 Suspensions$SchoolInitials[Suspensions$SCHOOLID==78102]<-"KAPS"
@@ -304,7 +311,7 @@ YTDSuspensionsByGradeBySchool.xtable<-xtable(YTDSuspensionsByGradeBySchool.table
 #YTD Suspsesnions by Grade by Week
 YTDSuspensionsByWeekByGrade.table<-cast(DailySuspensionByGradeByWeek, WeekOfShortDateLabel~GRADE_LEVEL, sum, margins=TRUE)
 
-names(YTDSuspensionsByWeekByGrade.table)<-c("Week of", "2nd", "5th","6th", "7th", "8th", "Total")
+names(YTDSuspensionsByWeekByGrade.table)<-c("Week of", "1st", "2nd", "5th","6th", "7th", "8th", "Total")
 levels(YTDSuspensionsByWeekByGrade.table[,1])[levels(YTDSuspensionsByWeekByGrade.table[,1])=="(all)"]<-"Total"
 
 YTDSuspensionsByWeekByGrade.xtable<-xtable(YTDSuspensionsByWeekByGrade.table, digits=0)
@@ -317,7 +324,7 @@ tbl.susp.2<-tableGrob(YTDSuspensionsByWeekByGrade.xtable,show.rownames=FALSE)
 grid.arrange(tbl.susp.1,tbl.susp.2, ncol=2)
 ```
 #### YTD Students Suspended (ordered by number of suspensions)
-```{r tbl_Suspensions_Leaderboard, fig.width=11, fig.height=10}
+```{r tbl_Suspensions_Leaderboard, fig.width=11, fig.height=12}
 Sups.leaders<-arrange(ddply(Suspensions, .(LASTFIRST, SchoolInitials, GRADE_LEVEL), summarise, Suspensions=sum(ABSENT)), desc(Suspensions))
 names(Sups.leaders)<-c("Student", "School", "Grade", "Suspensions")
 grid.table(Sups.leaders)

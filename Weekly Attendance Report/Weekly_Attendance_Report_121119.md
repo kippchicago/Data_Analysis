@@ -19,7 +19,7 @@ Week of January 28, 2013
 
 #### Daily Enrollment and Attendance by School (last 20 weeks)
 The greeen line demarcates 95% of enrollment (i.e., our regional daily attendance goal).
-![plot of chunk fig_Daily_Attendence](figure/fig_Daily_Attendence.png) 
+<img src="figure/fig_Daily_Attendence.png" width="1050" height="450"  alt="plot of chunk fig_Daily_Attendence" title="plot of chunk fig_Daily_Attendence" /> 
 
 
 #### Weekly & YTD Attendance by School
@@ -40,7 +40,7 @@ The greeen line demarcates 95% of enrollment (i.e., our regional daily attendanc
 #### YTD Students Suspended (ordered by number of suspensions)
 ![plot of chunk tbl_Suspensions_Leaderboard](figure/tbl_Suspensions_Leaderboard.png) 
 
-#### Students Suspended, Previous 2 Weeks (ordered by number of suspensions)
+#### Students Suspended, Previous 4 Weeks (ordered by number of suspensions)
 ![plot of chunk tbl_Suspension_most_recent_week](figure/tbl_Suspension_most_recent_week.png) 
 
 
