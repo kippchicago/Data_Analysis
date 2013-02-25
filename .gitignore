@@ -7,6 +7,7 @@
 Data/
 Figures/
 figure/
+*.pdf
 
 ## Ignore R Files
 .Rdata
