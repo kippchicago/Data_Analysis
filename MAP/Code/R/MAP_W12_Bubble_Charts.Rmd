@@ -1,0 +1,139 @@
+MAP Analysis of KAPS 
+========================================================
+
+Bubble Charts for Ellen
+------------------------------------------------------------------------------
+
+```{r load_packages}
+library(reshape)
+library(ggplot2)
+library(grid)
+library(RJDBC)
+library(plyr)
+library(data.table)
+
+setwd("/Users/chaid/Dropbox/Consulting/KIPP Ascend/Testing Analysis/MAP/Analysis/KAP")
+
+```
+```{r db_connections, echo=FALSE, cache=FALSE}
+
+setwd('/Users/chaid/Dropbox/Consulting/KIPP Ascend/Testing Analysis/MAP/Analysis')
+
+drvr <- JDBC("com.mysql.jdbc.Driver","/Users/chaid/Dropbox/JDBC Drivers/mysql-connector-java-5.0.8/mysql-connector-java-5.0.8-bin.jar","")
+
+con <- dbConnect(drvr,"jdbc:mysql://54.245.118.235/db_kippchidata", "chaid", "haiKIPP1" )
+
+```
+
+```{r Primary_Bubble_Chart_data, echo=FALSE, cache=TRUE}
+
+
+
+map.1213<-dbGetQuery(con, 'CALL GetMAPResultsFromTo("Fall12","Winter13");')
+map.1213<-data.table(map.1213)
+
+#####F11-W12
+map.1112<-dbGetQuery(con, 'CALL GetMAPResultsFromTo("Fall11","Winter12");')
+map.1112<-data.table(map.1112)
+
+#Add Years to two tables
+map.1112[,Year:=2012]
+map.1213[,Year:=2013]
+
+#Change names of columns for test data in prep for cbind
+
+setnames(map.1112, names(map.1112), sub("Fall11", "Fall", names(map.1112)))
+setnames(map.1213, names(map.1213), sub("Fall12", "Fall", names(map.1213)))
+setnames(map.1112, names(map.1112), sub("Winter12", "Winter", names(map.1112)))
+setnames(map.1213, names(map.1213), sub("Winter13", "Winter", names(map.1213)))
+
+map.scores<-rbindlist(list(map.1112,map.1213))
+
+#map.scores[Grade==13,Grade:=0]
+
+#Check contents
+map.scores
+
+#Reorder levels (since 13=Kinder, prior to Fall 2012, after that it is Kinder=0) and rename
+map.scores$Grade <- factor(map.scores$Grade, levels=c("0", "1","2", "5", "6","7","8"))
+levels(map.scores$Grade) <- c("K", "1", "2", "5", "6","7","8")
+
+map.scores.by.grade<-ddply(map.scores[,c("ID","Grade","ClassName","Subject","Fall_RIT", "Winter_RIT","TypicalFallToWinterGrowth")],
+                           .(Subject, Grade, Year), function(df) orderid(df,df$Fall_RIT))
+map.scores.by.class<-ddply(map.scores[,c("StudentID","Grade","ClassName","MeasurementScale","RIT_Fall", "RIT_Winter", "TypicalFallToSpringGrowth")],
+                           .(MeasurementScale, ClassName), function(df) orderid(df,df$RIT_Fall))
+
+
+
+primary<-c("K","1", "2")
+map.k1<-map.scores[Grade %in% primary]
+map.k1[Fall_Pctl<25, Quartile:=1]
+map.k1[Fall_Pctl>=25&map.k1$Fall_Pctl<50, Quartile:=2]
+map.k1[Fall_Pctl>=50&map.k1$Fall_Pctl<75, Quartile:=3]
+map.k1[Fall_Pctl>=75, Quartile:=4]
+
+map.k1$MetExpGrowth<-map.k1$Fall_RIT+map.k1$TypicalFallToWinterGrowth<=map.k1$Winter_RIT
+
+k1.prop<-ddply(map.k1, .(Quartile, Grade, Subject, Year), summarize, pr= sum(MetExpGrowth)/length(MetExpGrowth), NumTested=length(MetExpGrowth), NumMetGrowth=sum(MetExpGrowth))
+
+
+
+KCCP.grades<-c("5")
+map.kccp<-subset(map.scores, Grade %in% KCCP.grades)
+map.kccp$Quartile[map.kccp$Fall12_Pctl<25]<-1
+map.kccp$Quartile[map.kccp$Fall12_Pctl>=25&map.kccp$Fall12_Pctl<50]<-2
+map.kccp$Quartile[map.kccp$Fall12_Pctl>=50&map.kccp$Fall12_Pctl<75]<-3
+map.kccp$Quartile[map.kccp$Fall12_Pctl>=75]<-4
+map.kccp$MetExpGrowth<-map.kccp$Fall12_RIT+map.kccp$TypicalFallToWinterGrowth<=map.kccp$Winter13_RIT
+
+kccp.prop<-ddply(map.kccp, .(Quartile, Grade, Subject, Year), summarize, pr= sum(MetExpGrowth)/length(MetExpGrowth), NumTested=length(MetExpGrowth), NumMetGrowth=sum(MetExpGrowth))
+
+```
+
+```{r Primary_Bubble_Chart, echo=FALSE, fig.height=10, fig.width=10}
+p.hunch <- ggplot(k1.prop,aes(x=Quartile, y=pr, color =Grade), stat="identity") +
+  geom_point(aes(size=NumTested, alpha=as.factor(Year))) + 
+  scale_area(range = c(8,30), guide="none") + 
+  geom_text(aes(x=Quartile, y=pr, label=paste(round(pr,2)*100,"%",sep=""), group=Grade),
+            color='black',size=3.5,vjust=-.5) + 
+  geom_text(aes(x=Quartile, y=pr, label=paste("(",NumMetGrowth,"/", NumTested,")",sep=''
+                                              )
+                ), color='black', size=2, vjust=1) + 
+  scale_x_continuous("", breaks=c(1,2,3,4), labels=c("1st\nQuartile","2nd\nQuartile",
+                                                     "3rd\nQuartile", "4th\nQuartile")) +
+  scale_y_continuous("% Exceeding Typical Growth") +
+  scale_alpha_discrete("",range=c(.5,.9), guide="none") +
+  scale_color_discrete(guide="none") +
+  expand_limits(x=c(0,5), y=c(-.1,1.1)) + 
+  facet_grid(Grade~Subject) + 
+  ggtitle("KIPP Primary MAP  Meets/Exceeds Growth by Fall Quartile: F11-W12 vs F12-W13") + 
+  theme_bw() +
+  theme(legend.key.size = unit(1, "cm"), axis.text.x=element_text(size=8))
+p.hunch
+
+ggsave(p.hunch,file="MAP_KAPS_W13_Bubble_130222.pdf", width=11, height=8.5)
+
+
+```{r Primary_Bubble_Chart, echo=FALSE, fig.height=10, fig.width=10}
+p.kccp <- ggplot(kccp.prop,aes(x=Quartile, y=pr, color =Grade), stat="identity") +
+  geom_point(aes(size=NumTested)) + 
+  scale_area(range = c(8,30)) + 
+  geom_text(aes(x=Quartile, y=pr, label=paste(round(pr,2)*100,"%",sep=""), group=Grade),
+            color='black',size=3.5,vjust=-.5) + 
+  geom_text(aes(x=Quartile, y=pr, label=paste("(",NumMetGrowth,"/", NumTested,")",sep=''
+                                              )
+                ), color='black', size=2, vjust=1) + 
+  scale_x_continuous("", breaks=c(1,2,3,4), labels=c("1st\nQuartile","2nd\nQuartile",
+                                                     "3rd\nQuartile", "4th\nQuartile")) +
+  scale_y_continuous("% Exceeding Typical Growth") +
+  expand_limits(x=c(0,5), y=c(-.1,1.1)) + 
+  facet_grid(Grade~Subject) + 
+  ggtitle("KCCP MAP F12-W13 Meets/Exceeds Growth by Fall 2012 Quartile") + 
+  theme_bw() +
+  theme(legend.key.size = unit(1, "cm"))
+p.kccp
+
+ggsave(p.kccp,file="MAP_KCCP_W13_Bubble.pdf", width=11, height=8.5)
+
+
+```
