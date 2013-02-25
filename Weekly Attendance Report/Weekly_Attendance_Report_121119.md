@@ -1,6 +1,6 @@
 KIPP Chicago Regional Attendance Report
 ========================================================
-Week of February 11, 2013
+Week of February 18, 2013
 --------------------------------------------------------
 
 ### Attendence
