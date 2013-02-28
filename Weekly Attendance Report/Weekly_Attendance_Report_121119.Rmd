@@ -187,7 +187,7 @@ AttRateYTDBySchool$WeekOfShortLabel<-"YTD Each School"
 AttRateByWeekBySchool.table<-cast(AttRateByWeekBySchool, WeekOfShortDateLabel ~ SchoolInitials)
 
 AttRateYTDBySchool<-reshape(AttRateYTDBySchool, idvar="WeekOfShortLabel",timevar="SchoolInitials", direction="wide")
-names(AttRateYTDBySchool)<-c("WeekOfShortDateLabel", "KAMS", "KAPS", "KCCP")
+names(AttRateYTDBySchool)<-c("WeekOfShortDateLabel", "KAPS", "KAMS", "KCCP")
 
 
 

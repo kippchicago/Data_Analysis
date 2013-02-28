@@ -1,0 +1,169 @@
+ANet Interim 3 Analysis
+========================================================
+```{r options, echo=FALSE}
+options(replace.assign=TRUE,width=60)
+opts_chunk$set( 
+               fig.align='left', 
+               #dev='tikz', 
+               fig.width=11, 
+               fig.height=4.5, 
+               fig.show='hold', 
+               cache=FALSE, 
+               par=TRUE,
+               echo=FALSE,
+               message=FALSE,
+               warning=FALSE,
+               autodepend=TRUE
+               )
+```
+
+
+```{r load_libraries, echo=FALSE}
+setwd("~/Dropbox/Consulting/KIPP Ascend/Data Analysis/ANet/")
+
+library(plyr)  #To manipulate data
+library(reshape) #More data manipulation
+library(ggplot2) #Graphics of grammer graphing
+library(grid) #More Graphing
+library(gridExtra) #better than par(mfrow=c(r,c)) for arranging ggplot2 and lattice graphics
+library(lubridate) #for dealing with dates
+library(xtable) #for pretty tables
+```
+
+
+```{r prep_ANet_Data, echo=FALSE}
+
+#Get data from CSV file compiled from ANet reporting website
+ANet.A3<-read.csv('/Users/chaid/Dropbox/Consulting/KIPP Ascend/Data Analysis/ANet/Results/ANET_Results_A1A2_130225.csv')
+kippcols=c("#439539", "#BCD631", "#CFCCC1")
+
+
+ANet.A3$School<-factor(ANet.A3$School, levels=c("KAP/MS", "KCCP", "Anet"), labels=c("KAP/MS", "KCCP", "ANet"))
+ANet.A3$Subject<-factor(ANet.A3$Subject, levels=c("Math", "ELA"))
+ANet.A3$Grade<-factor(ANet.A3$Grade, levels=c(2,5,6,7,8))
+ANet.A3$Test<-factor(ANet.A3$Test, levels=c("A1","A2","A3", "A1A2", "A1A2A3"), labels=c("A1", "A2", "A3", "A1 & A2 Combined", "A1-A3 Combined"))
+```
+
+## Interim A1 - A3. Percentage points above or below the ANet networks average.
+
+This chart simply shows the difference in our average interim score versus the network average.  Positive (green) values indicate outperforming the network average; negative (orange) values indicate underperformance. These data are arranged by interim.
+```{r prep_overunder, echo=FALSE, warning=FALSE}
+#Create plot showing performance above or below average
+
+ANet.A3.melt<-melt(ANet.A3)
+
+ANet.Percent.cast<-cast(ANet.A3.melt, Test + Grade + Subject ~ School + variable, subset=variable=="Percent")
+names(ANet.Percent.cast)<-c("Test", "Grade", "Subject", "Ascend", "Create", "ANet")
+
+ANet.Percent<-within(ANet.Percent.cast, {
+  KAPMS<-(Ascend - ANet)
+  KCCP <- (Create-ANet)
+  variable<-"Percent" 
+       })
+
+ANet.Sixty.cast<-cast(ANet.A3.melt, Test + Grade + Subject ~ School + variable, subset=variable=="Pct60Above")
+names(ANet.Sixty.cast)<-c("Test", "Grade", "Subject", "Ascend", "Create", "ANet")
+
+ANet.Sixty<-within(ANet.Sixty.cast, {
+  KAPMS<-Ascend - ANet 
+  KCCP <- Create-ANet
+  variable<-"Pct60Above" 
+       })
+
+ANet.Diffs<-rbind(ANet.Percent, ANet.Sixty)
+
+ANet.Diffs<-ANet.Diffs[,-c(4:6)]
+
+ANet.Diffs.melt<-melt(as.data.frame(ANet.Diffs), measure=c("KCCP", "KAPMS"), variable_name="School", na.rm=TRUE)#use as.data.frame() trick to strip deleted melt info per hadely's suggestion at https://stat.ethz.ch/pipermail/r-help/2009-January/185755.html
+
+ANet.Diffs.melt$Pos<-ANet.Diffs.melt$value>0
+
+
+ANet.Diffs.melt$School<-factor(ANet.Diffs.melt$School, levels=c("KAPMS", "KCCP"), labels=c("KAP/MS", "KCCP"))
+ANet.Diffs.melt$Subject<-factor(ANet.Diffs.melt$Subject, levels=c("Math", "ELA"))
+ANet.Diffs.melt$Grade<-factor(ANet.Diffs.melt$Grade, levels=c(2,5,6,7,8))
+ANet.Diffs.melt$Test<-factor(ANet.Diffs.melt$Test, levels=c("A1","A2","A3","A1A2", "A1A2A3"), labels=c("A1", "A2", "A3", "A1 & A2 Combined", "A1-A3 Combined"))
+```
+
+```{r plot_overunder, fig.height=4.5, fig.width=10, echo=FALSE, warning=FALSE}
+
+Anet.sub<-subset(ANet.Diffs.melt,variable=="Percent" & School!="KCCP" & Test!="A1 & A2 Combined")
+
+ggplot(Anet.sub, aes(x=as.factor(Grade), y=value)) +
+  geom_bar(aes(fill=Pos), position="dodge", stat="identity" ) + 
+  geom_text(data = subset(Anet.sub, value>=0), aes(y=value+2, label=round(value), color=Pos), vjust=0) +
+    geom_text(data = subset(Anet.sub, value<0), aes(y=value-2, label=round(value), color=Pos), vjust=1) +
+  geom_hline(yintercept=0, show_guide=T) +
+  facet_grid(Subject ~ Test) + 
+  scale_fill_manual(values=c("#E27425","#439539"), guide="none") +  
+  scale_colour_manual(values=c("#E27425","#439539"), guide="none") +
+  labs(x="Grade", y="Points Above/Below Network Average") +
+  theme_bw() + 
+  expand_limits(y=c(-10,25)) +   
+  ggtitle("ANet Interim 3: Percentage Points Above/Below Network Average")
+```
+This next polot shows the same difference in our average interim score versus the network average. Howver, I've grouped the data by grade level, so we can see performace by grade relative to the network over time. Again, positive (green) values indicate outperforming the network average; negative (orange) values indicate underperformance.
+```{r plot_overunder_by_grade}
+ggplot(subset(ANet.Diffs.melt,variable=="Percent" & School!="KCCP" & Test!="A1 & A2 Combined" & Test!="A1-A3 Combined"), aes(x=as.factor(Test), y=value)) +    geom_text(data = subset(ANet.Diffs.melt,variable=="Percent" & School!="KCCP" & Test!="A1 & A2 Combined" & Test!="A1-A3 Combined" & value>=0), aes(y=value+2, label=round(value), color=Pos), vjust=0) + geom_line(aes(x=as.numeric(Test))) + 
+    geom_point(aes(color=Pos), size=5) + 
+    geom_text(data = subset(ANet.Diffs.melt,variable=="Percent" & School!="KCCP" & Test!="A1 & A2 Combined" & Test!="A1-A3 Combined" & value<0), aes(y=value-2, label=round(value), color=Pos), vjust=1) +
+    geom_hline(yintercept=0, show_guide=T) +
+    facet_grid(Subject ~ Grade) + 
+    scale_fill_manual(values=c("#E27425","#439539"), guide="none") +  
+    scale_colour_manual(values=c("#E27425","#439539"), guide="none") +
+    labs(x="Interim Assessment", y="Points Above/Below Network Average") +
+    theme_bw() + 
+    expand_limits(y=c(-10,25)) +   
+    ggtitle("ANet Interim 3: Percentage Points Above/Below Network Average")
+```
+
+## Interim 1-3 Combined.  Average Score by grade and subject.
+```{r plot_Anet3_Combined, fig.height=4.5, fig.width=10, echo=FALSE, warning=FALSE}
+
+ANet.A3.combined.plot<-ggplot(subset(ANet.A3, Test=="A1-A3 Combined"), aes(x=Grade, y=Percent)) + 
+  geom_text(aes(y=Percent+1,label=Percent, color=School), position = position_dodge(width=1), vjust=0, size=6) +
+  geom_bar(aes(fill=School), position="dodge", stat='identity') + 
+  facet_grid(Subject ~ .) +
+  scale_fill_manual("",values=kippcols) +
+  scale_colour_manual("",values=kippcols) +
+  ylim(0,80) + 
+  theme_bw() + 
+  theme(legend.position="bottom") +
+  ggtitle("ANet Interims 1,2 & 3 - Combined Results")
+  
+ANet.A3.combined.plot 
+```
+This shows the average of student scores, which themselves are the percent of question answered correctly.
+```{r plot_Anet1_2_3, echo=FALSE}
+ts<-5
+
+ANet.A3.plot<-ggplot(subset(ANet.A3, Test!="A1 & A2 Combined" & School!="KCCP"), aes(x=Grade, y=Percent)) + 
+  geom_text(aes(y=Percent+1,label=Percent, color=School), position = position_dodge(width=1), vjust=0, size=ts) +
+  geom_bar(aes(fill=School), position="dodge", stat='identity') + 
+  facet_grid(Subject ~ Test) +
+  scale_fill_manual("",values=kippcols) +
+  scale_colour_manual("",values=kippcols) +
+  ylim(0,85) + 
+  theme_bw() + 
+  theme(legend.position="bottom") + 
+  ggtitle("ANet Interims  - Percent of Questions Correct")
+  
+ANet.A3.plot 
+```
+This chart shows the *percent of students* earning a 60% or better.  
+```{r plot_Anet1_2_3_60plus, echo=FALSE}
+ANet.A3.pct60.plot<-ggplot(subset(ANet.A3, Test!="A1 & A2 Combined" & School!="KCCP"), aes(x=Grade, y=Pct60Above)) + 
+  geom_text(aes(y=Pct60Above+1,label=Pct60Above, color=School), position = position_dodge(width=1), vjust=0, size=ts) +
+  geom_bar(aes(fill=School), position="dodge", stat='identity') + 
+  facet_grid(Subject ~ Test) +
+  scale_fill_manual("",values=kippcols) +
+  scale_colour_manual("",values=kippcols) +
+  ylim(0,105) + 
+  theme_bw() + 
+  theme(legend.position="bottom") +
+  ylab("Percent > 60%") +
+  ggtitle("ANet Interims  - Percent of Students w/ Scores > 60 Percent")
+  
+ANet.A3.pct60.plot 
+
+```
