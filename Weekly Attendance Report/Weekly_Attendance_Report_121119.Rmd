@@ -72,7 +72,7 @@ FROM (
 	FROM PS_Membership_Defaults psmd
 	LEFT JOIN students s ON psmd.StudentID = s.id
 	Where 	calendardate >= '13-AUG-12'
-		AND  calendardate <= '24-FEB-13'
+		AND  calendardate <= '03-MAR-13'
 ) m
 LEFT JOIN (
 	SELECT 
@@ -88,7 +88,7 @@ LEFT JOIN (
 	WHERE 
 		att.Att_Mode_Code = 'ATT_ModeDaily'
   		AND att.Att_Date >= '13-AUG-12'
-  		AND att.Att_Date <= '24-Feb-13'
+  		AND att.Att_Date <= '03-MAR-13'
 		AND (attc.att_code = 'A' OR attc.att_code = 'S' or attc.att_code = 'X' or attc.att_code = 'H')
 ) a
 ON m.STUDENTID = a.studentid AND m.calendardate =a.Att_Date AND m.schoolID = a.schoolid

@@ -734,7 +734,7 @@ FROM (
 	FROM PS_Membership_Defaults psmd
 	LEFT JOIN students s ON psmd.StudentID = s.id
 	Where 	calendardate >= '13-AUG-12'
-		AND  calendardate <= '20-JAN-13'
+		AND  calendardate <= '1-MAR-13'
 ) m
 LEFT JOIN (
 	SELECT 
@@ -750,7 +750,7 @@ LEFT JOIN (
 	WHERE 
 		att.Att_Mode_Code = 'ATT_ModeDaily'
   		AND att.Att_Date >= '13-AUG-12'
-  		AND att.Att_Date <= '20-JAN-13'
+  		AND att.Att_Date <= '1-MAR-13'
 		AND (attc.att_code = 'A' OR attc.att_code = 'S' or attc.att_code = 'X' or attc.att_code = 'H')
 ) a
 ON m.STUDENTID = a.studentid AND m.calendardate =a.Att_Date AND m.schoolID = a.schoolid
@@ -984,8 +984,8 @@ transferplot.data.prep <- function (transfers.data, enrolled.data) {
   require(lubridate)
   require(reshape)
  
-  transfers.data$Month<-month(ymd_hms(transfers.data$EXITDATE), label=TRUE)
-  transfers.data$Week<-week(ymd_hms(transfers.data$EXITDATE))
+  transfers.data$Month<-lubridate::month(ymd_hms(transfers.data$EXITDATE), label=TRUE)
+  transfers.data$Week<-lubridate::week(ymd_hms(transfers.data$EXITDATE))
   
   monthly.by.school<-arrange(ddply(transfers.data, .(SCHOOLID, Month), summarise, N=length(Month)), Month)
   
@@ -1077,79 +1077,33 @@ grid.arrange(g.plot, g.tbl, widths=c(.6,.4),ncol=2)
 
 ## Are our students progressing and achieving academically?
 
-```{r prep_ANet_Data, fig.width=12, fig.height=6}
+```{r prep_ANet_Data, echo=FALSE, cache=TRUE}
 
 #Get data from CSV file compiled from ANet reporting website
-ANet.A1A2<-read.csv('/Users/chaid/Dropbox/Consulting/KIPP Ascend/Data Analysis/ANet/Results/ANET_Results_A1A2_130124.csv')
+ANet.A3<-read.csv('/Users/chaid/Dropbox/Consulting/KIPP Ascend/Data Analysis/ANet/Results/ANET_Results_A1A2_130225.csv')
 kippcols=c("#439539", "#BCD631", "#CFCCC1")
 
-#ANet.A1A2<-data.frame(
-#  School=rep(c(rep("KAP/MS",5), rep("ANet", 5), "KCCP"),2), 
-#  Grade=rep(c(rep(c(2,5:8),2),5),2),
-#  Subject=c(rep("Math",11),rep("ELA",11)),
-#  Percent=c(72,56,64,45,45,60,48,50,46,48,37,48,50,58,56,57,50,54,55,54,61,47)
-#)
 
-ANet.A1A2$School<-factor(ANet.A1A2$School, levels=c("KAP/MS", "KCCP", "Anet"), labels=c("KAP/MS", "KCCP", "ANet"))
-ANet.A1A2$Subject<-factor(ANet.A1A2$Subject, levels=c("Math", "ELA"))
-ANet.A1A2$Grade<-factor(ANet.A1A2$Grade, levels=c(2,5,6,7,8))
-ANet.A1A2$Test<-factor(ANet.A1A2$Test, levels=c("A1","A2","A1A2"), labels=c("A1", "A2", "A1 & A2 Combined"))
-
-
-
-
-
-anet.A1A2.combine.plot<-ggplot(subset(ANet.A1A2, Test=="A1 & A2 Combined"), aes(x=Grade, y=Percent)) + 
-  geom_text(aes(y=Percent+1,label=Percent, color=School), position = position_dodge(width=1), vjust=0, size=6) +
-  geom_bar(aes(fill=School), position="dodge", stat='identity') + 
-  facet_grid(Subject ~ .) +
-  scale_fill_manual("",values=kippcols) +
-  scale_colour_manual("",values=kippcols) +
-  ylim(0,80) + 
-  theme_bw() + 
-  theme(legend.position="bottom")
-  
-anet.A1A2.combined.plot 
-
-
-anet.A1A2.plot<-ggplot(subset(ANet.A1A2, Test!="A1 & A2 Combined"), aes(x=Grade, y=Percent)) + 
-  geom_text(aes(y=Percent+1,label=Percent, color=School), position = position_dodge(width=1), vjust=0, size=6) +
-  geom_bar(aes(fill=School), position="dodge", stat='identity') + 
-  facet_grid(Subject ~ Test) +
-  scale_fill_manual("",values=kippcols) +
-  scale_colour_manual("",values=kippcols) +
-  ylim(0,85) + 
-  theme_bw() + 
-  theme(legend.position="bottom")
-  
-anet.A1A2.plot 
-
-
-
-anet.A1A2.pct60.plot<-ggplot(subset(ANet.A1A2, Test!="A1 & A2 Combined"), aes(x=Grade, y=Pct60Above)) + 
-  geom_text(aes(y=Pct60Above+1,label=Pct60Above, color=School), position = position_dodge(width=1), vjust=0, size=6) +
-  geom_bar(aes(fill=School), position="dodge", stat='identity') + 
-  facet_grid(Subject ~ Test) +
-  scale_fill_manual("",values=kippcols) +
-  scale_colour_manual("",values=kippcols) +
-  ylim(0,105) + 
-  theme_bw() + 
-  theme(legend.position="bottom")
-  
-anet.A1A2.pct60.plot 
-
+ANet.A3$School<-factor(ANet.A3$School, levels=c("KAP/MS", "KCCP", "Anet"), labels=c("KAP/MS", "KCCP", "ANet"))
+ANet.A3$Subject<-factor(ANet.A3$Subject, levels=c("Math", "ELA"))
+ANet.A3$Grade<-factor(ANet.A3$Grade, levels=c(2,5,6,7,8))
+ANet.A3$Test<-factor(ANet.A3$Test, levels=c("A1","A2","A3", "A1A2", "A1A2A3"), labels=c("A1", "A2", "A3", "A1 & A2 Combined", "A1-A3 Combined"))
+```
+```{r prep_ANet_overunder, echo=FALSE, cache=TRUE}
 #Create plot showing performance above or below average
 
-ANet.Percent.cast<-cast(ANet.A1A2.melt, Test + Grade + Subject ~ School + variable, subset=variable=="Percent")
+ANet.A3.melt<-melt(ANet.A3)
+
+ANet.Percent.cast<-cast(ANet.A3.melt, Test + Grade + Subject ~ School + variable, subset=variable=="Percent")
 names(ANet.Percent.cast)<-c("Test", "Grade", "Subject", "Ascend", "Create", "ANet")
 
 ANet.Percent<-within(ANet.Percent.cast, {
-  KAPMS<-(Ascend - ANet)/ANet 
-  KCCP <- (Create-ANet)/ANet
+  KAPMS<-(Ascend - ANet)
+  KCCP <- (Create-ANet)
   variable<-"Percent" 
        })
 
-ANet.Sixty.cast<-cast(ANet.A1A2.melt, Test + Grade + Subject ~ School + variable, subset=variable=="Pct60Above")
+ANet.Sixty.cast<-cast(ANet.A3.melt, Test + Grade + Subject ~ School + variable, subset=variable=="Pct60Above")
 names(ANet.Sixty.cast)<-c("Test", "Grade", "Subject", "Ascend", "Create", "ANet")
 
 ANet.Sixty<-within(ANet.Sixty.cast, {
@@ -1167,33 +1121,101 @@ ANet.Diffs.melt<-melt(as.data.frame(ANet.Diffs), measure=c("KCCP", "KAPMS"), var
 ANet.Diffs.melt$Pos<-ANet.Diffs.melt$value>0
 
 
-ANet.Diffs.melt$School<-factor(ANet.Diffs.melt$School, levels=c("KAP/MS", "KCCP", "Anet"), labels=c("KAP/MS", "KCCP", "ANet"))
+ANet.Diffs.melt$School<-factor(ANet.Diffs.melt$School, levels=c("KAPMS", "KCCP"), labels=c("KAP/MS", "KCCP"))
 ANet.Diffs.melt$Subject<-factor(ANet.Diffs.melt$Subject, levels=c("Math", "ELA"))
 ANet.Diffs.melt$Grade<-factor(ANet.Diffs.melt$Grade, levels=c(2,5,6,7,8))
-ANet.Diffs.melt$Test<-factor(ANet.Diffs.melt$Test, levels=c("A1","A2","A1A2"), labels=c("A1", "A2", "A1 & A2 Combined"))
-
-
-ggplot(subset(ANet.Diffs.melt,variable=="Percent"), aes(x=Grade, y=value)) +
-    geom_point(aes(color=Pos, shape=School), size=7 ) +
-  facet_grid(Subject ~ Test)
-  
-
-ggplot(subset(ANet.Diffs.melt,variable=="Percent"), aes(x=as.factor(Grade), y=value)) +
-    geom_bar(aes(fill=Pos, alpha=School), position="dodge", stat="identity" ) +
-  facet_grid(Subject ~ Test) + 
-  scale_fill_manual(values=c("#E27425","#439539")) +
-  scale_alpha_discrete(range=c(.6,.8))
-
-
+ANet.Diffs.melt$Test<-factor(ANet.Diffs.melt$Test, levels=c("A1","A2","A3","A1A2", "A1A2A3"), labels=c("A1", "A2", "A3", "A1 & A2 Combined", "A1-A3 Combined"))
 ```
 
+```{r plot_overunder, fig.height=4.5, fig.width=10, echo=FALSE, warning=FALSE}
+
+Anet.sub<-subset(ANet.Diffs.melt,variable=="Percent" & School!="KCCP" & Test!="A1 & A2 Combined")
+
+ggplot(Anet.sub, aes(x=as.factor(Grade), y=value)) +
+  geom_bar(aes(fill=Pos), position="dodge", stat="identity" ) + 
+  geom_text(data = subset(Anet.sub, value>=0), aes(y=value+2, label=round(value), color=Pos), vjust=0) +
+    geom_text(data = subset(Anet.sub, value<0), aes(y=value-2, label=round(value), color=Pos), vjust=1) +
+  geom_hline(yintercept=0, show_guide=T) +
+  facet_grid(Subject ~ Test) + 
+  scale_fill_manual(values=c("#E27425","#439539"), guide="none") +  
+  scale_colour_manual(values=c("#E27425","#439539"), guide="none") +
+  labs(x="Grade", y="Points Above/Below Network Average") +
+  theme_bw() + 
+  expand_limits(y=c(-10,25)) +   
+  ggtitle("ANet Interim 3: Percentage Points Above/Below Network Average")
+```
+
+```{r plot_overunder_by_grade, fig.height=4.5, fig.width=10}
+ggplot(subset(ANet.Diffs.melt,variable=="Percent" & School!="KCCP" & Test!="A1 & A2 Combined" & Test!="A1-A3 Combined"), aes(x=as.factor(Test), y=value)) +    geom_text(data = subset(ANet.Diffs.melt,variable=="Percent" & School!="KCCP" & Test!="A1 & A2 Combined" & Test!="A1-A3 Combined" & value>=0), aes(y=value+2, label=round(value), color=Pos), vjust=0) + geom_line(aes(x=as.numeric(Test))) + 
+    geom_point(aes(color=Pos), size=5) + 
+    geom_text(data = subset(ANet.Diffs.melt,variable=="Percent" & School!="KCCP" & Test!="A1 & A2 Combined" & Test!="A1-A3 Combined" & value<0), aes(y=value-2, label=round(value), color=Pos), vjust=1) +
+    geom_hline(yintercept=0, show_guide=T) +
+    facet_grid(Subject ~ Grade) + 
+    scale_fill_manual(values=c("#E27425","#439539"), guide="none") +  
+    scale_colour_manual(values=c("#E27425","#439539"), guide="none") +
+    labs(x="Interim Assessment", y="Points Above/Below Network Average") +
+    theme_bw() + 
+    expand_limits(y=c(-10,25)) +   
+    ggtitle("ANet Interim 3: Percentage Points Above/Below Network Average")
+```
+
+## Interim 1-3 Combined.  Average Score by grade and subject.
+```{r plot_Anet3_Combined, fig.height=4.5, fig.width=10, echo=FALSE, warning=FALSE}
+
+ANet.A3.combined.plot<-ggplot(subset(ANet.A3, Test=="A1-A3 Combined"), aes(x=Grade, y=Percent)) + 
+  geom_text(aes(y=Percent+1,label=Percent, color=School), position = position_dodge(width=1), vjust=0, size=6) +
+  geom_bar(aes(fill=School), position="dodge", stat='identity') + 
+  facet_grid(Subject ~ .) +
+  scale_fill_manual("",values=kippcols) +
+  scale_colour_manual("",values=kippcols) +
+  ylim(0,80) + 
+  theme_bw() + 
+  theme(legend.position="bottom") +
+  ggtitle("ANet Interims 1,2 & 3 - Combined Results")
+  
+ANet.A3.combined.plot 
+```
+This shows the average of student scores, which themselves are the percent of question answered correctly.
+```{r plot_Anet1_2_3, echo=FALSE,fig.height=4.5, fig.width=10}
+ts<-5
+
+ANet.A3.plot<-ggplot(subset(ANet.A3, Test!="A1 & A2 Combined" & School!="KCCP"), aes(x=Grade, y=Percent)) + 
+  geom_text(aes(y=Percent+1,label=Percent, color=School), position = position_dodge(width=1), vjust=0, size=ts) +
+  geom_bar(aes(fill=School), position="dodge", stat='identity') + 
+  facet_grid(Subject ~ Test) +
+  scale_fill_manual("",values=kippcols) +
+  scale_colour_manual("",values=kippcols) +
+  ylim(0,85) + 
+  theme_bw() + 
+  theme(legend.position="bottom") + 
+  ggtitle("ANet Interims  - Percent of Questions Correct")
+  
+ANet.A3.plot 
+```
+This chart shows the *percent of students* earning a 60% or better.  
+```{r plot_Anet1_2_3_60plus, echo=FALSE, fig.height=4.5, fig.width=10}
+ANet.A3.pct60.plot<-ggplot(subset(ANet.A3, Test!="A1 & A2 Combined" & School!="KCCP"), aes(x=Grade, y=Pct60Above)) + 
+  geom_text(aes(y=Pct60Above+1,label=Pct60Above, color=School), position = position_dodge(width=1), vjust=0, size=ts) +
+  geom_bar(aes(fill=School), position="dodge", stat='identity') + 
+  facet_grid(Subject ~ Test) +
+  scale_fill_manual("",values=kippcols) +
+  scale_colour_manual("",values=kippcols) +
+  ylim(0,105) + 
+  theme_bw() + 
+  theme(legend.position="bottom") +
+  ylab("Percent > 60%") +
+  ggtitle("ANet Interims  - Percent of Students w/ Scores > 60 Percent")
+  
+ANet.A3.pct60.plot 
+
+```
 ## Are our alumni climbing the mountain to and through college?
 ```{r prep_ktc_detail_data, fig.width=12, fig.height=6}
 
 KTC.detail<-expand.grid(Class=c(2011,2012), Network=c("KIPP Chicago", "KIPP Network"),Metric=c("HS Graduation", "College Matriculation", "College Persistence"))
 
 
-KTC.detail$Percent<-c(96,88,91,83,94,81,81,69,88,78,81,69)
+KTC.detail$Percent<-c(96,86,91,83,88,76,81,69,86,76,81,69)
 
 
 KTC.lt.hline<-data.frame(Metric=c("HS Graduation", "College Matriculation"), Percent=c(93,83), Network="LT Avg", Class=2012.3)

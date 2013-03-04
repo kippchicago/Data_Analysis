@@ -114,76 +114,24 @@
 ## Are our students progressing and achieving academically?
 
 
-```
-## Error: object 'anet.A1A2.combined.plot' not found
-```
 
-```
-## Error: object 'ANet.A1A2.melt' not found
-```
 
-```
-## Error: object 'ANet.Percent.cast' not found
-```
 
-```
-## Error: object 'ANet.Percent.cast' not found
-```
 
-```
-## Error: object 'ANet.A1A2.melt' not found
-```
+![plot of chunk plot_overunder](figure/plot_overunder.png) 
 
-```
-## Error: object 'ANet.Sixty.cast' not found
-```
 
-```
-## Error: object 'ANet.Sixty.cast' not found
-```
+![plot of chunk plot_overunder_by_grade](figure/plot_overunder_by_grade.png) 
 
-```
-## Error: object 'ANet.Percent' not found
-```
 
-```
-## Error: object 'ANet.Diffs' not found
-```
+## Interim 1-3 Combined.  Average Score by grade and subject.
+![plot of chunk plot_Anet3_Combined](figure/plot_Anet3_Combined.png) 
 
-```
-## Error: object 'ANet.Diffs' not found
-```
+This shows the average of student scores, which themselves are the percent of question answered correctly.
+![plot of chunk plot_Anet1_2_3](figure/plot_Anet1_2_3.png) 
 
-```
-## Error: object 'ANet.Diffs.melt' not found
-```
-
-```
-## Error: object 'ANet.Diffs.melt' not found
-```
-
-```
-## Error: object 'ANet.Diffs.melt' not found
-```
-
-```
-## Error: object 'ANet.Diffs.melt' not found
-```
-
-```
-## Error: object 'ANet.Diffs.melt' not found
-```
-
-```
-## Error: object 'ANet.Diffs.melt' not found
-```
-
-```
-## Error: object 'ANet.Diffs.melt' not found
-```
-
-![plot of chunk prep_ANet_Data](figure/prep_ANet_Data1.png) ![plot of chunk prep_ANet_Data](figure/prep_ANet_Data2.png) 
-
+This chart shows the *percent of students* earning a 60% or better.  
+![plot of chunk plot_Anet1_2_3_60plus](figure/plot_Anet1_2_3_60plus.png) 
 
 ## Are our alumni climbing the mountain to and through college?
 ![plot of chunk prep_ktc_detail_data](figure/prep_ktc_detail_data.png) 
