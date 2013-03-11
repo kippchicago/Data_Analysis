@@ -45,9 +45,15 @@ pscon <- dbConnect(drvr,"jdbc:oracle:thin:@10.160.29.47:1521:IL039","psnavigator
 #Get Attendance data.  
 # This SQL statement retrieves each enrolled student and their attendence status form PowerSchool 
 # by date for a given dateThi sis a table with each student for each day with status for the day
-Attendence<-dbGetQuery(pscon, "SELECT 
+
+date.first  <- "2012-08-13"
+date.second <- floor_date(today(), unit="week")
+
+
+
+sql.statement<-paste("SELECT 
     m.schoolid, 
-  	m.grade_level,
+    m.grade_level,
   	m.calendardate, 
 	m.STUDENT_NUMBER AS StudentID, 
   	m.lastfirst,
@@ -71,8 +77,8 @@ FROM (
 		1 as Enrolled  
 	FROM PS_Membership_Defaults psmd
 	LEFT JOIN students s ON psmd.StudentID = s.id
-	Where 	calendardate >= '13-AUG-12'
-		AND  calendardate <= '10-MAR-13'
+	Where 	calendardate >= TO_DATE('",date.first,"','yyyy-mm-dd')
+		AND  calendardate <= TO_DATE('",date.second,"','yyyy-mm-dd')
 ) m
 LEFT JOIN (
 	SELECT 
@@ -87,13 +93,18 @@ LEFT JOIN (
   	INNER JOIN Attendance_Code attc ON att.Attendance_CodeID = attc.ID
 	WHERE 
 		att.Att_Mode_Code = 'ATT_ModeDaily'
-  		AND att.Att_Date >= '13-AUG-12'
-  		AND att.Att_Date <= '10-MAR-13'
+  		AND att.Att_Date >= TO_DATE('",date.first,"','yyyy-mm-dd')
+  		AND att.Att_Date <= TO_DATE('",date.second,"','yyyy-mm-dd')
 		AND (attc.att_code = 'A' OR attc.att_code = 'S' or attc.att_code = 'X' or attc.att_code = 'H')
 ) a
 ON m.STUDENTID = a.studentid AND m.calendardate =a.Att_Date AND m.schoolID = a.schoolid
 ORDER BY schoolid, grade_level, calendardate
-")
+",sep="")
+  
+  
+  
+  
+Attendence<-dbGetQuery(pscon, sql.statement)
 ```
 ```{r polish_Attendance, cache=FALSE}
 
