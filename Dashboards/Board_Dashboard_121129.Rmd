@@ -734,7 +734,7 @@ FROM (
 	FROM PS_Membership_Defaults psmd
 	LEFT JOIN students s ON psmd.StudentID = s.id
 	Where 	calendardate >= '13-AUG-12'
-		AND  calendardate <= '1-MAR-13'
+		AND  calendardate <= '17-MAR-13'
 ) m
 LEFT JOIN (
 	SELECT 
@@ -750,7 +750,7 @@ LEFT JOIN (
 	WHERE 
 		att.Att_Mode_Code = 'ATT_ModeDaily'
   		AND att.Att_Date >= '13-AUG-12'
-  		AND att.Att_Date <= '1-MAR-13'
+  		AND att.Att_Date <= '17-MAR-13'
 		AND (attc.att_code = 'A' OR attc.att_code = 'S' or attc.att_code = 'X' or attc.att_code = 'H')
 ) a
 ON m.STUDENTID = a.studentid AND m.calendardate =a.Att_Date AND m.schoolID = a.schoolid
@@ -802,7 +802,7 @@ DailyEnrollAttendByGrade$Present96PctBenchMark<-.96*DailyEnrollAttendByGrade$Enr
 DailyEnrollAttend$WeekInYear<-week(DailyEnrollAttend$Date)
 DailyEnrollAttendByGrade$WeekInYear<-week(DailyEnrollAttendByGrade$Date)
 
-DailyEnrollAttend$WeekInSchoolYear<-DailyEnrollAttend$WeekInYear - min(DailyEnrollAttend$WeekInYear) +1
+DailyEnrollAttend$WeekInSchoolYear<-(intv<-floor_date(DailyEnrollAttend$Date, unit="week")-min(floor_date(DailyEnrollAttend$Date, unit="week")))/dweeks(1)+1
 DailyEnrollAttendByGrade$WeekInSchoolYear<-DailyEnrollAttendByGrade$WeekInYear - min(DailyEnrollAttendByGrade$WeekInYear) +1
 
 DailyEnrollAttend$WeekOfDate<-floor_date(DailyEnrollAttend$Date, unit="week") + days(1) 
@@ -838,7 +838,7 @@ DailyEnrollAttend$SchoolInitials<-factor(DailyEnrollAttend$SchoolInitials, level
 DailyEnrollAttendByGrade$SchoolInitials<-factor(DailyEnrollAttendByGrade$SchoolInitials, levels=c("KAPS", "KAMS", "KCCP"))
 #head(DailyEnrollAttend)
 ```
-```{r Attendance_Summaries}
+```{r Attendance_Summaries, cached=FALSE}
 #calculate attendence rate by week by school
 AttRateByWeekBySchool<-ddply(DailyEnrollAttend,.(SchoolInitials,WeekOfShortDateLabel), summarise, AttRate=sum(Present)/sum(Enrolled)*100)
 
@@ -904,7 +904,7 @@ ggplot(AttRateByWeek, aes(x=Week, y=AttRate)) +
 
 ## Are our students staying with us?
   
-```{r get_Transfer_data, cache=TRUE}
+```{r get_Transfer_data, cache=FALSE}
 #all students enrolled on October 3, 2012
 Enrolled.121003<-dbGetQuery(pscon, "SELECT
 m.SchoolID,

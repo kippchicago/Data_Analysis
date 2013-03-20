@@ -1,9 +1,9 @@
 KIPP Chicago Regional Attendance Report
 ========================================================
-Week of February 18, 2013
+Week of March 11, 2013
 --------------------------------------------------------
 
-### Attendence
+### Attendance
 ```{r options, echo=FALSE}
 options(replace.assign=TRUE,width=60)
 opts_chunk$set( 
@@ -41,15 +41,13 @@ source("~/Dropbox/Consulting/KIPP Ascend/Data Analysis/MAP/Code/R/MAP_helper_fun
 drvr <- JDBC("oracle.jdbc.driver.OracleDriver", "/Users/chaid/Dropbox/JDBC Drivers/ojdbc5.jar","")
 pscon <- dbConnect(drvr,"jdbc:oracle:thin:@10.160.29.47:1521:IL039","psnavigator","laidephy")
 ```
-```{r get_Attendance_Data, cache=TRUE}
+```{r get_Attendance_Data, cache=FALSE}
 #Get Attendance data.  
 # This SQL statement retrieves each enrolled student and their attendence status form PowerSchool 
 # by date for a given dateThi sis a table with each student for each day with status for the day
 
 date.first  <- "2012-08-13"
 date.second <- floor_date(today(), unit="week")
-
-
 
 sql.statement<-paste("SELECT 
     m.schoolid, 
