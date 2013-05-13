@@ -33,7 +33,7 @@ map.1213<-dbGetQuery(con, 'CALL GetMAPResultsFromTo("Fall12","Winter13");')
 map.1213<-data.table(map.1213)
 
 #####F11-W12
-map.1112<-dbGetQuery(con, 'CALL GetMAPResultsFromTo("Fall11","Winter12");')
+map.1112<-dbGetQuery(con, 'CALL GetMAPResultsFromTo("Fall11","Spring12");')
 map.1112<-data.table(map.1112)
 
 #Add Years to two tables
