@@ -5,9 +5,12 @@
 
 ## Ignore All Data and Figure Files
 Data/
+data/
 Figures/
 figure/
+reports/
 *.pdf
+
 
 ## Ignore R Files
 .Rdata
