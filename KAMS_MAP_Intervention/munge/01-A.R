@@ -37,4 +37,6 @@ rm(anet.copy)
 #  Get MAP Data Ready ##
 ########################
 
+# Math
+map.1112.math<-map.1112[Subject=="Mathematics"]
 

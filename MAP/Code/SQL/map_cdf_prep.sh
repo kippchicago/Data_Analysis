@@ -3,6 +3,7 @@
 #shell script that cleans or polishes NWEA provided comprehensive data files (CDFs) for loading into a MySQL Database
 
 #USAGE| map_cdf_prep.sh foo.csv
+#     | for mulitple files at at time: for file in *.csv; do map_cdf_prep.sh $file; done
 #input| foo.csv, which is any CDF csv
 #output| foo_loaddata.csv, a csv ready to load into a MySQL data base. 
 
