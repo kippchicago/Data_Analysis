@@ -87,7 +87,7 @@ LOAD DATA LOCAL INFILE '~/Dropbox/Consulting/KIPP Ascend/Data Analysis/MAP/Data/
 -- Load Class Assignments
 DROP TABLE IF EXISTS tblClassAssignmentsSpring13;	
 CREATE TABLE tblClassAssignmentsSpring13 (
-	TermName VARCHAR(12),
+	TermName VARCHAR(30),
 	StudentID INT,
 	SchoolName VARCHAR(50),
 	ClassName VARCHAR(50),
@@ -103,7 +103,7 @@ LOAD DATA LOCAL INFILE '~/Dropbox/Consulting/KIPP Ascend/Data Analysis/MAP/Data/
 -- Load StudentBySchool	
 DROP TABLE IF EXISTS tblStudentBySchoolSpring13;
 CREATE TABLE tblStudentBySchoolSpring13 (
-	TermName VARCHAR(12),
+	TermName VARCHAR(30),
 	DistrictName VARCHAR(50),
 	SchoolName VARCHAR(50),
 	StudentLastName VARCHAR(50),
@@ -123,7 +123,7 @@ LOAD DATA LOCAL INFILE '~/Dropbox/Consulting/KIPP Ascend/Data Analysis/MAP/Data/
 -- Load Program Assignments (i.e. Special Education)
 DROP TABLE IF EXISTS tblProgramAssignmentsSpring13;	
 CREATE TABLE tblProgramAssignmentsSpring13 (
-	TermName VARCHAR(12),
+	TermName VARCHAR(30),
 	StudentID INT,
 	Program VARCHAR(50)
 	);

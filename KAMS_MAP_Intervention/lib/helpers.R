@@ -36,3 +36,71 @@ PrepANet <- function (anet.df) {
   
   anet.copy
 }
+
+PrepMAP <- function (map.dt, season1, season2) {
+  # Returns data.table wiht new columns indicating growth met, differene
+  # in Spring and expected RIT scores, and indicators for earning above average
+  # RIT scores in Fall and Spring.
+  #
+  # Args:
+  #   map.dt: A data.table returned by a Call to the SQL procedure 
+  #     GetMAPResultsFromToByName 
+  #   season1: the first season (i.e., test term) of the MAP assessment
+  #   season2: the second season (i.e., test term) of the MAP assessment
+  #
+  #Returns:
+  # map.dt: A data.table iwth addtional columns for Growth Target, met NWEA
+  #   growth, residual RIT (i.e., Actual Spring minus Expected Spring), and 
+  #   indicators for above average RIT in Fall as well as Spring
+  #   
+  require(data.table)
+  
+  # Construct RIT score variable names
+  RIT1<-paste(season1, "RIT", sep="_")
+  RIT2<-paste(season2, "RIT", sep="_")
+  
+  # Set indicator for exceeding NWEA Growth Target
+  map.dt[,Target:=get(RIT1)+ReportedFallToSpringGrowth]
+  map.dt[get(RIT2)>=Target,Meets:=1]
+  map.dt[get(RIT2)<Target,Meets:=0]
+  
+  
+  #map.dt[,Target:=Fall12_RIT+ReportedFallToSpringGrowth]
+  #map.dt[Spring13_RIT>=Target,Meets:=1]
+  #map.dt[Spring13_RIT<Target,Meets:=0]
+  
+  # Calcualte difference Spring score and Growth Target
+  map.dt[,Diff:=get(RIT2)-Target]
+  
+  
+  # Set indicator for student performing above Natioanl Norm Average (2011
+  # Norms) (i.e., at or above 50th Percentile)
+  # Spring 
+  
+  #construct Percentile column names
+  Pctl1 <- paste(season1, "Pctl", sep="_")
+  Pctl2 <- paste(season2, "Pctl", sep="_")
+  
+  # Construct new indicator column name 
+  # (see http://stackoverflow.com/questions/11745169/dynamic-column-names-in
+  # -data-table-r?rq=1) for details
+  
+  a50th <- parse(text= paste0(season2, "_Above50th:=1"))
+  b50th <- parse(text= paste0(season2, "_Above50th:=0"))
+  
+  #identify above/below 50th percenilte and add/update column
+  map.dt[get(Pctl2)>=50, eval(a50th)]
+  map.dt[get(Pctl2)<50, eval(b50th)]
+    
+  # Fall (see Spring above )
+  
+  a50th <- parse(text= paste0(season1, "_Above50th:=1"))
+  b50th <- parse(text= paste0(season1, "_Above50th:=0"))
+  
+  map.dt[get(Pctl1)>=50, eval(a50th)]
+  map.dt[get(Pctl1)<50, eval(b50th)]
+
+  
+  map.dt
+  
+}
