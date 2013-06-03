@@ -24,8 +24,8 @@ map.scores<-dbGetQuery(con, 'CALL GetMAPResultsFromTo("Fall12","Winter13");')
 map.scores$Fall12_Grade <- factor(map.scores$Fall12_Grade, levels=c("0", "1","2", "5", "6","7","8"))
 levels(map.scores$Fall12_Grade) <- c("K", "1", "2", "5", "6","7","8")
 
-map.scores$Winter13_Grade <- factor(map.scores$Winter13_Grade, levels=c("0", "1","2", "5", "6","7","8"))
-levels(map.scores$Winter13_Grade) <- c("K", "1", "2", "5", "6","7","8")
+map.scores$Spring13_Grade <- factor(map.scores$Spring13_Grade, levels=c("0", "1","2", "5", "6","7","8"))
+levels(map.scores$Spring13_Grade) <- c("K", "1", "2", "5", "6","7","8")
 
 #SEt Targets
 #get z score (i.e., number of standard deviations) that corresponds to 75th percentile
@@ -58,10 +58,10 @@ map.scores.by.grade<-data.table(map.scores.by.grade)
 
 #set growth Categories (note order matters here to get all the categories right)
 
-map.scores.by.grade[Winter13_RIT<Fall12_RIT, GrowthCat:="Negative"]
-map.scores.by.grade[Winter13_RIT>Fall12_RIT, GrowthCat:="Positive"]
-map.scores.by.grade[Winter13_RIT>=Fall12_RIT+ReportedFallToWinterGrowth, GrowthCat:="Typical"]
-map.scores.by.grade[Winter13_RIT>=Fall12_RIT+GrowthPctl75th, GrowthCat:="College Ready"]
+map.scores.by.grade[Spring13_RIT<Fall12_RIT, GrowthCat:="Negative"]
+map.scores.by.grade[Spring13_RIT>Fall12_RIT, GrowthCat:="Positive"]
+map.scores.by.grade[Spring13_RIT>=Fall12_RIT+ReportedFallToWinterGrowth, GrowthCat:="Typical"]
+map.scores.by.grade[Spring13_RIT>=Fall12_RIT+GrowthPctl75th, GrowthCat:="College Ready"]
 
 #Add X in front of students who had negative growth
 
@@ -75,11 +75,11 @@ map.scores.kams <- map.scores.by.grade[SchoolName=="KIPP Ascend Middle School"]
 
 
 p <- ggplot(subset(map.scores.by.grade, Grade==1 & Subject=="Reading"), aes(x=Fall12_RIT, y=OrderID)) +
-  geom_segment(data=subset(map.scores.by.grade, Grade==1 & Subject=="Reading" & GrowthCat=="College Ready"), aes(x=Fall12_RIT, xend=Winter13_RIT, y=OrderID, yend=OrderID), arrow = arrow(length = unit(0.1,"cm")), color="#FEBC11") +
-  geom_segment(data=subset(map.scores.by.grade, Grade==1 & Subject=="Reading" & GrowthCat=="Typical"), aes(x=Fall12_RIT, xend=Winter13_RIT, y=OrderID, yend=OrderID), , arrow = arrow(length = unit(0.1,"cm")), color="#CFCCC1") +
-  geom_segment(data=subset(map.scores.by.grade, Grade==1 & Subject=="Reading" & GrowthCat=="Positive"), aes(x=Fall12_RIT, xend=Winter13_RIT, y=OrderID, yend=OrderID), , arrow = arrow(length = unit(0.1,"cm")), color="#C49A6C") +
-  geom_segment(data=subset(map.scores.by.grade, Grade==1 & Subject=="Reading" & GrowthCat=="Negative"), aes(x=Fall12_RIT, xend=Winter13_RIT, y=OrderID, yend=OrderID), , arrow = arrow(length = unit(0.1,"cm")), color="red") +
-  geom_text(aes(x=Winter13_RIT+.5, color=as.factor(Winter13_Quartile), label=Winter13_RIT), size=2, hjust=0) + 
+  geom_segment(data=subset(map.scores.by.grade, Grade==1 & Subject=="Reading" & GrowthCat=="College Ready"), aes(x=Fall12_RIT, xend=Spring13_RIT, y=OrderID, yend=OrderID), arrow = arrow(length = unit(0.1,"cm")), color="#FEBC11") +
+  geom_segment(data=subset(map.scores.by.grade, Grade==1 & Subject=="Reading" & GrowthCat=="Typical"), aes(x=Fall12_RIT, xend=Spring13_RIT, y=OrderID, yend=OrderID), , arrow = arrow(length = unit(0.1,"cm")), color="#CFCCC1") +
+  geom_segment(data=subset(map.scores.by.grade, Grade==1 & Subject=="Reading" & GrowthCat=="Positive"), aes(x=Fall12_RIT, xend=Spring13_RIT, y=OrderID, yend=OrderID), , arrow = arrow(length = unit(0.1,"cm")), color="#C49A6C") +
+  geom_segment(data=subset(map.scores.by.grade, Grade==1 & Subject=="Reading" & GrowthCat=="Negative"), aes(x=Fall12_RIT, xend=Spring13_RIT, y=OrderID, yend=OrderID), , arrow = arrow(length = unit(0.1,"cm")), color="red") +
+  geom_text(aes(x=Spring13_RIT+.5, color=as.factor(Spring13_Quartile), label=Spring13_RIT), size=2, hjust=0) + 
   geom_text(aes(x=Fall12_RIT-1, color=as.factor(Quartile), label=StudentFirstLastName), size=2, hjust=1) + 
 geom_point(aes(color=as.factor(Quartile)), size=pointsize) +
   geom_text(aes(x=Fall12_RIT+1, color=as.factor(Quartile), label=Fall12_RIT), size=2, hjust=0) +
@@ -124,14 +124,14 @@ plot_MAP_Results_and_Goals_2 <- function (df, plottitle=" ",labxpos=115, minx=10
   pointsize<-2
   p <- ggplot(df, aes(x=Fall12_RIT, y=OrderID)) +
     
-      geom_segment(data=subset(df, GrowthCat=="College Ready"), aes(x=Fall12_RIT, xend=Winter13_RIT, y=OrderID, yend=OrderID), arrow = arrow(length = unit(0.1,"cm")), color="#FEBC11") +
-      geom_segment(data=subset(df, GrowthCat=="Typical"), aes(x=Fall12_RIT, xend=Winter13_RIT, y=OrderID, yend=OrderID), , arrow = arrow(length = unit(0.1,"cm")), color="#CFCCC1") +
-      geom_segment(data=subset(df, GrowthCat=="Positive"), aes(x=Fall12_RIT, xend=Winter13_RIT, y=OrderID, yend=OrderID), , arrow = arrow(length = unit(0.1,"cm")), color="#C49A6C") +
-      geom_segment(data=subset(df, GrowthCat=="Negative"), aes(x=Fall12_RIT, xend=Winter13_RIT, y=OrderID, yend=OrderID), , arrow = arrow(length = unit(0.1,"cm")), color="red") +
-      geom_text(data=df[GrowthCat!="Negative"],aes(x=Winter13_RIT+.5, color=as.factor(Winter13_Quartile), label=Winter13_RIT), size=2, hjust=0) + 
-     geom_text(data=df[GrowthCat=="Negative"],aes(x=Winter13_RIT-.5, color=as.factor(Winter13_Quartile), label=Winter13_RIT), size=2, hjust=1) + 
+      geom_segment(data=subset(df, GrowthCat=="College Ready"), aes(x=Fall12_RIT, xend=Spring13_RIT, y=OrderID, yend=OrderID), arrow = arrow(length = unit(0.1,"cm")), color="#FEBC11") +
+      geom_segment(data=subset(df, GrowthCat=="Typical"), aes(x=Fall12_RIT, xend=Spring13_RIT, y=OrderID, yend=OrderID), arrow = arrow(length = unit(0.1,"cm")), color="#CFCCC1") +
+      geom_segment(data=subset(df, GrowthCat=="Positive"), aes(x=Fall12_RIT, xend=Spring13_RIT, y=OrderID, yend=OrderID), arrow = arrow(length = unit(0.1,"cm")), color="#C49A6C") +
+      geom_segment(data=subset(df, GrowthCat=="Negative"), aes(x=Fall12_RIT, xend=Spring13_RIT, y=OrderID, yend=OrderID),  arrow = arrow(length = unit(0.1,"cm")), color="red") +
+      geom_text(data=df[GrowthCat!="Negative"],aes(x=Spring13_RIT+.5, color=as.factor(Spring13_Quartile), label=Spring13_RIT), size=2, hjust=0) + 
+     geom_text(data=df[GrowthCat=="Negative"],aes(x=Spring13_RIT-.5, color=as.factor(Spring13_Quartile), label=Spring13_RIT), size=2, hjust=1) + 
     geom_text(data=df[GrowthCat!="Negative"],aes(x=Fall12_RIT-1, color=as.factor(Fall12_Quartile), label=StudentFirstLastName), size=2, hjust=1) +
-    geom_text(data=df[GrowthCat=="Negative"],aes(x=Winter13_RIT-4, label=StudentFirstLastName), color="red" ,size=2, hjust=1) +
+    geom_text(data=df[GrowthCat=="Negative"],aes(x=Spring13_RIT-4, label=StudentFirstLastName), color="red" ,size=2, hjust=1) +
     geom_point(aes(color=as.factor(Fall12_Quartile)), size=pointsize) +
     geom_text(aes(x=Fall12_RIT+1, color=as.factor(Fall12_Quartile), label=Fall12_RIT), size=2, hjust=0) +
     geom_point(aes(x=Fall12_RIT + TypicalFallToWinterGrowth, y=OrderID), color="#CFCCC1", size=pointsize, alpha=alp) +
@@ -169,7 +169,7 @@ plot_MAP_Results_and_Goals_2 <- function (df, plottitle=" ",labxpos=115, minx=10
   #  avg RIT by quartile, and percent of quartile students to total studens.
   
   qrtl.labels<-get_group_stats(as.data.frame(df), grp="Fall12_Quartile")
-  wqrtl.labels<-get_group_stats(as.data.frame(df), grp="Winter13_Quartile")
+  wqrtl.labels<-get_group_stats(as.data.frame(df), grp="Spring13_Quartile")
   #add a column with the actual label text
   qrtl.labels$CountLabel<-paste(qrtl.labels$CountStudents," students (",round(qrtl.labels$PctofTotal*100),"%)", sep="")
   wqrtl.labels$CountLabel<-paste(wqrtl.labels$CountStudents," students (",round(wqrtl.labels$PctofTotal*100),"%)", sep="")
@@ -197,7 +197,7 @@ plot_MAP_Results_and_Goals_2 <- function (df, plottitle=" ",labxpos=115, minx=10
 
 
 #KAPS and KCCP combined
-pdf(file="../../Figures/Winter13_MAP_KAPS_KCCP_13021.pdf", height=10.5, width=8)
+pdf(file="../../Figures/Spring13_MAP_KAPS_KCCP_13021.pdf", height=10.5, width=8)
 
 for(s in sort(unique(map.scores$Subject))){
   dfp<-map.scores.by.grade[Subject==s] #DataFrame to Plot
@@ -210,7 +210,7 @@ for(s in sort(unique(map.scores$Subject))){
 dev.off()
 
 #KAMS only 
-pdf(file="../../Figures/Winter13_MAP_KAMS_130401.pdf", height=10.5, width=8)
+pdf(file="../../Figures/Spring13_MAP_KAMS_130401.pdf", height=10.5, width=8)
 
 for(s in sort(unique(map.scores.kams$Subject))){
   dfp<-map.scores.kams[Subject==s] #DataFrame to Plot
