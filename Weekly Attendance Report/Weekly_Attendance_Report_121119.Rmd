@@ -301,7 +301,7 @@ WeeklySuspensionsBySchool.table<-cast(DailySuspensionByGradeByWeek, WeekOfShortD
 # Change Week of row (all) to Total
 levels(WeeklySuspensionsBySchool.table$WeekOfShortDateLabel)[levels(WeeklySuspensionsBySchool.table$WeekOfShortDateLabel)=="(all)"]<-"Total"
 
-names(WeeklySuspensionsBySchool.table)<-c("Week of", "KAPS", "KAMS", "Total")
+names(WeeklySuspensionsBySchool.table)<-c("Week of", "KAPS", "KAMS", "KCCP",  "Total")
 levels(WeeklySuspensionsBySchool.table[,1])[levels(WeeklySuspensionsBySchool.table[,1])=="(all)"]<-"Total"
 
 WeeklySuspensionsBySchool.xtable<-xtable(WeeklySuspensionsBySchool.table, digits=0)
@@ -310,7 +310,7 @@ WeeklySuspensionsBySchool.xtable<-xtable(WeeklySuspensionsBySchool.table, digits
 #YTD Suspsesnions by Grade By School
 YTDSuspensionsByGradeBySchool.table<-cast(DailySuspensionByGradeByWeek, GRADE_LEVEL~SchoolInitials, sum, margins=TRUE)
 
-names(YTDSuspensionsByGradeBySchool.table)<-c("Grade", "KAPS", "KAMS", "Total")
+names(YTDSuspensionsByGradeBySchool.table)<-c("Grade", "KAPS", "KAMS", "KCCP", "Total")
 levels(YTDSuspensionsByGradeBySchool.table[,1])[levels(YTDSuspensionsByGradeBySchool.table[,1])=="(all)"]<-"Total"
 
 YTDSuspensionsByGradeBySchool.xtable<-xtable(YTDSuspensionsByGradeBySchool.table, digits=0)
@@ -320,7 +320,7 @@ YTDSuspensionsByGradeBySchool.xtable<-xtable(YTDSuspensionsByGradeBySchool.table
 #YTD Suspsesnions by Grade by Week
 YTDSuspensionsByWeekByGrade.table<-cast(DailySuspensionByGradeByWeek, WeekOfShortDateLabel~GRADE_LEVEL, sum, margins=TRUE)
 
-names(YTDSuspensionsByWeekByGrade.table)<-c("Week of", "1st", "2nd", "5th","6th", "7th", "8th", "Total")
+names(YTDSuspensionsByWeekByGrade.table)<-c("Week of", "K", "1st", "2nd", "5th","6th", "7th", "8th", "Total")
 levels(YTDSuspensionsByWeekByGrade.table[,1])[levels(YTDSuspensionsByWeekByGrade.table[,1])=="(all)"]<-"Total"
 
 YTDSuspensionsByWeekByGrade.xtable<-xtable(YTDSuspensionsByWeekByGrade.table, digits=0)

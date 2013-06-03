@@ -9,6 +9,10 @@ Week of May 27, 2013
 
 
 
+```
+## Error: java.sql.SQLException: IO Error: The Network Adapter
+## could not establish the connection
+```
 
 
 
