@@ -135,10 +135,10 @@ plot_MAP_Results_and_Goals <- function (df, plottitle=" ",labxpos=115, minx=105,
   
   
   p <- p +   geom_point(aes(color=as.factor(Fall12_Quartile)), size=pointsize) +
-    geom_point(aes(x=Target, y=OrderID), color="#CFCCC1", size=pointsize-.5, alpha=alp, shape="|") +
-    geom_text(aes(x=Target, label=round(Target)), color="#CFCCC1", size=1, hjust=0.5, vjust=-1, alpha=alp) +
-    geom_point(aes(x=GrowthTargets, y=OrderID), color="#FEBC11", size=pointsize-.5, alpha=alp, shape="|") + 
-    geom_text(aes(x=GrowthTargets, label=GrowthTargets), color="#FEBC11", size=1, hjust=0.5, vjust=-1, alpha=alp) +
+    geom_point(aes(x=ProjectedGrowth, y=OrderID), color="#CFCCC1", size=pointsize-.5, alpha=alp, shape="|") +
+    geom_text(aes(x=ProjectedGrowth, label=round(ProjectedGrowth)), color="#CFCCC1", size=1, hjust=0.5, vjust=-1, alpha=alp) +
+    geom_point(aes(x=CollegeReadyGrowth, y=OrderID), color="#FEBC11", size=pointsize-.5, alpha=alp, shape="|") + 
+    geom_text(aes(x=CollegeReadyGrowth, label=CollegeReadyGrowth), color="#FEBC11", size=1, hjust=0.5, vjust=-1, alpha=alp) +
     facet_grid(Fall12_Quartile~., scale="free_y", space = "free_y", as.table=FALSE) +
     scale_colour_discrete(kippcols) + 
     scale_y_continuous(" ", breaks=df$OrderID, expand=c(0,1.5)) + 

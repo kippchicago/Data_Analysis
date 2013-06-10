@@ -49,44 +49,65 @@ PrepMAP <- function (map.dt, season1, season2) {
   #   season2: the second season (i.e., test term) of the MAP assessment
   #
   #Returns:
-  # map.dt: A data.table iwth addtional columns for Growth Target, met NWEA
+  # map.dt: A data.table iwth addtional columns for Growth ProjectedGrowth, met NWEA
   #   growth, residual RIT (i.e., Actual Spring minus Expected Spring), and 
   #   indicators for above average RIT in Fall as well as Spring
   #   
   require(data.table)
+  require(stringr)
   
   # Construct RIT score variable names
   RIT1<-paste(season1, "RIT", sep="_")
   RIT2<-paste(season2, "RIT", sep="_")
   
-  # Set indicator for exceeding NWEA Growth Target
-  map.dt[,Target:=get(RIT1)+ReportedFallToSpringGrowth]
+  # Construct Norm estimates variable names (i.e., season to season)
+  s1 <- str_extract(season1, "[a-zA-Z]+")  # extracts season (letters) from 
+                                           #  seasonYY 
+  s2 <- str_extract(season2, "[a-zA-Z]+")
   
-  map.dt[get(RIT2)>=Target,Meets:=1]
-  map.dt[get(RIT2)<Target,Meets:=0]
+  s1s2 <- paste0(s1,"To",s2)
   
-  # Calculate 75th Percentile Growth Target
+  # Construct Growth Variable Name
+  pgrowth.var<-paste0("Reported",s1s2,"Growth")
+  
+  # Calculate Projected Growth
+  map.dt[,ProjectedGrowth:=get(RIT1)+get(pgrowth.var)]
+  
+  # Set indicator for exceeding NWEA Projected Growth 
+  map.dt[get(RIT2)>=ProjectedGrowth,Meets:=1]
+  map.dt[get(RIT2)<ProjectedGrowth,Meets:=0]
+  
+  # Calculate 75th Percentile Growth ProjectedGrowth
   # get z score (i.e., number of standard deviations) that corresponds to 75th 
   # percentile
   sigma<-qnorm(.75)
   
+  # Constuct call for for typical growth (= acutal; reported, fwiw, = rounded)
+  # and for hte standard deviation of growth
+  
+  tgrowth.var <- paste0("Typical",s1s2,"Growth")
+  sd.var <- paste0("SD",s1s2,"Growth")
+  
+  # Constuct parsed term to evaluate
+  gp75.var <- parse(text = paste0("GrowthPctl75th:=round(",
+                                  tgrowth.var, 
+                                  " + sigma*",
+                                  sd.var,",0)"
+                                  )
+  )
+  
   # add simga*SD to mean and round to integer
-  map.dt[,GrowthPctl75th:=round(TypicalFallToSpringGrowth + sigma*SDFallToSpringGrowth,0)]
+  map.dt[,eval(gp75.var)]
   
-  # set "College Ready" Target
-  map.dt[,GrowthTargets:=get(RIT1)+GrowthPctl75th]
-  
-  #map.dt[,Target:=Fall12_RIT+ReportedFallToSpringGrowth]
-  #map.dt[Spring13_RIT>=Target,Meets:=1]
-  #map.dt[Spring13_RIT<Target,Meets:=0]
-  
-  # Calcualte difference Spring score and Growth Target
-  map.dt[,TypicalGrowthDiff:=get(RIT2)-Target]
+  # set "College Ready" ProjectedGrowth
+  map.dt[,CollegeReadyGrowth:=get(RIT1)+GrowthPctl75th]
+    
+  # Calcualte difference Season2 score and Growth ProjectedGrowth
+  map.dt[,TypicalGrowthDiff:=get(RIT2)-ProjectedGrowth]
   
   
   # Set indicator for student performing above Natioanl Norm Average (2011
   # Norms) (i.e., at or above 50th Percentile)
-  # Spring 
   
   #construct Percentile column names
   Pctl1 <- paste(season1, "Pctl", sep="_")
@@ -94,7 +115,8 @@ PrepMAP <- function (map.dt, season1, season2) {
   
   # Construct new indicator column name 
   # (see http://stackoverflow.com/questions/11745169/dynamic-column-names-in
-  # -data-table-r?rq=1) for details
+  # -data-table-r?rq=1) for details on this eval(parse(text='sometext')) 
+  # paradigm wiht data.tables
   
   a50th <- parse(text= paste0(season2, "_Above50th:=1"))
   b50th <- parse(text= paste0(season2, "_Above50th:=0"))
@@ -105,8 +127,8 @@ PrepMAP <- function (map.dt, season1, season2) {
     
   # Fall (see Spring above )
   
-  a50th <- parse(text= paste0(season1, "_Above50th:=1"))
-  b50th <- parse(text= paste0(season1, "_Above50th:=0"))
+  a50th <- parse(text = paste0(season1, "_Above50th:=1"))
+  b50th <- parse(text = paste0(season1, "_Above50th:=0"))
   
   map.dt[get(Pctl1)>=50, eval(a50th)]
   map.dt[get(Pctl1)<50, eval(b50th)]
@@ -116,11 +138,12 @@ PrepMAP <- function (map.dt, season1, season2) {
   map.dt[,StudentLastFirstName:=
            paste(StudentLastName, 
                  StudentFirstName, sep=", ")]
+  
   map.dt[,StudentFirstLastName:=
            paste(StudentFirstName, 
                  StudentLastName, sep=" ")]
   
-  # Add name with RIT score in parenthesis. Will do so by construction 
+  # Add name with RIT score in parenthesis. Will do so by constructing 
   # expression and then evaluating it within a data.table
   
   name.rit <- parse(text = paste0('StudentFirstLastNameRIT:=
@@ -149,12 +172,23 @@ PrepMAP <- function (map.dt, season1, season2) {
   # Create expression for first term in setattr() function 
   refactor1<-parse(text = paste0("map.dt$",season1, "_Grade"))
   
-  #R elevel factors. 
+  # Relevel factors. 
   setattr(eval(refactor1), "levels", c("K", "1", "2", "5", "6","7","8"))
   
+  # Change School Names to School Initials
+  map.dt[SchoolName=="KIPP Ascend Primary"|SchoolName=="KIPP ASCEND PRIMARY", SchoolInitials:="KAPS"]
+  map.dt[SchoolName=="KIPP Ascend Middle School"
+         |SchoolName==
+           "KIPP Ascend Charter School                                       ", 
+         SchoolInitials:="KAMS"]
+  
+  map.dt[SchoolName=="KIPP Create Middle School", 
+         SchoolInitials:="KCCP"]
+  
+  map.dt[,SchoolInitials:=factor(SchoolInitials, 
+                                 levels=c("KAPS", "KAMS", "KCCP"))]
   
   
-
   
   map.dt
   
