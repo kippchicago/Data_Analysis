@@ -15,7 +15,7 @@ pdf(file=paste0("graphs/Spring13_MAP_KIPPChi_",todays.date,".pdf"), height=10.5,
 
 
 for(s in sort(unique(map.scores.by.grade$Subject))){
-  for(k in unique(map.scores.by.grade[,SchoolInitials])){
+  for(k in sort(unique(map.scores.by.grade[,SchoolInitials]))){
     dfp<-map.scores.by.grade[Subject==s & SchoolInitials==k ,] #DataFrame to Plot
     for(g in as.character(sort(unique(dfp[,Fall12_Grade])))){
       ptitle <- paste0(k, " 2012-13 MAP Scores ",g," ",s, "\nFall and Spring RIT Scores vs Expected Growth and College Ready Growth\nby Fall Quartile")

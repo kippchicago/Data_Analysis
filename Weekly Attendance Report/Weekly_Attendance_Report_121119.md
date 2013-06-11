@@ -1,6 +1,6 @@
 KIPP Chicago Regional Attendance Report
 ========================================================
-Week of May 27, 2013
+Week of June 3, 2013
 --------------------------------------------------------
 
 ### Attendance
@@ -9,10 +9,6 @@ Week of May 27, 2013
 
 
 
-```
-## Error: java.sql.SQLException: IO Error: The Network Adapter
-## could not establish the connection
-```
 
 
 
