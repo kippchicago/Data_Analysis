@@ -1,6 +1,6 @@
 KIPP Chicago Regional Attendance Report
 ========================================================
-Week of June 3, 2013
+Week of June 10, 2013
 --------------------------------------------------------
 
 ### Attendance
@@ -223,6 +223,10 @@ The greeen line demarcates 95% of enrollment (i.e., our regional daily attendanc
 last15weeks<-ymd(as.character(floor_date(today() -weeks(20), unit="week")+1))
 
 DailyEnrollAttend.plotdata<-subset(DailyEnrollAttend, Date>=last15weeks)
+
+DailyEnrollAttend.plotdata<-subset(DailyEnrollAttend.plotdata, 
+                                   Date<ymd("2013-06-14")) #Drop last day of school
+
 DailyEnrollAttend.plotdata$Day <- wday(DailyEnrollAttend.plotdata$Date)
 DailyEnrollAttend.plotdata$Enrolled95Pct <- DailyEnrollAttend.plotdata$Enrolled*.95
 DailyEnrollAttend.plotdata.melt<-melt(DailyEnrollAttend.plotdata, id=c("Date", "Day", "SchoolInitials", "WeekOfDateLabel"), measure.vars=c("Enrolled", "Enrolled95Pct", "Present"))

@@ -169,11 +169,21 @@ PrepMAP <- function (map.dt, season1, season2) {
   # 2. Evaluate expression in j term
   map.dt[,eval(grade1)]
   
+  # 1. Create expression to be evaluated in j term
+  grade2<-parse(text = paste0(season2, 
+                              '_Grade:=factor(', 
+                              season2, 
+                              '_Grade, levels=c("0", "1","2", "5", "6","7","8"))'))
+  # 2. Evaluate expression in j term
+  map.dt[,eval(grade2)]
+  
   # Create expression for first term in setattr() function 
   refactor1<-parse(text = paste0("map.dt$",season1, "_Grade"))
+  refactor2<-parse(text = paste0("map.dt$",season2, "_Grade"))
   
   # Relevel factors. 
   setattr(eval(refactor1), "levels", c("K", "1", "2", "5", "6","7","8"))
+  setattr(eval(refactor2), "levels", c("K", "1", "2", "5", "6","7","8"))
   
   # Change School Names to School Initials
   map.dt[SchoolName=="KIPP Ascend Primary"|SchoolName=="KIPP ASCEND PRIMARY", SchoolInitials:="KAPS"]

@@ -1,6 +1,6 @@
 KIPP Chicago Regional Attendance Report
 ========================================================
-Week of June 3, 2013
+Week of June 10, 2013
 --------------------------------------------------------
 
 ### Attendance
@@ -41,7 +41,10 @@ The greeen line demarcates 95% of enrollment (i.e., our regional daily attendanc
 ![plot of chunk tbl_Suspensions_Leaderboard](figure/tbl_Suspensions_Leaderboard.png) 
 
 #### Students Suspended, Previous 4 Weeks (ordered by number of suspensions)
-![plot of chunk tbl_Suspension_most_recent_week](figure/tbl_Suspension_most_recent_week.png) 
+
+```
+## Error: negative extents to matrix
+```
 
 
 

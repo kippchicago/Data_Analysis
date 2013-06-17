@@ -169,20 +169,25 @@ plot_MAP_Results_and_Goals <- function (df, plottitle=" ",labxpos=115, minx=105,
   #First get the per panel data I want count by quartile, avg y-position (given by OrderID) by quartile,
   #  avg RIT by quartile, and percent of quartile students to total studens.
   
-  qrtl.labels<-get_group_stats(as.data.frame(df), grp="Fall12_Quartile")
-  wqrtl.labels<-get_group_stats(as.data.frame(df), grp="Spring13_Quartile")
+  qrtl.labels<-as.data.table(get_group_stats(as.data.frame(df), 
+                                             grp="Fall12_Quartile"))
+  wqrtl.labels<-as.data.table(get_group_stats(as.data.frame(df), 
+                                             grp="Spring13_Quartile"))
   #add a column with the actual label text
-  qrtl.labels$CountLabel<-paste(qrtl.labels$CountStudents," students (",round(qrtl.labels$PctofTotal*100),"%)", sep="")
-  wqrtl.labels$CountLabel<-paste(wqrtl.labels$CountStudents," students (",round(wqrtl.labels$PctofTotal*100),"%)", sep="")
+  qrtl.labels[,CountLabel:=paste(qrtl.labels$CountStudents," students (",round(qrtl.labels$PctofTotal*100),"%)", sep="")]
+  wqrtl.labels[,CountLabel:=paste(wqrtl.labels$CountStudents," students (",round(wqrtl.labels$PctofTotal*100),"%)", sep="")]
   
-  qrtl.labels$AvgLabel<-paste("F Avg RIT = ",round(qrtl.labels$AvgQrtlRIT))
-  wqrtl.labels$AvgLabel<-paste("S Avg RIT = ",round(wqrtl.labels$AvgQrtlRIT))
+  qrtl.labels[,AvgLabel:=paste("F Avg RIT = ",round(qrtl.labels[,AvgQrtlRIT]))]
+  wqrtl.labels[,AvgLabel:=paste("S Avg RIT = ",round(wqrtl.labels[,AvgQrtlRIT]))]
   
-  names(wqrtl.labels)[1]<-"Fall12_Quartile" # realigning to the proper facet
-  wqrtl.labels$AvgCountID<-qrtl.labels$AvgCountID-5
-  #eyeballed X position
-  qrtl.labels$xpos<-rep(labxpos,nrow(qrtl.labels))
-  wqrtl.labels$xpos<-rep(labxpos,nrow(wqrtl.labels))
+  # realigning to the proper facet
+  setnames(wqrtl.labels, old=1, new="Fall12_Quartile")
+  
+  wqrtl.labels[Fall12_Quartile %in% unique(qrtl.labels[,Fall12_Quartile]),AvgCountID:=qrtl.labels[,AvgCountID]-5]
+  
+#eyeballed X position
+  qrtl.labels[,xpos:=rep(labxpos,nrow(qrtl.labels))]
+  wqrtl.labels[,xpos:=rep(labxpos,nrow(wqrtl.labels))]
   
   #now adding this info to the plot p
   p <- p + geom_text(data=qrtl.labels, aes(x=xpos, y=AvgCountID, color=factor(Fall12_Quartile),label=CountLabel),vjust=0, size=3.25) +

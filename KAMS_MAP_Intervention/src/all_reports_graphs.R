@@ -107,6 +107,23 @@ for(s in sort(unique(map.scores.by.grade[SchoolInitials=="KAPS", Subject]))){
   }  
 }
 
+for(c in unique(map.scores.by.room[SchoolInitials=="KAPS",Spring13_Classname])){
+  for(s in sort(unique(map.scores.by.room[SchoolInitials=="KAPS", Subject]))){
+    dfp<-map.scores.by.room[Subject==s & 
+                              SchoolInitials=="KAPS" &
+                              Spring13_Classname==c,] #Plot DataFrame 
+    for(g in as.character(sort(unique(dfp[,Spring13_Grade])))){
+      ptitle <- paste0(" 2012-13 MAP Scores ", g," ", c," ", s, 
+                       "\nFall and Spring RIT Scores vs Expected Growth and College Ready Growth\nby Fall Quartile")
+      p<-plot_MAP_Results_and_Goals(dfp[Spring13_Classname==c,], ptitle, labxpos=100, 
+                                    minx=95,alp=.6)
+      print(p)
+    }
+  }
+}  
+
+
+
 dev.off()
 
 # KCCP only 
@@ -122,5 +139,9 @@ for(s in sort(unique(map.scores.by.grade[SchoolInitials=="KCCP", Subject]))){
     }
   }  
 }
+
+
+
+
 
 dev.off()
