@@ -11,6 +11,8 @@ figure/
 reports/
 *.pdf
 
+## Ignore data/*.sql file (contains uid/pwd info for connecting to databases) in Project Template rendered projects
+data/*.sql
 
 ## Ignore R Files
 .Rdata
