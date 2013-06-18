@@ -82,6 +82,13 @@ map.scores.by.grade[GrowthCat=="Negative", StudentFirstLastName:=paste("X",Stude
 
 map.scores.by.grade[GrowthCat=="Negative", StudentFirstLastNameRIT:=paste("X",StudentFirstLastNameRIT,sep=" ")]
 
+#Add 'O' in front of students who had negative growth
+
+map.scores.by.grade[GrowthCat=="Positive", StudentFirstLastName:=paste("O",StudentFirstLastName,sep=" ")]
+
+map.scores.by.grade[GrowthCat=="Positive", StudentFirstLastNameRIT:=paste("O",StudentFirstLastNameRIT,sep=" ")]
+
+
 
 ##********###
 

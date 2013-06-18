@@ -132,6 +132,13 @@ plot_MAP_Results_and_Goals <- function (df, plottitle=" ",labxpos=115, minx=105,
                      size=2, 
                      hjust=1) 
   
+  p <- p + geom_text(data=df[GrowthCat=="Positive"],
+                     aes(x=Fall12_RIT-1,  
+                         label=StudentFirstLastNameRIT), 
+                     size=2, 
+                     hjust=1,
+                     color="#C49A6C") 
+  
   
   
   p <- p +   geom_point(aes(color=as.factor(Fall12_Quartile)), size=pointsize) +
