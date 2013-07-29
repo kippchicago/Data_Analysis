@@ -5,7 +5,7 @@
 # Christoher Haid for KIPP Chicago
 # March 2013
 
-roster.kams[grade==8 & month==6 & year==2012][roster.kams[grade==5 & month==10 &year ==2008]][,list(n.5=.N, n.8=sum(!is.na(grade)))][,class:=2016]
+#roster.kams[grade==8 & month==6 & year==2012][roster.kams[grade==5 & month==10 &year ==2008]][,list(n.5=.N, n.8=sum(!is.na(grade)))][,class:=2016]
 
 #Need to get a data.table with full roster in October of 5th grade and then remaining roster for each subsequent grade. 
 roster.match <- function (roster, class.year) {
@@ -66,26 +66,31 @@ roster.match <- function (roster, class.year) {
   return(r.out)
 }
   
-  roster.2016<-roster.kams[
-    grade == 8 & 
-      month == 6 & 
-      year  == 2012][roster.kams[
-                      grade == 8 & 
-                      month == 10 & 
-                      year  == 2011][roster.kams[
-                    grade == 7 & 
-                    month == 10 & 
-                    year  == 2010][roster.kams[
-                                    grade == 6 & 
-                                    month == 10 & 
-                                    year  == 2009][roster.kams[
-                                                    grade == 5 & 
-                                                    month == 10 &
-                                                    year  == 2008]
-                                                   ]
-                                   ]
-                                ]
-                     ]
+  
+
+
+
+#
+#roster.2016<-roster.kams[
+#    grade == 8 & 
+#      month == 6 & 
+#      year  == 2012][roster.kams[
+#                      grade == 8 & 
+#                      month == 10 & 
+#                      year  == 2011][roster.kams[
+#                    grade == 7 & 
+#                    month == 10 & 
+#                    year  == 2010][roster.kams[
+#                                    grade == 6 & 
+#                                    month == 10 & 
+#                                    year  == 2009][roster.kams[
+#                                                    grade == 5 & 
+#                                                    month == 10 &
+#                                                    year  == 2008]
+#                                                   ]
+#                                   ]
+#                                ]
+ #                    ]
 
 
                    

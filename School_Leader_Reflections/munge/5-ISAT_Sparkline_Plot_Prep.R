@@ -116,8 +116,8 @@ ISAT.plotdata[,Grade:=factor(Grade)]
 ISAT.plotdata[,Grade:=factor(Grade, levels=c("8","7","6","5","5-8"))]
 
 #add y label position for table
-ISAT.plotdata[School=="CPS",y.label.pos:=0.25]
-ISAT.plotdata[School=="KAMS",y.label.pos:=-0.25]
+ISAT.plotdata[School=="CPS",y.label.pos:=0.35]
+ISAT.plotdata[School=="KAMS",y.label.pos:=-0.35]
 ISAT.plotdata[School=="KCCP",y.label.pos:=0]
 
 
