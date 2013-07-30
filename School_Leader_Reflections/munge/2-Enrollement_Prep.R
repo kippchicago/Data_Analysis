@@ -27,4 +27,4 @@ Enrollment.plotdata<-Enrollment.by.date[Date %within% schooleyear,
                                         .SD[Date==max(Date),list(Date,N)], 
                                         by=list(SchoolInitials, Grade, Month)]
 
-Enrollment.budgeted <- data.table(SchoolInitials=c(rep("KAPS",3), rep("KAMS",4), "KCCP"), Grade=c(0:2,5:8,5), Budget=c(100,100,100,85,85,80,80,85))
+Enrollment.budgeted <- data.table(SchoolInitials=c(rep("KAPS",3), rep("KAMS",4), "KCCP"), Grade=c(0:2,5:8,5), Budget=c(104,104,104,90,90,85,80,80))
