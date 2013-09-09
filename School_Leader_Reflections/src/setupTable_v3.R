@@ -3,12 +3,12 @@
 
 require(ProjectTemplate)
 load.project()
-################
-## Attendence ##
-################
 
-# set fontsize
-fs<-8
+fs<-8 # set standard fontsize
+
+#### Attendence ####
+
+
 
 # Average Daily Attendence by School and by region
 att.schools<-Attendence[, list(PctPresent=1-(sum(ABSENT)/.N)), by=SchoolInitials]
@@ -87,11 +87,10 @@ att.gtbl<-tableGrob(att.tbl,  rows=NULL, show.rownames=FALSE, gpar.coltext
            =gpar(fontsize=fs-.5))
 
 
-###################
-## Interim/More Static Academic Data
-################
 
-## MAP Data (ignore below see my chart)
+## Interim/More Static Academic Data
+
+#### MAP Data ####
 # Number of students who meet their growth targets (NWEA standards)
 # Number of students who exceed their growth targets (NWEA standards)
 # Number of students who meet their growth targets (College ready standard)
@@ -111,6 +110,8 @@ map.all[,School:=reorder(factor(School_Display_Name), Perc_Growth), by=list(Grow
 map.all[,School_Display_Name_Chi:=
           factor(School_Display_Name_Chi, 
                  levels=c("KIPP", 
+                          "KIPP Network",
+                          "National Norm",
                           "KIPP Ascend Middle School",
                           "KIPP Ascend Primary School",
                           "KIPP Create Middle School"))]
@@ -118,51 +119,114 @@ map.all[,School_Display_Name_Chi:=
 map.all[Sub_Test_Name=="Mathematics", Sub_Test_Name:="Math"]
 
 ##### bar again
-map.bar.plot<-ggplotGrob(ggplot(map.all, aes(x=School, y=Perc_Growth)) +
-  geom_bar(aes(fill=School_Display_Name_Chi), 
-           stat='identity') +
-  coord_flip() +
-  facet_grid(Sub_Test_Name ~ Growth_Grade_Level) +
-  scale_fill_manual(values = c("#CFCCC1",  #All other KIPP
-                                "#439539",  #KAMS
-                                "purple",  #KAPS
-                                "#60A2D7"  #KCCP
-                                
-  ) 
-  ) +
-  theme(axis.text.y = element_blank(),
-        axis.text.x = element_text(size=fs-.5),
-        axis.ticks.y = element_blank(),
-        axis.title = element_blank(),
-        strip.text = element_text(size=fs-.5),
-        legend.position="none")
+map.bar.plot<-ggplotGrob(
+  ggplot(map.all, aes(x=School, y=Perc_Growth)) +
+    geom_bar(aes(fill=School_Display_Name_Chi), 
+             stat='identity') +
+    geom_text(data=map.all[School_Display_Name_Chi!="KIPP"],
+              aes(y=Perc_Growth + 0.5,
+                  label=Perc_Growth,
+                  color=School_Display_Name_Chi),
+              size=1.5,
+              hjust=0) +
+    coord_flip() +
+    facet_grid(Sub_Test_Name ~ Growth_Grade_Level) +
+    scale_fill_manual(values = c("#CFCCC1",  #All other KIPP
+                                 "#C49A6C",  #KIPP National Average
+                                 "#E27425",   #National Norm 
+                                 "#439539",  #KAMS
+                                 "purple",  #KAPS
+                                 "#60A2D7"  #KCCP
+                                  ) 
+                    ) +
+    scale_color_manual(values = c(#"#CFCCC1",  #All other KIPP
+                                 "#C49A6C",  #KIPP National Average
+                                 "#E27425",   #National Norm 
+                                 "#439539",  #KAMS
+                                 "purple",  #KAPS
+                                 "#60A2D7"  #KCCP
+    ) 
+    ) +
+    theme(axis.text.y = element_blank(),
+          axis.text.x = element_text(size=fs-.5),
+          axis.ticks.y = element_blank(),
+          axis.title = element_blank(),
+          strip.text = element_text(size=fs-.5),
+          legend.position="none")
+)
+
+#### MAP Growth ####
+
+#create ranking for MAgnitude of Growth
+map.all[,Mag_Rank:=reorder(factor(School_Display_Name), 
+                           Mag_Growth), 
+        by=list(Growth_Grade_Level, Sub_Test_Name)]
+
+map.mag.plot<-ggplotGrob(
+    ggplot(map.all, aes(x=Mag_Growth, y=Mag_Rank)) +  
+   geom_segment(aes(x=0,
+                   xend=Mag_Growth, 
+                   yend=Mag_Rank , 
+                   color=School_Display_Name_Chi), 
+               arrow=arrow(length=unit(.1, "char"), 
+                           type="closed"), 
+               size=.25) +
+    geom_text(data=map.all[School_Display_Name_Chi!="KIPP"],
+              aes(x=Mag_Growth+.2,
+                  label=Mag_Growth,
+                  color=School_Display_Name_Chi),
+              size=1,
+              hjust=0) +
+    facet_grid(Sub_Test_Name ~ Growth_Grade_Level) +
+    scale_fill_manual(values = c("#CFCCC1",  #All other KIPP
+                                 "#C49A6C",  #KIPP National Average
+                                 "#E27425",  #National Norm 
+                                 "#439539",  #KAMS
+                                 "purple",   #KAPS
+                                 "#60A2D7"   #KCCP
+    ) 
+    ) +
+    scale_color_manual(values = c("#CFCCC1",  #All other KIPP
+                                  "#C49A6C",  #KIPP National Average
+                                  "#E27425",  #National Norm 
+                                  "#439539",  #KAMS
+                                  "purple",   #KAPS
+                                  "#60A2D7"   #KCCP
+    ) 
+    ) +
+    theme(axis.text.y = element_blank(),
+          axis.text.x = element_text(size=fs-.5),
+          axis.ticks.y = element_blank(),
+          axis.title = element_blank(),
+          strip.text = element_text(size=fs-.5),
+          legend.position="none")
 )
 
 
-#ISAT
+#### ISAT ####
 # Number of students who meet or exceed standards
 
-ISAT.58.Comp.plot<-ggplot(ISAT.plotdata[Year>=2007 
-                                        & Grade %in% c("5","6","7","8")
-                                        & variable!="Composite"], 
+ISAT.58.Comp.plot<-ggplot(ISAT.plotdata[Year>=2012 
+                                        & Grade=="5-8"
+                                        & variable=="Composite"], 
                           aes(x=Year, y=value)) +
   geom_line(aes(group=School, color=School)) + 
   geom_point(data=ISAT.plotdata[School=="KCCP" 
-                                & Grade=="5" 
-                                & variable!="Composite"], 
+                                & Grade=="5-8" 
+                                & variable=="Composite"], 
              aes(x=Year, y=value, color=School), shape=18, size=3.5) +
-  geom_point(data=ISAT.maxmin[Grade %in% c("5","6","7","8")
-                              & variable!="Composite"], 
-             aes(x=Year, y=value, color=grp)) + 
+  #geom_point(data=ISAT.maxmin[Year >= 2012 & Grade == "5-8"
+  #                            & variable=="Composite"], 
+  #           aes(x=Year, y=value, color=grp)) + 
   facet_grid(Grade ~ variable) + 
   scale_color_manual(values = c("#E27425", #KAMS
                                 "#439539", #CPS 
                                 "#60A2D7", #KCCP
                                 "#8D8685", #max
                                 "#8D8685" #min
-                                )
-                     ) +
-  scale_x_discrete(breaks=c("2007", "2009", "2011", "2013"))+
+  )
+  ) +
+  scale_x_discrete(breaks=c("2012", "2013"))+
   theme(legend.position="none",
         axis.title.x=element_blank(),
         axis.title.y=element_blank(),
@@ -179,7 +243,7 @@ ISAT.58.Comp.tbl<-ggplot(ISAT.plotdata[Year>=2007
                                        & Grade %in% c("5","6","7","8")
                                        & variable!="Composite"], 
                          aes(x=Year, y=y.label.pos)) + 
-  geom_text(aes(label=round(value), color=School), size=3) + 
+  geom_text(aes(label=round(value), color=School), size=2.5) + 
   facet_grid(Grade~variable) + 
   #theme_bw +
   theme(panel.grid.major = element_blank(), 
@@ -208,7 +272,7 @@ ISAT.58.Comp.tbl<-ggplot(ISAT.plotdata[Year>=2007
 
 
 
-#### Enrollment Data
+#### Enrollment  ####
 #Enrollment - by grade
 #FRM Data
 #Ethnicity Data
@@ -267,7 +331,7 @@ transfer.plot<-ggplotGrob(
              width=.5) + 
     geom_text(data=subset(xferplot.1213, Variable!="Ceiling"), 
               aes(x=Month, y=Value-.5, group=Variable, label=Value), 
-              size=fs-5,
+              size=fs-6,
               vjust=1) +
     facet_grid(School~., scale="free_y") +
     scale_fill_manual(values = c("purple",  #KCCP 
@@ -277,10 +341,10 @@ transfer.plot<-ggplotGrob(
     ) +
     geom_text(data=t10pct.df, 
               aes(label=Variable), 
-              color="#E27425", size=fs-5) + 
+              color="#E27425", size=fs-6) + 
     geom_text(data=tly.df, 
               aes(label=Variable), 
-              color="#17345B", size=fs-5) +
+              color="#17345B", size=fs-6) +
     theme(axis.title = element_blank(),
           axis.text = element_text(size=fs-.5),
           strip.text = element_text(size=fs),
