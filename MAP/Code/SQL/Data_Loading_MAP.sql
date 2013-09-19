@@ -1,6 +1,145 @@
 -- This file loads all Assesment Results, Class Assignments, and Student By School csv files from NWEA's Comprehensive Data File
 -- The orginal CDF's csv must be processed by map_cdf_prep.sh prior to loading (included in this directory), otherwise errors will probably ensue. 
 
+############################
+## 2013 - 2014            ##
+############################
+
+-- FALL 2012 MAP Comprehensive Data File
+-- Load AssessmentResults
+DROP TABLE IF EXISTS tblAssessmentResultsFall13;
+CREATE TABLE tblAssessmentResultsFall13 (
+	TermName VARCHAR(30), 
+	StudentID INT, 
+	SchoolName VARCHAR(100), 
+	MeasurementScale VARCHAR(30),
+	Discipline VARCHAR(11),
+	GrowthMeasureYN VARCHAR(5), 
+	TestType VARCHAR(20),
+	TestName VARCHAR(100),
+	TestID INT,
+	TestStartDate VARCHAR(10),
+	TestDurationInMinutes INT,
+	TestRITScore SMALLINT(3),
+	TestStandardError REAL(3,1),
+	TestPercentile INT,
+	TypicalFallToFallGrowth INT,
+	TypicalSpringToSpringGrowth INT,
+	TypicalFallToSpringGrowth INT,
+	RITtoReadingScore INT,
+	RITtoReadingMin INT,
+	RITtoReadingMax INT,
+	Goal1Name VARCHAR(50),
+	Goal1RitScore INT,
+	Goal1StdErr REAL(3,1),
+	Goal1Range VARCHAR(7),
+	Goal1Adjective VARCHAR(2),
+	Goal2Name VARCHAR(50),
+	Goal2RitScore INT,
+	Goal2StdErr REAL(3,1),
+	Goal2Range VARCHAR(7),
+	Goal2Adjective VARCHAR(2),
+	Goal3Name VARCHAR(50),
+	Goal3RitScore INT,
+	Goal3StdErr REAL(3,1),
+	Goal3Range VARCHAR(7),
+	Goal3Adjective VARCHAR(2),
+	Goal4Name VARCHAR(50),
+	Goal4RitScore INT,
+	Goal4StdErr REAL(3,1),
+	Goal4Range VARCHAR(7),
+	Goal4Adjective VARCHAR(2),
+	Goal5Name VARCHAR(50),
+	Goal5RitScore INT,
+	Goal5StdErr REAL(3,1),
+	Goal5Range VARCHAR(7),
+	Goal5Adjective VARCHAR(2),
+	Goal6Name VARCHAR(50),
+	Goal6RitScore INT,
+	Goal6StdErr REAL(3,1),
+	Goal6Range VARCHAR(7),
+	Goal6Adjective VARCHAR(2),
+	Goal7Name VARCHAR(50),
+	Goal7RitScore INT,
+	Goal7StdErr REAL(3,1),
+	Goal7Range VARCHAR(7),
+	Goal7Adjective VARCHAR(2),
+	Goal8Name VARCHAR(50),
+	Goal8RitScore INT,
+	Goal8StdErr REAL(3,1),
+	Goal8Range VARCHAR(7),
+	Goal8Adjective VARCHAR(2),
+	TestStartTime TIME,
+	PercentCorrect INT,
+	ProjectedProficiency VARCHAR(17)
+	);
+	
+	
+
+LOAD DATA LOCAL INFILE '~/Dropbox/Consulting/KIPP Ascend/Data Analysis/MAP/Data/Input/NWEA Comprehensive Data Files/MAP_Fall_2013/AssessmentResults_loaddata.csv'
+	INTO TABLE tblAssessmentResultsFall13
+	FIELDS TERMINATED BY ','
+	;
+
+
+
+-- Load Class Assignments
+DROP TABLE IF EXISTS tblClassAssignmentsFall13;	
+CREATE TABLE tblClassAssignmentsFall13 (
+	TermName VARCHAR(30),
+	StudentID INT,
+	SchoolName VARCHAR(50),
+	ClassName VARCHAR(50),
+	TeacherName VARCHAR(50)
+	);
+
+LOAD DATA LOCAL INFILE '~/Dropbox/Consulting/KIPP Ascend/Data Analysis/MAP/Data/Input/NWEA Comprehensive Data Files/MAP_Fall_2013/ClassAssignments_loaddata.csv'
+	INTO TABLE tblClassAssignmentsFall13
+	FIELDS TERMINATED BY ','
+	;
+
+
+-- Load StudentBySchool	
+DROP TABLE IF EXISTS tblStudentBySchoolFall13;
+CREATE TABLE tblStudentBySchoolFall13 (
+	TermName VARCHAR(30),
+	DistrictName VARCHAR(50),
+	SchoolName VARCHAR(50),
+	StudentLastName VARCHAR(50),
+	StudentFirstName VARCHAR(50),
+	StudentMI VARCHAR(2),
+	StudentID INT,
+	StudentDateOfBirth VARCHAR(10),
+	StudentEthnicGroup VARCHAR(20),
+	StudentGender VARCHAR(1),
+	Grade INT);
+
+LOAD DATA LOCAL INFILE '~/Dropbox/Consulting/KIPP Ascend/Data Analysis/MAP/Data/Input/NWEA Comprehensive Data Files/MAP_Fall_2013/StudentsBySchool_loaddata.csv'
+	INTO TABLE tblStudentBySchoolFall13
+	FIELDS TERMINATED BY ','
+	;
+
+-- Load Program Assignments (i.e. Special Education)
+DROP TABLE IF EXISTS tblProgramAssignmentsFall13;	
+CREATE TABLE tblProgramAssignmentsFall13 (
+	TermName VARCHAR(30),
+	StudentID INT,
+	Program VARCHAR(50)
+	);
+
+LOAD DATA LOCAL INFILE '~/Dropbox/Consulting/KIPP Ascend/Data Analysis/MAP/Data/Input/NWEA Comprehensive Data Files/MAP_Fall_2013/ProgramAssignments_loaddata.csv'
+	INTO TABLE tblProgramAssignmentsFall13
+	FIELDS TERMINATED BY ','
+	;
+--Need delete an extra, erroneous record from Class Assignments for every Primary class caused by Bass (Special Ed teacher)
+--having access to each class.
+DELETE FROM tblClassAssignmentsFall13
+WHERE TeacherName="Bass"
+AND SchoolName="KIPP Ascend Primary";
+
+
+
+
 
 
 #############################

@@ -20,7 +20,7 @@ br.set_cookiejar(cj)
 # Browser options
 br.set_handle_equiv(True)
 br.set_handle_gzip(True)
-br.set_handle_redirect(True)
+#br.set_handle_redirect(True)
 br.set_handle_referer(True)
 br.set_handle_robots(False)
 
@@ -48,7 +48,7 @@ br.form['username']='chaid@kippchicago.org'
 br.submit()
 
 #navigate to csv page and save file
-br.open('https://pdx-map01.mapnwea.org/report/home/map')
+r=br.open('https://pdx-map01.mapnwea.org/report/home/map')
 
 #find download url
 cdf_link = br.find_link(text_regex='Download')
