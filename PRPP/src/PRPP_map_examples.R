@@ -1,10 +1,6 @@
 library(ProjectTemplate)
 load.project()
 
+map1213.create <- copy(map1213[SchoolName="KIPP Create Middle School"])
 
-pdf(file=paste0("graphs/PRPP_examples.pdf"), width=10.5, height=8)
-  arrowdiagr(MAP.Network.School.Level.data[Sub_Test_Name=="Reading" & 
-                                             Growth_Grade_Level==8],
-             t="NWEA MAP: Percent Meeting/Exceeding Growth Targets \n Fall 11 - Spring 12 \n 8th Reading", 
-             ranking="PctGrowth", masked=T)
-dev.off()
+map1213.create[,list(TotMet=sum(Spring13_RIT-Fall12_RIT>=ReportedFallToSpringGrowth),PctMet =sum(Spring13_RIT-Fall12_RIT>=ReportedFallToSpringGrowth)/.N, AvgFall=mean(Fall12_RIT), AvgSpring=mean(Spring13_RIT), Tested=.N), by=list(Subject, Fall12_Grade)]

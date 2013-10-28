@@ -22,7 +22,8 @@ map.F13.working<-copy(map.F13[,list(SchoolName,
                                       ReportedFallToWinterGrowth,
                                       TypicalFallToSpringGrowth,                      
                                       ReportedFallToSpringGrowth,
-                                      SDFallToSpringGrowth
+                                      SDFallToSpringGrowth,
+                                      RITtoReadingScore
 ), ])
 
 sigma<-qnorm(.75)

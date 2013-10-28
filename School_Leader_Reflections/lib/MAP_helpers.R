@@ -1,3 +1,7 @@
+
+#Calculate emperical percentile ranks fort elements of a vector
+perc.rank <- function(x) trunc(rank(x)/length(x)*100)
+
 PrepANet <- function (anet.df) {
   # Prepare ANet Data to be merged with MAP Data
   #
