@@ -1,0 +1,71 @@
+Proof of Concept using rCharts for KIPP Chicago Website
+========================================================
+# This is a test using Fischer's Iris Data
+```{r setup_libs_funs, results='hide', echo=FALSE, warning=FALSE}
+#require(devtools)
+#install_github("rCharts", "ramnathv", ref="dev")
+## load the package
+library(rCharts)
+
+## utility function to add required assets such as CSS and JS libraries
+add_lib_assets <- function(lib, cdn = F, css = NULL) {
+    assets = get_assets(get_lib(lib), cdn = cdn)
+    if (!is.null(css)) {
+        assets$css = c(assets$css, css)
+    }
+    styles <- lapply(assets$css, function(style) {
+        sprintf("<link rel='stylesheet' href=%s>", style)
+    })
+
+    scripts <- lapply(assets$jshead, function(script) {
+        sprintf("<script type='text/javascript' src=%s></script>", script)
+    })
+    cat(paste(c(styles, scripts), collapse = "\n"))
+}
+
+
+```
+```{r add_lib_assets, results='asis',echo=FALSE}
+# get assets from online repositories
+add_lib_assets("NVD3", cdn = TRUE, css = "http://rawgithub.com/ramnathv/rCharts/master/inst/libraries/nvd3/css/rNVD3.css")
+
+```
+
+## Scatterplot with Magnifying glass from NVD3
+
+```{r set_up_plot_data, results='hide', echo=FALSE }
+data(iris)
+head(iris)
+str(iris)
+
+sepal <- iris[, c(1:2, 5)]
+
+n2 <- nPlot(Sepal.Length ~ Sepal.Width, data=sepal, type="scatterChart", 
+            group="Species")
+n2$xAxis(axisLabel = "Sepal Width")
+n2$yAxis(axisLabel = "Sepal. Length")
+```
+```{r chart, results='asis', echo=FALSE}
+n2$print("testChart")
+```
+
+## Histogram Plot from NVD3
+
+```{r nvd3Hist1, echo=FALSE}
+data(iris)
+sepalw <- iris[,c(1,5)]
+hst=hist(sepalw[,1],plot=FALSE,breaks=20)
+
+data=by(sepalw,sepalw$Species,function(x) data.frame(mid=hst$mids,counts=hist(x[,1],breaks=hst$breaks,plot=FALSE)$counts,Species=rep(x[1,2],length(hst$breaks)-1) )  )
+data=do.call("rbind",data)
+```
+
+A histogram with **multiBarChart**
+```{r nvd3Scatter2, results='asis',echo=FALSE}
+n3 <- nPlot(counts ~ mid, data=data,type = "multiBarChart",group="Species")
+n3$xAxis(axisLabel="Sepal.Width")
+n3$yAxis(axisLabel="counts")
+n3$chart(color = c('#255694', '#60A2D7', '#E27425'))
+n3$print("nvd3Hist")
+
+```
