@@ -1,7 +1,8 @@
 ## Ignore temp files 
 *~
 
-
+## Ignore .dropbox
+*.dropbox
 
 ## Ignore All Data and Figure Files
 Data/
@@ -19,6 +20,7 @@ data/*.sql
 .Rhistory
 .Rproj.user
 *.Rproj.user
+*.Rapp.history
 Data\ Analysis.Rproj.user
 *.Rproj
 cache/

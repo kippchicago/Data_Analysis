@@ -24,3 +24,11 @@ allGT50pctl.dt<-mapresults.dt[maxgrades][
   list(PctGT50=round(sum(TestPercentile>=50, na.rm=T)/.N*100,1)), 
   by=list(TestTerm, MeasurementScale)][
     order(MeasurementScale,TestTerm)]
+
+ggplot(GT50pctl.dt, aes(x=TestTerm, y=PctGT50)) + 
+  geom_line(data=GT50pctl.dt[Grade==8], aes(group=MeasurementScale)) + 
+  facet_grid(.~MeasurementScale) + 
+  geom_point(aes(color=as.factor(Grade), size=N))
+
+# Write to CSV
+write.csv(GT50pctl.dt, file="reports/Board_Percent_GT_50th_Pctl.csv")
