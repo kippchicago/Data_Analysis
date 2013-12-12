@@ -1,0 +1,233 @@
+ KIPP Chicago Regional Attendance Report
+========================================================
+```{r options, echo=FALSE}
+
+#knit2html("Weekly_Attendance_Report_131106.Rmd", output="test.html", options=c('fragment_only', 'skip_style')); system('cp ./test.html ~/Sites/test.local/'); system('cp -r ./figure/* ~/Sites/test.local/figure/')
+
+options(#replace.assign=TRUE,
+        width=60
+        )
+opts_knit$set(
+   self.contained=FALSE
+  )
+opts_chunk$set( 
+               #fig.align='center', 
+               #dev='tikz', 
+               #fig.width=8, 
+               #fig.height=10.5, 
+               #fig.show='hold', 
+               cache=FALSE, 
+               par=TRUE,
+               echo=FALSE,
+               message=FALSE,
+               warning=FALSE,
+               autodepend=FALSE
+               )
+               
+```
+
+
+```{r load_libraries}
+library(ProjectTemplate)
+setwd('../')
+load.project()
+
+#source("~/Dropbox/Consulting/KIPP Ascend/Data Analysis/MAP/Code/R/MAP_helper_functions.R")
+```
+```{r calculate_date, cach=FALSE}
+date.first  <- "2013-08-19" # first day of school year
+
+date.second <- floor_date(today(), unit="week") 
+
+date.title <- date.second -weeks(1) + days(1) 
+
+title.date<-paste(lubridate::month(date.title, 
+                                   label=TRUE, 
+                                   abbr=FALSE),
+                  " ",
+                  lubridate::day(date.title), ", ", 
+                  lubridate::year(date.title), sep=""
+                  )
+```
+Week of `r I(title.date)`
+--------------------------------------------------------
+### Attendance
+
+```{r Attendance_Summaries}
+
+# Create analytical attendence table
+source('../src/attendence_tables.R')
+
+
+AttRateByWeekBySchool.xtable<-xtable(AttRateByWeekBySchool.table)
+
+# Get last x weeks
+if(length(unique(DailyEnrollAttend$WeekOfShortDateLabel)) > 6){
+  lastxweeks <- 6
+  } else {lastxweeks <-length(unique(DailyEnrollAttend$WeekOfShortDateLabel))
+  }
+```
+#### CPS Impact vs Powerschool YTD Attendance
+**Note (12/9/2013)*** KAP did not enter IMPACT attendance on Friday, December 6th; consequently KAP attendance data is is only accurate through Thursday, December 5th.   
+```{r Impact_vs_PowerSchool_Att, results='asis'}
+
+#Get impact attendence from google spreadsheet
+googurl<-getURL('https://docs.google.com/spreadsheet/pub?key=0AhdL932iuhIIdHk3SFFSc2ZvUE9MZ1pKNldjZ0JLbXc&single=true&gid=6&range=A1%3AC7&output=csv')
+
+impact<-read.csv(textConnection(googurl))
+
+# Build powerschool number from Attendance 
+
+ps.schools<- Attendance[,list(PowerSchool=round((1-(sum(Absent)/sum(Enrolled)))*100,1)), by=list(School)]
+ps.pm<-Attendance[School=="KAMS"|School=="KAP",list(School="KAP/KAMS",PowerSchool=round((1-(sum(Absent)/sum(Enrolled)))*100,1))]
+ps.region<-Attendance[,list(School="Region",PowerSchool=round((1-(sum(Absent)/sum(Enrolled)))*100,1))]
+
+ps.all<-rbind(ps.schools, ps.pm, ps.region)
+
+impact<-cbind(ps.all, impact[2])
+
+impact$Difference<-impact$Impact - impact$PowerSchool
+
+kable(impact, format='html', table.attr='class="table table-responsive table-hover table-condensed table-striped"', output=TRUE)
+```
+
+
+
+#### Daily Enrollment and Attendance by School (last `r I(lastxweeks)` weeks)
+The light gray lines shows total enrollment. The green line demarcates 96% of enrollment (i.e., our regional daily attendance goal).  The black line with dots represents actualy attendence, where the dot marks the given weekdays attendance.  
+```{r fig_Daily_Attendance, fig.height=6, fig.width = 12,  dev='svg'}
+#out.height=225, out.width=525}
+
+last6weeks<-ymd(as.character(floor_date(today() -weeks(lastxweeks), unit="week")+1))
+
+DailyEnrollAttend.plotdata<-subset(DailyEnrollAttend, Date>=last6weeks)
+DailyEnrollAttend.plotdata$Day <- wday(DailyEnrollAttend.plotdata$Date)
+DailyEnrollAttend.plotdata$Enrolled96Pct <- DailyEnrollAttend.plotdata$Enrolled*.96
+DailyEnrollAttend.plotdata.melt<-melt(DailyEnrollAttend.plotdata, id=c("Date", "Day", "School", "WeekOfShortDateLabel"), measure.vars=c("Enrolled", "Enrolled96Pct", "Present"))
+
+DailyEnrollAttend.plotdata.melt$variable<-factor(DailyEnrollAttend.plotdata.melt$variable, labels=c("Enrolled", "96% of Enrolled", "Attended"))
+
+
+ggplot(DailyEnrollAttend.plotdata.melt, aes(x=Day, y=value)) + 
+    geom_step(direction="hv", aes(color=variable)) + 
+    geom_point(data=subset(DailyEnrollAttend.plotdata.melt, variable=="Attended"), color="black") +
+    scale_x_continuous(breaks = c(2,3,4,5,6), labels=c("M","T","W","R","F")) + #Change numberd week days to lettered
+    scale_y_continuous("# of Students") + 
+    scale_colour_manual("", values=c("#8D8685", "#439539", "black")) +
+    facet_grid(School~WeekOfShortDateLabel, scales="free_y") +
+    theme_bw() + 
+    theme(legend.position="bottom", 
+          strip.text.x=element_text(size=6),
+          strip.text.y=element_text(size=6),
+          axis.text.x=element_text(size=7),
+          axis.text.y=element_text(size=5),
+           axis.title.x=element_text(size=8),
+          axis.title.y=element_text(size=8),
+          legend.text=element_text(size=7)
+          )
+
+
+```
+
+#### Weekly & YTD Attendance by School
+
+```{r tbl_Weekly_Attendance, results='asis'}
+AttRateByWeekBySchool.xtable<-xtable(arrange(AttRateByWeekBySchool.table, desc(AttRateByWeekBySchool.table[["Week of"]])))
+
+kable(AttRateByWeekBySchool.xtable, format='html', table.attr='class="table table-responsive table-hover table-condensed table-striped"', output=TRUE)
+```
+
+
+#### Student Attendance 
+These tables list the students in each grade who are  among the bottom 10% in terms of **Average Daily Attendance (ADA)**.  ADA is calcualte separately for each student and simply gives the percentage of time a student has attended school *since they enrolled at the school*. Consequenlty, a recently enrolled student missing only 5 days would appear on this list if they've only been enrolled 15 days.  Such a student would have a calculated ADA of 66.6%, meaning they've attended school two thirds of the time since they enrolled and have missed 1/3 of the days since enrolling. 
+
+The set of students in the 10th percentile of lower is calculated separately for each grade level at each school.
+
+##### KAP
+```{r Student_Attendance_KAP, results='asis'}
+kable(AttByStudentBySchool[School=="KAP",list(Grade, Student, ADA, Absences)], format='html', table.attr='class="table table-responsive table-hover table-condensed table-striped"', output=TRUE)
+```
+
+##### KAMS
+```{r Student_Attendance_KAMS, results='asis'}
+kable(AttByStudentBySchool[School=="KAMS",list(Grade, Student, ADA, Absences)], format='html', table.attr='class="table table-responsive table-hover table-condensed table-striped"', output=TRUE)
+```
+
+##### KCCP
+```{r Student_Attendance_KCCP, results='asis'}
+kable(AttByStudentBySchool[School=="KCCP",list(Grade, Student, ADA, Absences)], format='html', table.attr='class="table table-responsive table-hover table-condensed table-striped"', output=TRUE)
+```
+
+##### KBCP
+```{r Student_Attendance_KBCP, results='asis'}
+kable(AttByStudentBySchool[School=="KBCP",list(Grade, Student, ADA, Absences)], format='html', table.attr='class="table table-responsive table-hover table-condensed table-striped"', output=TRUE)
+```
+
+### Suspensions
+In this report the metric **suspensions** represents days absent due to suspensions and *not* the number of suspension events. That is, a student recieving a 3-day suspension would appear in this report as having 3 "suspensions" (i.e., three absenses due to being out of school serving a suspension).
+```{r Suspensions, cache=FALSE, echo=FALSE, results='hide'}
+
+source('../src/suspension_tables.R')
+
+```
+#### Total YTD Absenses due to Suspensions 
+##### by School 
+```{r tbl_Susps_by_School, results='asis'}
+kable(YTDSuspensionsByGradeBySchool.xtable, format='html', table.attr='class="table table-responsive table-hover table-condensed table-striped"', output=TRUE,  row.names=FALSE)
+```
+##### by Week
+
+```{r tbl_Susps_by_week, results='asis'}
+kable(WeeklySuspensionsBySchool.xtable, format='html', table.attr='class="table table-responsive table-hover table-condensed table-striped"', output=TRUE,  row.names=FALSE)
+```
+
+#### YTD Students Suspended (ordered by number of absenses due to suspensions)
+```{r tbl_Suspensions_Leaderboard, results='asis'}
+
+#names(Sups.leaders)<-c("Student", "School", "Grade", "Suspensions")
+
+
+kable(Sups.leaders,format='html', table.attr='class="table table-responsive table-hover table-condensed table-striped"', output=TRUE,  row.names=FALSE)
+```
+
+### Transfers 
+#### Healthy Schools & Regions transfer totals
+Cumulative transfers of students enrolled on October 1st of each year and transferred prior to September 20th of the next year.  Students who enrolled **after October 1st** and transferred during the school year are **not included** in in these tables and figures. 
+```{r fig_cumulative_transferes, fig.height=5, fig.width=10,  dev='svg'}
+source('../src/transfer_tables.R')
+       
+  ggplot(data=subset(xferplot, Variable=="Ceiling"), 
+       aes(x=Month, y=Value)) + 
+  geom_line(aes(group=Variable), color="#E27425") + 
+  geom_bar(data=subset(xferplot, Variable!="Ceiling"), 
+           aes(x=Month, y=Value, fill=School), 
+           stat='identity',
+           #fill="#439539", 
+           width=.5) + 
+  geom_text(data=subset(xferplot, Variable!="Ceiling"), 
+            aes(x=Month, y=Value-.5, group=Variable, label=Value), 
+            size=3,
+            vjust=1) +
+  facet_grid(Year~School, scale="free_y") +
+  scale_fill_manual(values = c("purple",  #KCCP 
+                               "#439539", #KAMS
+                               "#60A2D7", #KCCP
+                               "#A7CFEE"  #KBCP
+  )
+  ) + theme_bw() + 
+  theme(axis.title = element_blank(),
+        axis.text.x = element_text(size=7,angle=45, hjust=1),
+        axis.text.y = element_text(size=7),
+        strip.text = element_text(size=7),
+        legend.position="none"
+  )     
+
+```
+```{r tbl_transfers_by_type, results='asis'}
+kable(xtable(Xfer.table),format='html', table.attr='class="table table-responsive table-hover table-condensed table-striped"', output=TRUE,  row.names=FALSE)
+```
+
+#### Students Transfered by School
+```{r tbl_studens_transferred_list, results='asis'}
+  kable(xtable(Xfer.students.table),format='html', table.attr='class="table table-responsive table-hover table-condensed table-striped"', output=TRUE,  row.names=FALSE)
+```
