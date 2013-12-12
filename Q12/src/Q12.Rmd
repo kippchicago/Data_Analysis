@@ -1,0 +1,163 @@
+Q12 & HSR Data 
+========================================================
+
+**NB:** Niether Agree nor Disagree responses are excluded in order to make comparisons on stronger opions across schools easier to see.
+
+```{r Q12_Prep, results='hide', echo=FALSE, message=FALSE}
+
+# knit2html("./src/Q12.Rmd", output="reports/Q12_figs.html", options=c('fragment_only', 'skip_style')); system('cp ./reports/Q12_figs.html ~/Sites/test.local/'); system('cp -r ./figure/* ~/Sites/test.local/figure/')
+
+Q12<-as.data.frame(Q12.Fall13.All)
+
+
+Q12<-Q12[,c(1,5:16)]
+
+
+
+quests<-names(Q12)[-1]
+
+
+for(n in quests){
+  Q12[,n] <- factor(x=Q12[,n], levels=c("Strongly Disagree", "Disagree", "Neutral", "Agree", "Strongly Agree"), ordered=TRUE)
+}
+
+
+Q12.list<-as.list(Q12[,-1])
+
+#for(i in 1:length(Q12.list)){
+#  Q12.list[[i]]<-Q12.list[[i]][!is.na(Q12.list[[i]])]
+#  levels(Q12.list[[i]])<-c("Strongly Disagree", "Disagree", "Neutral", "Agree", #"Strongly Agree")
+#}
+
+#Change list attributes to full question statements (yes, that is oxymoronic)
+names(Q12.list)<-c(
+                  "1. I know what is expected of me at work.",
+                  "2. I have the materials and equipment needed to do my work.",
+                  "3. At work I have the opportunity to do what I do best everyday.",
+                  "4. In the last seven days I have received praise or recognition at work.",
+                  "5. My supervisor, or someone at work, cares about me as a person.",
+                  "6. Someone at work encourages my development.",
+                  "7. At work, my opinions seem to matter.",
+                  "8. The mission of my organization makes me feel like my job is important.",
+                  "9. My coworkers are committed to doing high-quality work.",
+                  "10. I have a best friend at work.",
+                  "11. In the last six months someone at work has talked to me about my progress.",
+                  "12. In the last year I have had opportunities to learn and grow.")
+Q12.graph<-net_stacked(Q12.list)
+
+##Same thing but by school
+#KAPS
+Q12.KAPS.list<-as.list(subset(Q12,School=="KAP")[,-1])
+#for(i in 1:length(Q12.KAPS.list)){
+#  Q12.KAPS.list[[i]]<-Q12.KAPS.list[[i]][!is.na(Q12.KAPS.list[[i]])]
+#  levels(Q12.KAPS.list[[i]])<-c("Strongly Disagree", "Disagree", "Neutral", #"Agree", "Strongly Agree")
+#}
+
+names(Q12.KAPS.list)<-c(
+  "1. I know what is expected of me at work.",
+  "2. I have the materials and equipment needed to do my work.",
+  "3. At work I have the opportunity to do what I do best everyday.",
+  "4. In the last seven days I have received praise or recognition at work.",
+  "5. My supervisor, or someone at work, cares about me as a person.",
+  "6. Someone at work encourages my development.",
+  "7. At work, my opinions seem to matter.",
+  "8. The mission of my organization makes me feel like my job is important.",
+  "9. My coworkers are committed to doing high-quality work.",
+  "10. I have a best friend at work.",
+  "11. In the last six months someone at work has talked to me about my progress.",
+  "12. In the last year I have had opportunities to learn and grow.")
+
+#KAMS
+Q12.KAMS.list<-as.list(subset(Q12,School=="KAMS")[,-1])
+#for(i in 1:length(Q12.KAMS.list)){
+#  Q12.KAMS.list[[i]]<-Q12.KAMS.list[[i]][!is.na(Q12.KAMS.list[[i]])]
+#  levels(Q12.KAMS.list[[i]])<-c("Strongly Disagree", "Disagree", "Neutral", #"Agree", "Strongly Agree")
+#}
+
+names(Q12.KAMS.list)<-c(
+  "1. I know what is expected of me at work.",
+  "2. I have the materials and equipment needed to do my work.",
+  "3. At work I have the opportunity to do what I do best everyday.",
+  "4. In the last seven days I have received praise or recognition at work.",
+  "5. My supervisor, or someone at work, cares about me as a person.",
+  "6. Someone at work encourages my development.",
+  "7. At work, my opinions seem to matter.",
+  "8. The mission of my organization makes me feel like my job is important.",
+  "9. My coworkers are committed to doing high-quality work.",
+  "10. I have a best friend at work.",
+  "11. In the last six months someone at work has talked to me about my progress.",
+  "12. In the last year I have had opportunities to learn and grow.")
+
+
+
+#KCCP
+Q12.KCCP.list<-as.list(subset(Q12,School=="KCCP")[,-1])
+#for(i in 1:length(Q12.KCCP.list)){
+#  Q12.KCCP.list[[i]]<-Q12.KCCP.list[[i]][!is.na(Q12.KCCP.list[[i]])]
+#  levels(Q12.KCCP.list[[i]])<-c("Strongly Disagree", "Disagree", "Neutral", "Agree", "Strongly Agree")
+#}
+
+names(Q12.KCCP.list)<-c(
+  "1. I know what is expected of me at work.",
+  "2. I have the materials and equipment needed to do my work.",
+  "3. At work I have the opportunity to do what I do best everyday.",
+  "4. In the last seven days I have received praise or recognition at work.",
+  "5. My supervisor, or someone at work, cares about me as a person.",
+  "6. Someone at work encourages my development.",
+  "7. At work, my opinions seem to matter.",
+  "8. The mission of my organization makes me feel like my job is important.",
+  "9. My coworkers are committed to doing high-quality work.",
+  "10. I have a best friend at work.",
+  "11. In the last six months someone at work has talked to me about my progress.",
+  "12. In the last year I have had opportunities to learn and grow.")
+
+#KBCP
+Q12.KBCP.list<-as.list(subset(Q12,School=="KBCP")[,-1])
+#for(i in 1:length(Q12.KBCP.list)){
+#  Q12.KBCP.list[[i]]<-Q12.KBCP.list[[i]][!is.na(Q12.KBCP.list[[i]])]
+#  levels(Q12.KBCP.list[[i]])<-c("Strongly Disagree", "Disagree", "Neutral", #"Agree", "Strongly Agree")
+#}
+
+names(Q12.KBCP.list)<-c(
+  "1. I know what is expected of me at work.",
+  "2. I have the materials and equipment needed to do my work.",
+  "3. At work I have the opportunity to do what I do best everyday.",
+  "4. In the last seven days I have received praise or recognition at work.",
+  "5. My supervisor, or someone at work, cares about me as a person.",
+  "6. Someone at work encourages my development.",
+  "7. At work, my opinions seem to matter.",
+  "8. The mission of my organization makes me feel like my job is important.",
+  "9. My coworkers are committed to doing high-quality work.",
+  "10. I have a best friend at work.",
+  "11. In the last six months someone at work has talked to me about my progress.",
+  "12. In the last year I have had opportunities to learn and grow.")
+
+```
+
+### Region
+```{r fig_Region, fig.width=12, fig.height=4, , echo=FALSE, warning=FALSE, dev='svg'}
+Q12.graph
+```
+
+### KAP
+```{r fig_KAP, fig.width=12, fig.height=4, echo=FALSE, warning=FALSE, dev='svg'}
+net_stacked(Q12.KAPS.list)
+```
+
+### KAMS
+```{r fig_KAMS, fig.width=12, fig.height=4, echo=FALSE, warning=FALSE, dev='svg'}
+net_stacked(Q12.KAMS.list)
+```
+
+### KCCP
+```{r fig_KCCP, fig.width=12, fig.height=4, echo=FALSE, warning=FALSE, dev='svg'}
+net_stacked(Q12.KCCP.list)
+```
+
+### KBCP
+```{r fig_KBCP, fig.width=12, fig.height=4, echo=FALSE, warning=FALSE, dev='svg'}
+net_stacked(Q12.KBCP.list)
+```
+
+
+
