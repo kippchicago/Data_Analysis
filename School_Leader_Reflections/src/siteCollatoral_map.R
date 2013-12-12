@@ -157,6 +157,29 @@ map.plot.combined[Type=="KIPP Chicago", Qrtl:="KIPP Chicago"]
 #Reverse Type ordering
 map.plot.combined[,Type:=factor(Type, levels=rev(levels(Type)))]
 
+#### Comparison school indicators ####
+#Get comparison schools 
+comp_schools_kams<-isat_comparison_student_list_400044_20130913[,unique(aaschlname)]
+comp_schools_kccp<-isat_comparison_student_list_400146_20130913[,unique(aaschlname)]
+
+comp_schools_kams<-data.table(School_Display_Name=comp_schools_kams, 
+                              comp_kams=rep(TRUE,length(comp_schools_kams)))
+
+comp_schools_kccp<-data.table(School_Display_Name=comp_schools_kccp, 
+                              comp_kccp=rep(TRUE,length(comp_schools_kccp)))
+
+setkey(comp_schools_kams, School_Display_Name)
+setkey(comp_schools_kccp, School_Display_Name)
+
+setkey(map.plot.combined, School_Display_Name)
+
+map.plot.combined<-comp_schools_kams[map.plot.combined]
+map.plot.combined[is.na(comp_kams), comp_kams:=FALSE]
+
+map.plot.combined<-comp_schools_kccp[map.plot.combined]
+map.plot.combined[is.na(comp_kccp), comp_kccp:=FALSE]
+
+
 #### ALL GRADES COMBINED % Growth Stacked dot plot with jitter ####
 ggplot(map.plot.combined[Type!="Citywide avg."&Type!="No Region"], 
        aes(x=0, 
@@ -209,9 +232,10 @@ ggplot(map.plot.combined[School_Display_Name!="CPS" & !is.na(Perc_Growth)]) +
                     )
 
 #### Dot plot binned by Perc_Growth, fill=percentile of Perc_Growht, color=Type
-ggplot(map.plot.combined[School_Display_Name!="CPS" & !is.na(Perc_Growth)]) +
+ggplot(map.plot.combined[School_Display_Name!="CPS" & !is.na(Perc_Growth) 
+                         & (comp_kams==T|Type=="KIPP Chicago")]) +
   geom_dotplot(aes(x=1, y=Perc_Growth, 
-                   fill=as.factor(Qrtl), 
+                   fill=as.factor(Qrtl),
                    color=Type
                    ), 
                binaxis="y", 

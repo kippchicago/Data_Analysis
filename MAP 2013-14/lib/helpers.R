@@ -1,3 +1,85 @@
+get_MAPResults <- function(connection, season1 = "Fall13", season2=NULL){
+  # This function attaches to an assessment results database and pulls data via
+  #  JDBC from that database (given by connection.  The focus is on MAP data. If only season 1 is give, then it downloads the
+  #  Entire dataset for that season.  If season2 is given (along with season1) then data is pulled only for 
+  #  those students who took the test in seasons 1 and two
+  #
+  # Args:
+  #     connection: a JDBC connection object 
+  #     season1:  (required)  the first season to pull data for given in SeasonYEAR format (e.g. Fall13, Spring09, Winter11)
+  #     season2:  The second season to pull data from, matched with students who took the assessment in prior season (season1)
+  #
+  # Returns: a dataframe with test results 
+  #
+  qry<-sprintf(
+    "SELECT   r.*,
+    n.t42 as TypicalFallToSpringGrowth,
+    n.r42 as ReportedFallToSpringGrowth,
+    n.s42 as SDFallToSpringGrowth,
+    n.t41 as TypicalFallToWinterGrowth,
+    n.r41 as ReportedFallToWinterGrowth,
+    n.s41 as SDFallToWinterGrowth,
+    n.t44 as TypicalFallToFallGrowth,
+    n.r44 as ReportedFallToFallGrowth,
+    n.s44 as SDFallToFallGrowth,
+    n.t22 as TypicalSpringToSpringGrowth,
+    n.r22 as ReportedSpringToSpringGrowth,
+    n.s22 as SDSpringToSpringGrowth,
+    n.t12 as TypicalWinterToSpringGrowth,
+    n.r12 as ReportedWinterToSpringGrowth,
+    n.s12 as SDWinterToSpringGrowth
+    FROM
+    (
+    SELECT   
+    s.StudentLastName,
+    s.StudentFirstName,
+    s.Grade, 
+    s.ClassName,
+    s.TeacherName,
+    a.TermName,
+    a.StudentID,
+    a.SchoolName,
+    a.MeasurementScale,
+    a.Discipline,
+    a.GrowthMeasureYN,
+    a.TestType,
+    a.TestName,
+    a.TestStartDate,
+    a.TestDurationInMinutes,
+    a.TestRITScore, 
+    a.TestStandardError,
+    a.TestPercentile,
+    a.RITtoReadingScore,
+    a.TestStartTime
+    FROM   `tblAssessmentResults%s` a
+    JOIN   (
+    Select   st.*, c.ClassName, c.TeacherName
+    FROM	tblStudentBySchool%s st
+    JOIN	`tblClassAssignments%s` c
+    ON st.StudentID=c.StudentID
+    ) s
+    ON 		s.StudentID=a.StudentID
+    WHERE 	a.GrowthMeasureYN='TRUE'
+    ) r
+    LEFT OUTER JOIN `viewNorms2011_Growth_Kinder_0` n
+    ON		r.`TestRITScore`=n.`StartRIT`
+    AND		r.`Grade`=n.`StartGrade2`
+    AND		r.`MeasurementScale`=n.`MeasurementScale`
+    ;
+    ", season1, season1, season1)
+
+  
+  tryCatch(df<-dbGetQuery(connection, qry),
+           error = function(w) {print(paste("You need to have a JDBC conncetion to the database.  Original error is:", w))}
+  )
+  
+  df
+}
+
+
+
+
+
 PrepMAP <- function (map.dt, season1, season2) {
   # Returns data.table wiht new columns indicating growth met, differene
   # in Spring and expected RIT scores, and indicators for earning above average

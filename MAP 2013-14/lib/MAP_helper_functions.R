@@ -69,7 +69,7 @@ calc_tiered_growth<- function(dt, quartile.column, grade.column){
   # Create data.table lookup of KIPP Foundation Growth Targts
   # using quartile.column name 
   tgrowth<-data.table(GradeType=c(rep(0,4),rep(1,4)), 
-                      Quartile = rep(1:4, 2), 
+                      Quartile = as.factor(rep(1:4, 2)), 
                       KIPPTieredGrowth=c(1.5,1.5,1.25,1.25,2,1.75,1.5,1.25)
   )
   setkey(tgrowth, GradeType, Quartile)
@@ -84,12 +84,12 @@ calc_tiered_growth<- function(dt, quartile.column, grade.column){
   setkeyv(dt, c("GradeType", quartile.column))
   
   #merge data frames
-  dt<-copy(dt[tgrowth])
+  dt<-copy(tgrowth[dt])
   
   # Cleaning up 
   dt[,GradeType:=NULL]
   
-  # Reorder columns back to original data.table's ordering. 
+  # TO DO: Reorder columns back to original data.table's ordering. 
   
   dt
 }
@@ -384,7 +384,8 @@ plot_waterfall <- function (df,
   #  avg RIT by quartile, and percent of quartile students to total studens.
   
   s1qrtl.labels<-as.data.table(get_group_stats(as.data.frame(df), 
-                                               grp=season1.quartile))
+                                               grp=season1.quartile,
+                                               RIT=season1.rit))
   #add a column with the actual label text
   
   s1qrtl.labels[,CountLabel:=paste(s1qrtl.labels$CountStudents,
@@ -402,7 +403,8 @@ plot_waterfall <- function (df,
   # lbaels as above for season 2   
   if(!season1.only){   
     s2qrtl.labels<-as.data.table(get_group_stats(as.data.frame(df), 
-                                                 grp=season2.quartile))
+                                                 grp=season2.quartile,
+                                                 RIT=season2.rit))
     s2qrtl.labels[,CountLabel:=paste(s2qrtl.labels$CountStudents,
                                      " students (",
                                      round(s2qrtl.labels$PctofTotal*100),"%)", 
