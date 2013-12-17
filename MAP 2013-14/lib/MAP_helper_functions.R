@@ -37,7 +37,7 @@ calc_quartile <- function(dtable, percentile.column = "TestPercentile", quartile
        get(pcn)<75, 
      c(qcn):=3L]
   
-  dt[get(pcn)>75, 
+  dt[get(pcn)>=75, 
      c(qcn):=4L]
   
 
@@ -133,6 +133,7 @@ get_group_stats<-function(df, grp="Quartile",RIT="Fall13_RIT"){
 
 
 #Function to report MAP RIT scores and goals (expected adn expected at 7th percentile) with summary stats
+#Function to report MAP RIT scores and goals (expected adn expected at 7th percentile) with summary stats
 plot_waterfall <- function (df, 
                             plottitle=" ", 
                             season1="Fall13", 
@@ -143,7 +144,7 @@ plot_waterfall <- function (df,
                             alp=1) {
   
   # Test if this is a two season (with arrows) or one season (with dots)
-  if(is.null(season2)) season1.only<-TRUE
+  season1.only <-is.null(season2)
   
   #assinge kipp colors for quartiles
   kippcols<-c("#E27425", "#FEBC11", "#255694", "A7CFEE")
@@ -180,19 +181,33 @@ plot_waterfall <- function (df,
   
   #check for orderid and add if not existent
   if(!exists("OrderID", df)){
-    order.id <- function(s, d){
-      d2<-copy(d)
-      d2<-eval(substitute(d2[order(get(s)), 
-                             OrderID:=c(1:.N), 
-                             by=list(Grade, MeasurementScale)]
-      )
-      )
-      d2
-    }
-    df <- order.id(season1.rit, df)
+    df[,OrderID:=rank(get(season1.rit), ties.method="random"), by=list(SchoolInitials, 
+                                                 get(season1.grade),
+                                                 Subject)]
   }
   
+  #Growth Category Calcs
+  if(!exists("GrowthCat", df)){
+    df[get(season2.rit)-get(season1.rit)
+       >0,
+       GrowthCat:="Positive"]
+    
+    df[get(season2.rit)-get(season1.rit)
+       <=0,
+       GrowthCat:="Negative"]
+    
+    df[get(season2.rit)-get(season1.rit)
+       >=get(typical.growth),
+       GrowthCat:="Typical"]
+    
+    df[get(season2.rit)-get(season1.rit)
+       >=get(typical.growth)
+       *get(tiered.growth),
+       GrowthCat:="College Ready"]
+    
+  }
   
+  df[GrowthCat=="Positive", StudentFirstLastNameRIT:=paste("O",StudentFirstLastNameRIT)]
   
   
   
@@ -241,6 +256,10 @@ plot_waterfall <- function (df,
     }
     
     if("Negative" %in% growth.cat){
+      #for names if season1 only. 
+      name.x <- paste0(season2.rit, "-4.75")
+      df[GrowthCat=="Negative",  StudentFirstLastName:=paste("X",  StudentFirstLastName)]
+      
       p <- p + geom_segment(data=df[GrowthCat=="Negative"], 
                             aes_string(x=season1.rit, 
                                        xend=season2.rit, 
@@ -250,20 +269,21 @@ plot_waterfall <- function (df,
                             color="red") 
       
       p <- p + geom_text(data=df[GrowthCat=="Negative"],
-                         aes_string(x="season2.rit-.5", 
-                                    color="as.factor(season2.quartile)", 
-                                    label="season2.rit"), 
+                         aes_string(x=paste0(season2.rit,"-1"), 
+                                    color=paste0("as.factor(",season2.quartile,")"), 
+                                    label=season2.rit), 
                          size=2, 
                          hjust=1) 
+      
       p <- p + geom_text(data=df[GrowthCat=="Negative"],
-                         aes_string(x="season1.rit+1", 
-                                    color="as.factor(season1.quartile)", 
-                                    label="season1.rit"), 
+                         aes_string(x=paste0(season1.rit,"+1"), 
+                                    color=paste0("as.factor(",season1.quartile,")"), 
+                                    label=season1.rit), 
                          size=2, 
                          hjust=0) 
       
       p <- p + geom_text(data=df[GrowthCat=="Negative"],
-                         aes_string(x="season2.rit-4", 
+                         aes_string(x=name.x, 
                                     label="StudentFirstLastName"), 
                          color="red" ,
                          size=2, 
@@ -271,23 +291,23 @@ plot_waterfall <- function (df,
     }
     
     p <- p +  geom_text(data=df[GrowthCat!="Negative"],
-                        aes_string(x="season2.rit+.5", 
-                                   color="as.factor(season2.quartile)", 
-                                   label="season2.rit"), 
+                        aes_string(x=paste0(season2.rit,"+.5"), 
+                                   color=paste0("as.factor(",season2.quartile,")"), 
+                                   label=season2.rit), 
                         size=2, 
                         hjust=0) 
     
     
     
     p <- p + geom_text(data=df[GrowthCat!="Negative"],
-                       aes_string(x="season1.rit.rit-1", 
-                                  color="as.factor(season1.quartile)", 
+                       aes_string(x=paste0(season1.rit,"-1"), 
+                                  color=paste0("as.factor(",season1.quartile,")"), 
                                   label="StudentFirstLastNameRIT"), 
                        size=2, 
                        hjust=1) 
     
     p <- p + geom_text(data=df[GrowthCat=="Positive"],
-                       aes_string(x="season1.rit-1",  
+                       aes_string(x=paste0(season1.rit,"-1"),  
                                   label="StudentFirstLastNameRIT"), 
                        size=2, 
                        hjust=1,
@@ -574,7 +594,7 @@ map_comparative_histograms <- function (df, legendpos="bottom", title=" ",...) {
   p
 }
 
-pdf_waterfall <- function(.data, school, season){
+pdf_waterfall <- function(.data, school, season1, season2=NULL){
   
   # check that .data is a data.table
   if(!is.data.table(.data)) stop(".data must be data.table.")
@@ -590,28 +610,29 @@ pdf_waterfall <- function(.data, school, season){
   
   todays.date<-format(Sys.time(), "%y%m%d")
   
-  pdf(file=paste0("graphs/",season,"_MAP_",school,"_",todays.date,".pdf"), 
+  grade<-sprintf("%s_Grade", season1)
+  pdf(file=paste0("graphs/",season1,season2,"_MAP_",school,"_",todays.date,".pdf"), 
       height=10.5, 
       width=8)
   
-  for(s in sort(unique(dtable[SchoolInitials==school, MeasurementScale]))){
-    for(k in unique(dtable[SchoolInitials==school,SchoolInitials])){
-      dfp<-dtable[MeasurementScale==s 
-                  & SchoolInitials==k, ] #Datatable to Plot
-      for(g in as.character(sort(unique(dfp[,Grade])))){
-        ptitle <- paste0(k, 
-                         " Fall 2013 MAP Scores ", 
+  for(s in sort(dtable[, unique(Subject)])){
+      dfp<-dtable[Subject==s] #Datatable to Plot
+      for(g in as.character(sort(unique(dfp[,get(grade)])))){
+        ptitle <- paste0(school, 
+                         " Fall 2013 Winter 2013 MAP Scores ", 
                          g," ",
                          s, 
-                         "\nFall RIT Scores with Typical Growth and College Ready Growth\nby Fall Quartile")
-        p<-plot_waterfall(dfp[Grade==g,], 
+                         "\nFall vs. Winter RIT Scores with Typical Growth and College Ready Growth\nby Fall Quartile")
+        p<-plot_waterfall(dfp[get(grade)==g,], 
                           ptitle, 
-                          labxpos=100, 
-                          minx=95,
+                          season1=season1,
+                          season2=season2,
+                          tiered.growth="KIPPTieredGrowth",
+                          labxpos=95, 
+                          minx=90,
                           alp=1)
         print(p)
       }
-    }  
   }
   dev.off()
 }

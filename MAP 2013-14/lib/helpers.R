@@ -107,7 +107,7 @@ abstractSeasonNames<- function(df, season1="Fall", season2="Spring", new1="Seaso
 
 
 
-PrepMAP <- function (map.dt, season1, season2) {
+PrepMAP <- function (map.dt, season1, season2, growth.type="KIPP") {
   # Returns data.table wiht new columns indicating growth met, differene
   # in Spring and expected RIT scores, and indicators for earning above average
   # RIT scores in Fall and Spring.
@@ -115,16 +115,56 @@ PrepMAP <- function (map.dt, season1, season2) {
   # Args:
   #   map.dt: A data.table returned by a Call to the SQL procedure 
   #     GetMAPResultsFromToByName 
-  #   season1: the first season (i.e., test term) of the MAP assessment
-  #   season2: the second season (i.e., test term) of the MAP assessment
+  #   season1:      the first season (i.e., test term) of the MAP assessment
+  #                   as a character string
+  #   season2:      the second season (i.e., test term) of the MAP assessment
+  #                   as a character string
+  #   growth.type:  either "KIPP" for 2013-14 KIPP Foundation college ready
+  #                   growth or "Chicago" for KIPP Chicago 2012-13 college ready
+  #                   growth.
   #
   #Returns:
-  # map.dt: A data.table iwth addtional columns for Growth ProjectedGrowth, met NWEA
-  #   growth, residual RIT (i.e., Actual Spring minus Expected Spring), and 
-  #   indicators for above average RIT in Fall as well as Spring
+  #   A data.table iwth addtional columns for Growth ProjectedGrowth, met NWEA
+  #    growth, residual RIT (i.e., Actual Spring minus Expected Spring), and 
+  #    indicators for above average RIT in Fall as well as Spring
   #   
   require(data.table)
   require(stringr)
+  
+  # Test that map.dt is a data table.  If not, issue a warning and 
+  #  and coerce data.frame to data table
+
+  #ERROR HANDLING
+  if(!is.data.table(map.dt)){
+    map.dt_name<-as.character(substitute(map.dt))
+    map.dt_type<-class(map.dt)[1]
+    warning(paste(map.dt_name, 
+                  "is not a data.table.  Trying to coerce", 
+                  map.dt_name, 
+                  "from", 
+                  map.dt_type, 
+                  "to data.table."
+                  ))
+    map.dt<-tryCatch({
+      m.dt<-as.data.table(map.dt)
+      m.dt
+      },
+      warning = function(w) message(w),
+      error = function(w) message(paste("An error was generated:\n", w)),
+      finally = {
+        stopifnot(is(m.dt, "data.table"))
+        message(paste("Coercion of" , map.dt_name,"to data.table successful!"))
+      }
+    )
+  }
+  
+  stopifnot(is(season1, "character"))
+  stopifnot(is(season2, "character"))
+  stopifnot(growth.type=="KIPP"|growth.type=="Chicago")
+  
+  # END Error Handling
+  
+  
   
   # Construct RIT score variable names
   RIT1<-paste(season1, "RIT", sep="_")
@@ -147,41 +187,62 @@ PrepMAP <- function (map.dt, season1, season2) {
   map.dt[get(RIT2)>=ProjectedGrowth,Meets:=1]
   map.dt[get(RIT2)<ProjectedGrowth,Meets:=0]
   
-  # Calculate 75th Percentile Growth ProjectedGrowth
-  # get z score (i.e., number of standard deviations) that corresponds to 75th 
-  # percentile
-  sigma<-qnorm(.75)
-  
-  # Constuct call for for typical growth (= acutal; reported, fwiw, = rounded)
-  # and for hte standard deviation of growth
-  
-  tgrowth.var <- paste0("Typical",s1s2,"Growth")
-  sd.var <- paste0("SD",s1s2,"Growth")
-  
-  # Constuct parsed term to evaluate
-  gp75.var <- parse(text = paste0("GrowthPctl75th:=round(",
-                                  tgrowth.var, 
-                                  " + sigma*",
-                                  sd.var,",0)"
-                                  )
-  )
-  
-  # add simga*SD to mean and round to integer
-  map.dt[,eval(gp75.var)]
-  
-  # set "College Ready" ProjectedGrowth
-  map.dt[,CollegeReadyGrowth:=get(RIT1)+GrowthPctl75th]
-    
   # Calcualte difference Season2 score and Growth ProjectedGrowth
   map.dt[,TypicalGrowthDiff:=get(RIT2)-ProjectedGrowth]
   
-  
-  # Set indicator for student performing above Natioanl Norm Average (2011
-  # Norms) (i.e., at or above 50th Percentile)
-  
+  #calculate quartiles 
   #construct Percentile column names
   Pctl1 <- paste(season1, "Pctl", sep="_")
   Pctl2 <- paste(season2, "Pctl", sep="_")
+  
+  Qrtl1 <- paste(season1, "Quartile", sep="_")
+  Qrtl2 <- paste(season2, "Quartile", sep="_")
+  
+  map.dt<-do.call(calc_quartile,args=list(map.dt,Pctl1,Qrtl1))
+  map.dt<-do.call(calc_quartile,args=list(map.dt,Pctl2,Qrtl2))
+  
+    
+    
+  if(growth.type=="Chicago"){
+    # Calculate 75th Percentile Growth ProjectedGrowth
+    # get z score (i.e., number of standard deviations) that corresponds to 75th 
+    # percentile
+    sigma<-qnorm(.75)
+    
+    # Constuct call for for typical growth (= acutal; reported, fwiw, = rounded)
+    # and for hte standard deviation of growth
+    tgrowth.var <- paste0("Typical",s1s2,"Growth")
+    sd.var <- paste0("SD",s1s2,"Growth")
+  
+    # Constuct parsed term to evaluate
+    gp75.var <- parse(text = paste0("GrowthPctl75th:=round(",
+                                    tgrowth.var, 
+                                    " + sigma*",
+                                    sd.var,",0)"
+                                    )
+    )
+  
+    # add simga*SD to mean and round to integer
+    map.dt[,eval(gp75.var)]
+  
+    # set "College Ready" ProjectedGrowth
+    map.dt[,CollegeReadyGrowth:=get(RIT1)+GrowthPctl75th]
+    
+  } else if(growth.type=="KIPP"){
+    map.dt <- do.call(calc_tiered_growth, args=list(map.dt, 
+                                                    quartile.column=Qrtl1 ,
+                                                    grade.column=paste(season1, 
+                                                                       "Grade", 
+                                                                       sep="_")
+                                                    )
+                      )
+    # set "College Ready" ProjectedGrowth
+    map.dt[,CollegeReadyGrowth:=get(RIT1)+KIPPTieredGrowth]
+  }
+  
+  
+  
+
   
   # Construct new indicator column name 
   # (see http://stackoverflow.com/questions/11745169/dynamic-column-names-in
@@ -235,7 +296,7 @@ PrepMAP <- function (map.dt, season1, season2) {
   grade1<-parse(text = paste0(season1, 
                       '_Grade:=factor(', 
                       season1, 
-                      '_Grade, levels=c("0", "1","2", "5", "6","7","8"))'))
+                      '_Grade, levels=c("0", "1","2","3","4", "5", "6","7","8"))'))
   # 2. Evaluate expression in j term
   map.dt[,eval(grade1)]
   
@@ -243,7 +304,7 @@ PrepMAP <- function (map.dt, season1, season2) {
   grade2<-parse(text = paste0(season2, 
                               '_Grade:=factor(', 
                               season2, 
-                              '_Grade, levels=c("0", "1","2", "5", "6","7","8"))'))
+                              '_Grade, levels=c("0", "1","2","3", "4", "5", "6","7","8"))'))
   # 2. Evaluate expression in j term
   map.dt[,eval(grade2)]
   
@@ -252,21 +313,28 @@ PrepMAP <- function (map.dt, season1, season2) {
   refactor2<-parse(text = paste0("map.dt$",season2, "_Grade"))
   
   # Relevel factors. 
-  setattr(eval(refactor1), "levels", c("K", "1", "2", "5", "6","7","8"))
-  setattr(eval(refactor2), "levels", c("K", "1", "2", "5", "6","7","8"))
+  setattr(eval(refactor1), "levels", c("K", "1", "2", "3", "4", "5", "6","7","8"))
+  setattr(eval(refactor2), "levels", c("K", "1", "2", "3", "4", "5", "6","7","8"))
   
   # Change School Names to School Initials
-  map.dt[SchoolName=="KIPP Ascend Primary"|SchoolName=="KIPP ASCEND PRIMARY", SchoolInitials:="KAPS"]
+  map.dt[SchoolName=="KIPP Ascend Primary School"
+         |SchoolName=="KIPP Ascend Primary"
+         |SchoolName=="KIPP ASCEND PRIMARY", 
+         SchoolInitials:="KAP"]
+  
   map.dt[SchoolName=="KIPP Ascend Middle School"
          |SchoolName==
            "KIPP Ascend Charter School                                       ", 
          SchoolInitials:="KAMS"]
   
-  map.dt[SchoolName=="KIPP Create Middle School", 
+  map.dt[SchoolName=="KIPP Create Middle School" | SchoolName=="KIPP Create College Prep", 
          SchoolInitials:="KCCP"]
   
+  map.dt[SchoolName=="KIPP Bloom College Prep", 
+         SchoolInitials:="KBCP"]
+  
   map.dt[,SchoolInitials:=factor(SchoolInitials, 
-                                 levels=c("KAPS", "KAMS", "KCCP"))]
+                                 levels=c("KAP", "KAMS", "KCCP", "KBCP"))]
   
   
   
