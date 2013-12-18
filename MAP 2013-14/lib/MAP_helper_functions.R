@@ -611,6 +611,13 @@ pdf_waterfall <- function(.data, school, season1, season2=NULL){
   todays.date<-format(Sys.time(), "%y%m%d")
   
   grade<-sprintf("%s_Grade", season1)
+  s1.rit<-paste(season1, "RIT", sep="_")
+  s2.rit<-paste(season2, "RIT", sep="_")
+  s1.min <- dtable[,min(get(s1.rit))]
+  s2.min<- dtable[,min(get(s2.rit))]
+  x.lim <- min(s1.min, s2.min) -10 
+  
+  
   pdf(file=paste0("graphs/",season1,season2,"_MAP_",school,"_",todays.date,".pdf"), 
       height=10.5, 
       width=8)
@@ -623,15 +630,19 @@ pdf_waterfall <- function(.data, school, season1, season2=NULL){
                          g," ",
                          s, 
                          "\nFall vs. Winter RIT Scores with Typical Growth and College Ready Growth\nby Fall Quartile")
+        
+        
+        
         p<-plot_waterfall(dfp[get(grade)==g,], 
                           ptitle, 
                           season1=season1,
                           season2=season2,
                           tiered.growth="KIPPTieredGrowth",
-                          labxpos=95, 
-                          minx=90,
+                          labxpos=x.lim-5, 
+                          minx=x.lim-10,
                           alp=1)
-        print(p)
+        message(paste("Printing School:", school, "\nClass: ", g, "\nSubject: ", s))
+        try(print(p), FALSE)
       }
   }
   dev.off()
