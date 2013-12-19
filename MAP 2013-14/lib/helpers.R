@@ -35,23 +35,23 @@ get_MAPResults <- function(connection, season1 = "Fall13", season2=NULL){
       SELECT   
       s.StudentLastName,
       s.StudentFirstName,
-      s.Grade, 
-      s.ClassName,
-      s.TeacherName,
+      s.Grade AS %s_Grade, 
+      s.ClassName AS %s_ClassName,
+      s.TeacherName AS %s_TeacherName,
       a.TermName,
       a.StudentID,
       a.SchoolName,
-      a.MeasurementScale,
+      a.MeasurementScale AS Subject,
       a.Discipline,
       a.GrowthMeasureYN,
       a.TestType,
       a.TestName,
       a.TestStartDate,
       a.TestDurationInMinutes,
-      a.TestRITScore, 
+      a.TestRITScore AS %s_RIT, 
       a.TestStandardError,
-      a.TestPercentile,
-      a.RITtoReadingScore,
+      a.TestPercentile AS %s_Pctl,
+      a.RITtoReadingScore  AS %s_RITtoReadingScore,
       a.TestStartTime
       FROM   `tblAssessmentResults%s` a
       JOIN   (
@@ -64,15 +64,15 @@ get_MAPResults <- function(connection, season1 = "Fall13", season2=NULL){
       WHERE 	a.GrowthMeasureYN='TRUE'
       ) r
       LEFT OUTER JOIN `viewNorms2011_Growth_Kinder_0` n
-      ON		r.`TestRITScore`=n.`StartRIT`
-      AND		r.`Grade`=n.`StartGrade2`
-      AND		r.`MeasurementScale`=n.`MeasurementScale`
+      ON		r.`%s_RIT`=n.`StartRIT`
+      AND		r.`%s_Grade`=n.`StartGrade2`
+      AND		r.`Subject`=n.`MeasurementScale`
       ;
-      ", season1, season1, season1)
+      ", season1, season1, season1, season1, season1, season1, season1, season1, season1, season1, season1)
 
 
   tryCatch(df<-dbGetQuery(connection, qry),
-           error = function(w) {print(paste("You need to have a JDBC conncetion to the database.  Original error is:", w))}
+           error = function(w) {message(paste("You need to have a JDBC conncetion to the database.  Original error is:", w))}
   )
 } 
 else {
@@ -159,21 +159,23 @@ PrepMAP <- function (map.dt, season1, season2, growth.type="KIPP") {
   }
   
   stopifnot(is(season1, "character"))
-  stopifnot(is(season2, "character"))
+  stopifnot(is(season2, "character")|is(season2, "NULL"))
   stopifnot(growth.type=="KIPP"|growth.type=="Chicago")
   
   # END Error Handling
   
-  
+  season1.only<-is.null(season2)
   
   # Construct RIT score variable names
   RIT1<-paste(season1, "RIT", sep="_")
-  RIT2<-paste(season2, "RIT", sep="_")
+  if(!season1.only) RIT2<-paste(season2, "RIT", sep="_")
   
   # Construct Norm estimates variable names (i.e., season to season)
   s1 <- str_extract(season1, "[a-zA-Z]+")  # extracts season (letters) from 
                                            #  seasonYY 
-  s2 <- str_extract(season2, "[a-zA-Z]+")
+  if(!season1.only) {
+    s2 <- str_extract(season2, "[a-zA-Z]+")
+  } else s2 <- "Spring"
   
   s1s2 <- paste0(s1,"To",s2)
   
@@ -184,22 +186,23 @@ PrepMAP <- function (map.dt, season1, season2, growth.type="KIPP") {
   map.dt[,ProjectedGrowth:=get(RIT1)+get(pgrowth.var)]
   
   # Set indicator for exceeding NWEA Projected Growth 
-  map.dt[get(RIT2)>=ProjectedGrowth,Meets:=1]
-  map.dt[get(RIT2)<ProjectedGrowth,Meets:=0]
+  if(!season1.only){
+    map.dt[get(RIT2)>=ProjectedGrowth,Meets:=1]
+    map.dt[get(RIT2)<ProjectedGrowth,Meets:=0]
   
-  # Calcualte difference Season2 score and Growth ProjectedGrowth
-  map.dt[,TypicalGrowthDiff:=get(RIT2)-ProjectedGrowth]
-  
+    # Calcualte difference Season2 score and Growth ProjectedGrowth
+    map.dt[,TypicalGrowthDiff:=get(RIT2)-ProjectedGrowth]
+  }
   #calculate quartiles 
   #construct Percentile column names
   Pctl1 <- paste(season1, "Pctl", sep="_")
-  Pctl2 <- paste(season2, "Pctl", sep="_")
+  if(!season1.only) Pctl2 <- paste(season2, "Pctl", sep="_")
   
   Qrtl1 <- paste(season1, "Quartile", sep="_")
-  Qrtl2 <- paste(season2, "Quartile", sep="_")
+  if(!season1.only) Qrtl2 <- paste(season2, "Quartile", sep="_")
   
   map.dt<-do.call(calc_quartile,args=list(map.dt,Pctl1,Qrtl1))
-  map.dt<-do.call(calc_quartile,args=list(map.dt,Pctl2,Qrtl2))
+  if(!season1.only) map.dt<-do.call(calc_quartile,args=list(map.dt,Pctl2,Qrtl2))
   
     
     
@@ -249,12 +252,12 @@ PrepMAP <- function (map.dt, season1, season2, growth.type="KIPP") {
   # -data-table-r?rq=1) for details on this eval(parse(text='sometext')) 
   # paradigm wiht data.tables
   
-  a50th <- parse(text= paste0(season2, "_Above50th:=1"))
-  b50th <- parse(text= paste0(season2, "_Above50th:=0"))
+  if(!season1.only) a50th <- parse(text= paste0(season2, "_Above50th:=1"))
+  if(!season1.only) b50th <- parse(text= paste0(season2, "_Above50th:=0"))
   
   #identify above/below 50th percenilte and add/update column
-  map.dt[get(Pctl2)>=50, eval(a50th)]
-  map.dt[get(Pctl2)<50, eval(b50th)]
+  if(!season1.only) map.dt[get(Pctl2)>=50, eval(a50th)]
+  if(!season1.only) map.dt[get(Pctl2)<50, eval(b50th)]
     
   # Fall (see Spring above )
   
@@ -274,21 +277,42 @@ PrepMAP <- function (map.dt, season1, season2, growth.type="KIPP") {
            paste(StudentFirstName, 
                  StudentLastName, sep=" ")]
   
-  # Add name with RIT score in parenthesis. Will do so by constructing 
+  # Add name with RIT score and Pctl in parenthesis. Will do so by constructing 
   # expression and then evaluating it within a data.table
   
   name.rit <- parse(text = paste0('StudentFirstLastNameRIT:=
                                   paste0(StudentFirstName, " ",
                                          StudentLastName, " ", 
-                                         ' , season1,'_RIT
+                                         ' , season1,'_RIT, " (",
+                                         ' , season1,'_Pctl, ")"
                                         )'
                                   )
                   )
                   
   
   map.dt[,eval(name.rit)]
+
+  s1.ritpctl <- parse(text= paste0(season1,'_RITPctl:=
+                                   paste0(', season1,'_RIT, " (",
+                                          ', season1,'_Pctl, ")"
+                                          )
+                                   ')
+  )
   
   
+  map.dt[,eval(s1.ritpctl)]
+  
+  if(!season1.only) {
+  s2.ritpctl <- parse(text= paste0(season2,'_RITPctl:=
+                                   paste0(', season2,'_RIT, " (",
+                                          ', season2,'_Pctl, ")"
+                                          )
+                                   ')
+                      )
+  
+  
+  map.dt[,eval(s2.ritpctl)]
+  }
   # Reorder Grade level Factors
   
   # Make Grade a factor takes two steps
@@ -301,20 +325,20 @@ PrepMAP <- function (map.dt, season1, season2, growth.type="KIPP") {
   map.dt[,eval(grade1)]
   
   # 1. Create expression to be evaluated in j term
-  grade2<-parse(text = paste0(season2, 
+  if(!season1.only) {grade2<-parse(text = paste0(season2, 
                               '_Grade:=factor(', 
                               season2, 
                               '_Grade, levels=c("0", "1","2","3", "4", "5", "6","7","8"))'))
   # 2. Evaluate expression in j term
   map.dt[,eval(grade2)]
-  
+  }
   # Create expression for first term in setattr() function 
   refactor1<-parse(text = paste0("map.dt$",season1, "_Grade"))
-  refactor2<-parse(text = paste0("map.dt$",season2, "_Grade"))
+  if(!season1.only) refactor2<-parse(text = paste0("map.dt$",season2, "_Grade"))
   
   # Relevel factors. 
   setattr(eval(refactor1), "levels", c("K", "1", "2", "3", "4", "5", "6","7","8"))
-  setattr(eval(refactor2), "levels", c("K", "1", "2", "3", "4", "5", "6","7","8"))
+  if(!season1.only)  setattr(eval(refactor2), "levels", c("K", "1", "2", "3", "4", "5", "6","7","8"))
   
   # Change School Names to School Initials
   map.dt[SchoolName=="KIPP Ascend Primary School"
