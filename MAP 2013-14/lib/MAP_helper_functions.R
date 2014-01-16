@@ -623,6 +623,8 @@ pdf_waterfall <- function(.data, school, .by="grade", season1, season2=NULL, alp
     )
   }
   
+  season1.only <- is.null(season2)
+  
   dtable <- copy(.data)
   # Check if SchoolInitials exists; if not, create column 
   if(!exists("SchoolInitials", dtable)){
@@ -644,10 +646,11 @@ pdf_waterfall <- function(.data, school, .by="grade", season1, season2=NULL, alp
   s1.min <- dtable[,min(get(s1.rit))]
   if(season1.only){
     x.lim <- min(s1.min) -10   
-  } else{
+  } 
+  else {
     s2.rit<-paste(season2, "RIT", sep="_")
     s2.min<- dtable[,min(get(s2.rit))]
-    xlim <- min(s1.min, s2.min - 10)
+    x.lim <- min(s1.min, s2.min - 10)
   }
   
   

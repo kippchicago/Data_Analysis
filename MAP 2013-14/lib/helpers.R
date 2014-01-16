@@ -240,7 +240,8 @@ PrepMAP <- function (map.dt, season1, season2, growth.type="KIPP") {
                                                     )
                       )
     # set "College Ready" ProjectedGrowth
-    map.dt[,CollegeReadyGrowth:=get(RIT1)+KIPPTieredGrowth]
+    tgrowth.var <- paste0("Typical",s1s2,"Growth")
+    map.dt[,CollegeReadyGrowth:=get(RIT1)+(KIPPTieredGrowth*get(tgrowth.var))]
   }
   
   
