@@ -33,3 +33,4 @@ cache/
 *-concordance.tex
 *.synctex.gz
 *-tikzDictionary
+GIS/config/ps.dcf
