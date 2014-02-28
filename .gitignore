@@ -12,8 +12,8 @@ figure/
 reports/
 *.pdf
 *.xls
-ps.dcf 
 mapdb.dcf
+ps.dcf 
 
 ## Ignore data/*.sql file (contains uid/pwd info for connecting to databases) in Project Template rendered projects
 data/*.sql
