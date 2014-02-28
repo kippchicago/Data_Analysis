@@ -11,6 +11,9 @@ Figures/
 figure/
 reports/
 *.pdf
+*.xls
+ps.dcf # powerschool config file
+mapdb.dcf # mysql db config file
 
 ## Ignore data/*.sql file (contains uid/pwd info for connecting to databases) in Project Template rendered projects
 data/*.sql
