@@ -27,8 +27,9 @@ s2s_summary<-function(.data, school="KCCP"){
 
 .data[MeasurementScale %in% c("Reading", "Mathematics"),
      list(N=.N, 
-          avg_fall=mean(TestRITScore.x), 
-          avg_winter=mean(TestRITScore.y), 
+          avg_term_1=mean(TestRITScore.x), 
+          avg_term_2=mean(TestRITScore.y), 
+          diff=mean(TestRITScore.y)-mean(TestRITScore.x),
           growth2 = mean(((TestRITScore.y-TestRITScore.x)*2)+TestRITScore.x), 
           growth1.5 = mean(((TestRITScore.y-TestRITScore.x)*1.5)+TestRITScore.x)),    
      keyby=list(SchoolInitials.x, 

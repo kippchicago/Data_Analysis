@@ -366,3 +366,32 @@ PrepMAP <- function (map.dt, season1, season2, growth.type="KIPP") {
   map.dt
   
 }
+
+
+
+# matches MAP data in long format season to season using dplyr
+s2s_match <- function(.data, season1="Fall", season2="Spring", sy=2013){
+  require(dplyr)
+  # Filter to Season1
+  m.1<-filter(.data, Season==season1, Year2==sy)
+  
+  # Filter to Season2
+  m.2<-filter(.data, Season==season2, Year2==sy)
+  
+  
+  # Join on ID and MeasurementScale
+  m.12<-inner_join(m.1, m.2, by=c("StudentID", "MeasurementScale"))
+  
+  # construct and substitute names
+  typical.growth <- as.name(paste0("Typical", season1, "To", season2, "Growth.x"))
+  q<-substitute(typical.growth + TestRITScore.x)
+  
+  season.growth <- as.name(paste0(season1, "To", season2, "Growth.x"))
+  q<-substitute(typical.growth + TestRITScore.x)
+  
+  m.12<-with(m.12, mutate(m.12, ProjectedGrowth=eval(q), MetTypical=TestRITScore.y>=ProjectedGrowth, GrowthSeason=paste(Season.x, Season.y, sep=" - ")))
+  
+  #return
+  m.12
+}
+

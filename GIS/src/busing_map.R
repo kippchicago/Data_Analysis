@@ -149,6 +149,13 @@ bus_stops.reprojected<-project(as.matrix(bus_stops.geocoded), proj=p4)
 bus.stops[,long:=bus_stops.reprojected[,1]]
 bus.stops[,lat:=bus_stops.reprojected[,2]]
 
+# fix "Shine 3" to equal "Shine-3"
+bus.stops[Route=="Shine 3", Route:="Shine-3"]
+
+# refactor Route names
+bus.stops[,Route:=factor(as.character(Route), levels=c("Tenacity-1", "Empower-2",  "Shine-3", "Engage-4"))]
+
+
 
 
 cols<-gg_color_hue(3)
@@ -166,31 +173,48 @@ school_location[School=="KCCP",School_col:=cols[2]]
 school_location[School=="KBCP",School_col:=cols[3]]
 
 p <- ggplot(data=students.clipped[School!="KAP"], aes(x=long, y=lat)) + 
-  geom_segment(data=major_streets_lines, aes(x=slon, y=slat, xend=elon, yend=elat), color="lightgray", lineend = "round") +
+  geom_segment(data=major_streets_lines, aes(x=slon, y=slat, xend=elon, yend=elat), color="lightgray", lineend = "round", alpha=.5) +
   geom_polygon(data=zips.dt, aes(x=long, y=lat, group=group), color="darkgray", fill=NA) + 
-  geom_polygon(data=zips.dt[!is.na(School)], aes(x=long, y=lat, group=group, color=School_col, fill=School_col), alpha=.1) + 
-  geom_point(aes(x=long, y=lat, color=School_col), alpha=.6, size=1.75) + 
-  geom_point(data=school_location, aes(x=long, y=lat, fill=School_col), color="black", shape=23, size=6, alpha=.5) +
+  geom_polygon(data=zips.dt[!is.na(School)], aes(x=long, y=lat, group=group, fill=School), alpha=.1, color=NA) + 
+  geom_point(aes(x=long, y=lat, color=School), alpha=.6, size=1.75) + 
+  geom_point(data=school_location, aes(x=long, y=lat, fill=School), color="black", shape=23, size=6, alpha=.5) +
   geom_text(data=school_location, aes(x=long, y=lat, label=School), hjust=0, vjust=0, alpha=.5) +
-  geom_polygon(data=cps.dt, aes(x=long, y=lat, group=group), fill="black") +
-  scale_fill_identity() + 
-  scale_color_identity() +
+  geom_polygon(data=cps.dt, aes(x=long, y=lat, group=group, fill="Non-KIPP School", color="Non-KIPP School")) +
+  scale_fill_manual(values = c(cols, '#706f6c')) + 
+  #scale_color_identity() +
   #facet_wrap(~GRADE_LEVEL) + 
   theme_minimal()
 
 
 
-p.buses <- p +   geom_point(data=CPS.Schools[INCS_School_Type=="Charter" & lat>1200000], aes(long, lat), 
-                 color="#FEBC11", shape=8, size=2) +  
-  geom_point(data=bus.stops, aes(x=long, y=lat, alpha=Route), shape=13, color="purple", fill="purple", size=3) +
+p.buses <- p + 
+  geom_point(data=CPS.Schools[INCS_School_Type=="Charter" & lat>1200000], 
+             aes(long, lat, fill="Charter School", color="Charter School"), 
+             shape=8, size=2) +  
+  geom_point(data=bus.stops, aes(x=long, y=lat, shape=Route), alpha=.5, color="purple", fill="purple", size=3) +
+  scale_fill_manual(values=c("#FEBC11",cols, "#706f6c")) +
+  scale_color_manual(values=c("#FEBC11",cols, "#706f6c")) +
+  scale_shape_manual("KAMS Bus Routes", values=c(7, 9, 10, 12)) +
   ggtitle("KIPP Chi: Students by School\nwith Busing ZIP Codes Highlighted")
+
+
+
+p.less <- ggplot(data=students.clipped[School!="KAP"], aes(x=long, y=lat)) + 
+  geom_polygon(data=zips.dt, aes(x=long, y=lat, group=group), color="darkgray", fill=NA) + 
+  geom_polygon(data=zips.dt[!is.na(School)], aes(x=long, y=lat, group=group, color=School, fill=School), alpha=.1) + 
+  geom_point(aes(x=long, y=lat, color=School), alpha=.6, size=1.75) + 
+  geom_point(data=school_location, aes(x=long, y=lat, fill=School), color="black", shape=23, size=4, alpha=.5) +
+  geom_text(data=school_location, aes(x=long, y=lat, label=School), hjust=0, vjust=0, alpha=.5) +
+  theme_minimal()
+
 
 pdf("graphs/busing_map_with_schools.pdf", height=11, width=8.5)
 inset_zoom(p.buses, 
-           zoom=1.5, 
-           x.expand=c(1140000, 1165000), 
-           y.expand=c(1885000, 1915000), 
-           j.expand="bl")
+           zoom=2, 
+           x.expand=c(1135000, 1165000), 
+           y.expand=c(1885000, 1910000), 
+           j.expand="bl", 
+           inset.title="Vicinity of KAMS & KCCP")
 
-p + facet_wrap(~GRADE_LEVEL) + ggtitle("KIPP Chi: Students by Grade & School\nwith Busing ZIP Codes Highlighted")
+p.less + facet_wrap(~GRADE_LEVEL) + ggtitle("KIPP Chi: Students by Grade & School\nwith Busing ZIP Codes Highlighted")
 dev.off()

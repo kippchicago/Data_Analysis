@@ -7,12 +7,13 @@ inset_zoom<-function(
   p,    	              # ggplot object
   x.expand = c(3, 4),  	# target zoom range (X)
   y.expand = c(13, 16),	# target zoom range (y)
-  j.expand = "br"	      # inset location
+  j.expand = "br"	,     # inset location
   zoom = 2,					    # The zoom level of the inset box
+  inset.title = "",
   pad = 1,						  # Padding between inset box and plot box
   ex.col = "white",			# Fill color of inset boxes
   ex.alpha = 0,				  # Turn to zero to turn off any colour
-  ex.lin = "black",			# Line colour of expand boxes
+  ex.lin = "black"			# Line colour of expand boxes
   ){
   
   # Get x and y limits from ggplot object
@@ -101,7 +102,8 @@ inset_zoom<-function(
       axis.text.x = element_blank (), 	
       axis.text.y = element_blank (), 	
       axis.ticks = element_blank ()		
-    )
+    ) + 
+    ggtitle(inset.title) #without this p.zoom inherits p's title 
   
   # change ggplot object ot grid object to use in annotate custom
   p.zoom <- ggplotGrob (p.zoom)
