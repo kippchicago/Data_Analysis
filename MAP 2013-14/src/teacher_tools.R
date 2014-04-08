@@ -1,3 +1,7 @@
+require(ProjectTemplate)
+load.project()
+
+
 m.w14<-map.all[TermName=="Winter 2013-2014"]
 
 m_w13_8m<-m.w14[Grade==8 & MeasurementScale=="Mathematics"]
@@ -22,25 +26,25 @@ homerooms$StudentID<-as.integer(homerooms$StudentID)
 
 #Lets take a look at goals
 
-m.sub.scores<-m_w13_8m[,c("StudentID", "StudentFirstname",
+m.sub.scores<-m.w14[,c("StudentID", "StudentFirstname",
                 "StudentLastname",
                 "SchoolInitials",
                 "Grade",
                 "MeasurementScale",
                 "TestRITScore",
                 "TestPercentile",
-                colnames(m_w13_8m)[grep("(Goal)[0-9]RitScore", colnames(m_w13_8m))]
+                colnames(m.w14)[grep("(Goal)[0-9]RitScore", colnames(m.w14))]
 ), with=F]
 
 
-m.sub.names<-m_w13_8m[,c("StudentID", "StudentFirstname",
+m.sub.names<-m.w14[,c("StudentID", "StudentFirstname",
                           "StudentLastname",
                           "SchoolInitials",
                           "Grade",
                           "MeasurementScale",
                          "TestRITScore",
                          "TestPercentile",
-                          colnames(m_w13_8m)[grep("(Goal)[0-9]Name", colnames(m_w13_8m))]
+                          colnames(m.w14)[grep("(Goal)[0-9]Name", colnames(m.w14))]
 ), with=F]
 
 # melt scores
@@ -151,8 +155,11 @@ p
 
 ### plot each kiddo ####
 
-m.plot<-m.long.2[,Rank:=rank(TestRITScore, ties.method="first")]
-m.plot[,Rank2:=rank(value, ties.method="first"), by=Goal_Name]
+m.plot<-copy(m.long.2[,Rank:=rank(TestRITScore, ties.method="first")])
+m.plot[,Rank2:=rank(value, ties.method="first"), by=list(SchoolInitials, 
+                                                         Grade,
+                                                         MeasurementScale
+                                                         )]
 
 
 m.plot<-calc_quartile(m.plot, percentile.column = "TestPercentile", "TestQuartile")
@@ -211,5 +218,75 @@ dev.off()
 cairo_pdf("graphs/strands_test_3_2.pdf", height=11, width=8.5, onefile=T)
 p$homeroom_strands + ggtitle(paste("MAP and Strand RIT Scores for\n", hrs[1], sep=""))
 dev.off()
+
+# KAMS only ####
+
+m.kams<-copy(m.plot[SchoolInitials=="KAMS"])
+m.kams[HOME_ROOM=="5th Spelman- Morehouse", HOME_ROOM:="5th Spelman-Morehouse"]
+
+
+plots<-list()
+
+grades <- unique(m.kams$Grade)
+
+for (g in grades){
+  message(paste("Current Grade is:", g))
+  m.kams.grades<-m.kams[Grade==g]
+  subjs <- unique(m.kams.grades$MeasurementScale)
+  for (s in subjs){
+    message(paste("Current Subject is:", s))
+    m.kams.gr.subjs<-m.kams.grades[MeasurementScale==s]
+    homerooms<-unique(m.kams.gr.subjs$HOME_ROOM)
+    for (h in homerooms){
+      message(paste("Current Homeroom is:", h))
+      kams.data<-copy(m.kams.gr.subjs[HOME_ROOM==h])
+      kams.data[,Rank:=rank(TestRITScore, ties.method="first")]
+      kams.data[,StudentDisplayName:=factor(StudentFullName, 
+                                         levels=unique(StudentFullName)[order(Rank,decreasing = TRUE)])]
+      hr.name<-str_replace(h, "\\d\\w+\\s", "")
+      plot.names<-paste(s,g,hr.name,sep=".")
+      titl<-paste(s, "MAP and Strand RIT Scores for\nGrade:", g, hr.name, sep=" ")
+      
+      plots[[plot.names]]<-plot_strands(kams.data) +  ggtitle(titl)
+      rm(kams.data)
+  
+    }
+  }
+}
+cairo_pdf("graphs/strands_KAMS.pdf", height=8.5, width=11, onefile=T)
+  plots
+dev.off()
+
+
+# Amy's list of lists ####
+map.F13W14[SchoolInitials=="KAMS"]
+
+map.prep<-PrepMAP(map.F13W14, "Fall13", "Winter14", growth.type = "KIPP")[SchoolIntials=="KAMS"]
+map.prep<-map.prep[SchoolInitials=="KAMS"]
+map.prep[Winter14_RIT-Fall13_RIT<0, GrowthType:="Negative"]
+map.prep[Winter14_RIT-Fall13_RIT>=0, GrowthType:="Not Typical"]
+map.prep[ProjectedGrowth<=Winter14_RIT, GrowthType:="Typical"]
+map.prep[CollegeReadyGrowth<=Winter14_RIT, GrowthType:="College Ready"]
+map.prep[,GrowthType:=factor(GrowthType, levels=c("Negative", 
+                                                  "Not Typical",
+                                                  "Typical",
+                                                  "College Ready"))]
+
+map.prep[,GrowthTypeRank:=rank(Winter14_RIT, ties.method = "first"), by=list(Winter14_Grade, Subject, GrowthType)]
+
+ma
+
+
+cairo_pdf("graphs/AmyLists_KAMS.pdf", height=11, width=8.5, onefile=T)
+ggplot(map.prep, aes(x=GrowthType, y=GrowthTypeRank)) +
+  geom_text(aes(label=StudentFirstLastNameRIT, color=GrowthType), size=1.25) + 
+  facet_grid(Winter14_Grade ~ Subject) + 
+  theme_bw() + theme(legend.position="bottom")
+dev.off()
+
+
+
+
+
 
 

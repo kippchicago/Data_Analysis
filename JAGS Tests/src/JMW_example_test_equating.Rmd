@@ -1,0 +1,116 @@
+---
+title: "Simulated RIT Equating"
+author: "Chris Haid"
+date: "April 7, 2014"
+output:
+  html_document:
+    fig_height: 6
+---
+First, let's load the packages we'll sue
+```{r prerequisites}
+require(rjags)
+require(Rgraphviz)
+```
+Create some simulated data:
+```{r norm_sim_data}
+set.seed(432104)
+```
+
+# Simulated RIT Equating Example
+
+## First pass at a model
+OK. So let's define a simple model is the basis for  our simulated data and our probabilistic model of inference.  First we'll assume that there is in fact a latent ability attribute, $\theta_i$, for each student $i \in {1,\dots,.n}$ in our sample.  Further, we'll assume that this latent trait is accurately measured by an *unobserved* RIT score, which we'll denote $r_{i}$. In other words, RIT scores are a direct measure of $\theta_i$. Luckingly for us, students take a test that gives us an estimate of RIT scores, the MAP.  So we assume that the observed RIT, $\hat{r}$ is a realization from a distribution  centered on $r$
+Finally, we assuem that all other academic measures (interim assessments, Kahn objectives, individual test items, even Do Nows/Exit Tickets).  So we have observed realization of a RIT score for a student as well as all the other academic indicators.  All other RVs and parameters need to be estimated.  And our goal here is to make inferences about $r_i$ given our observation of other acadmeic indicators.  
+
+Here's a graphical representation of our probaility model:
+
+```{r equat_graph}
+
+
+rit.graph <- new("graphNEL", 
+                 nodes=c("theta[i]",
+                         "r[i]",
+                         "rhat[i]",
+                         "a[i]",
+                         "k[i]",
+                         "t[i]",
+                         "ahat[i]",
+                         "khat[i]",
+                         "that[i]"
+                         ),
+                 edgemode="directed")
+
+rit.graph <- addEdge("theta[i]", "r[i]", rit.graph, 1)
+rit.graph <- addEdge("r[i]", "rhat[i]" , rit.graph, 1)
+rit.graph <- addEdge("rhat[i]", "a[i]" , rit.graph, 1)
+rit.graph <- addEdge("rhat[i]", "k[i]" , rit.graph, 1)
+rit.graph <- addEdge("rhat[i]", "t[i]" , rit.graph, 1)
+rit.graph <- addEdge("a[i]", "ahat[i]" , rit.graph, 1)
+rit.graph <- addEdge("k[i]", "khat[i]" , rit.graph, 1)
+rit.graph <- addEdge("t[i]", "that[i]" , rit.graph, 1)
+
+plot(rit.graph)
+
+```
+Now, let's simulate some data based on this basic probability model. The $\theta_i$'s need a prior and I'll use the school level norms (because I'm on a plane and don't have the student level norms with me; we can change these later) for fall 5th grade math.  Thinking about this, we can collapse the $\theta_i$s and $r_i$, sunce we are assuming theta exists on the the RIT scale. I'll use $\theta_i$ to denote the RIT-scaled laten variable. 
+
+```{r simulate_thetas}
+set.seed(432104)
+
+n <- 90 # number of students
+
+r<-rnorm(n = n, mean = 211.39, sd =5.83)
+```
+The $\theta_i$s are then noisily measured by the MAP test.  I'll assume a standard deviation of about 3, but that is completely arbitrary.
+```{r simulate_rhats}
+rhat<-rnorm(n, r, sd=rep(3, times=n))
+
+head(rhat)
+```
+Ok. let's make some assumptions about how $\hat{r}$ is related to each of the three realizations of our academic indicators. Let's start with some arbitrary assessment that is graded on a zero to one scale (or zero to 100%) a realization of which is denoted $\hat{a}_i$. We'll keep it simple and assume that the $\hat{r}_i$ are linear predictors of $z.a_{i}$ in the inverse-logistic function.  That is,
+
+$$
+\begin{aligned}
+  z.a_{i}   & = \alpha + \beta \cdot \hat{r}_i \\
+  \hat{a}_{i} & = \frac{1}{1+\exp^{-z.a{i}}}
+\end{aligned}
+$$
+
+
+Asusming $\alpha = -1$ and $\beta = 0.01$, we simulating the data like so:
+```{r simulate_ahats}
+alpha<- -1
+beta<-.01
+z.a<- alpha + beta*rhat
+ahat<-1/(1+exp(-z.a))
+head(z.a)
+head(ahat)
+```
+
+Let's pretend, for now, that this the only non-MAP assessment that we have.  Consequently, all we observed are the $\hat{a}_i$ and the current RIT scores $\hat{r}_i$.  Here's the simplified model in `JAGS/BUGS` syntax:
+
+```{r jags_model}
+model.sat.text<-"
+  model {
+    for(i in 1:N) {
+    schoo[i] ~ dnorm(mu,itau)
+    thes[i] <- 1/pow(sigma[i],2)
+    schoolobs[i] ~ dnorm(schoolmean[i],thes[i])
+    }
+ 
+  mu ~ dnorm(0,alpha)
+  alpha <- .01
+  itau   ~ dgamma(1e-3,pow(15,2)*1e-3)
+  tau <- pow(1/itau,1/2)
+}
+"
+model.sat.spec<-textConnection(model.sat.text)
+
+
+```
+
+
+
+
+
+

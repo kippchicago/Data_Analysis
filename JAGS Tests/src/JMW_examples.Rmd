@@ -1,0 +1,213 @@
+---
+title: "Some Simple JAGS Examples"
+author: "Chris Haid"
+date: "April 3, 2014"
+output:
+  html_document:
+    fig_height: 10
+---
+First, lets get some prerequisites out of the way.
+```{r prerequisites}
+require(rjags)
+require(coda)
+require(igraph)
+```
+
+### Normally distrubted data with unknown mean and variance
+
+Create some simulated data:
+```{r norm_sim_data}
+set.seed(432104)
+n <- 1000
+x <- rnorm(n, 0, 5)
+ 
+```
+
+Most `JAGS`/`BUGS` examples save the probability model in a separate file and then read it in in the call to `JAGS`.  Below we'll use the function `textConnection` to pass a string object *as if it were a text file*. The benefit is we can keep the probability model inline with the rest of our R code which helps makes this document self-contained).
+
+```{r model1_defn}
+model1.string <-"
+  model {
+    for (i in 1:N){
+    x[i] ~ dnorm(mu, tau)
+    }
+  mu ~ dnorm(0,.0001)
+  tau <- pow(sigma, -2)
+  sigma ~ dunif(0,100)
+}
+"
+model1.spec<-textConnection(model1.string)
+```
+
+
+Now we pass  `rajgs` the model, data, and other options to run four MCMC chains to estimate the paramters of interest in the the model.  The update step is unnecessary and I'm just making sure it works.  The `jags.samples` function samples from the samples and calculates means.
+```{r model1}
+jags <- jags.model(model1.spec,
+                   data = list('x' = x,
+                               'N' = n),
+                   n.chains=4,
+                   n.adapt=100)
+
+update(jags, 1000)
+
+jags.samples(jags,
+             c('mu', 'tau'),
+             1000)
+```
+
+### SAT Example
+Here's an example from Chapter 5 fo Gelman and Hill.  Data is simple: change in SAT average SAT scores at 8 schools as well as the standerd devations of the difference in the mean SAT scores.  The question Gelman is interested in answering is:  do different SAT training programs have a positive effect on SAT scores?
+
+Here's the data, where $\sigma$ (`sigma`) is the standard deviation and `schoolobs` are the observed change in means, $\mu$:
+```{r sat_data}
+sigma     <- c(15,10,16,11, 9,11,10,18)
+schoolobs <- c(28,8, -3, 7,-1, 1,18,12)
+```
+Gelman's recommendation is a multi-level model where mean training effect is drawn from a mean zero normal distribtion, a school's indiviudal effect is drawn from normal distribution with with the mean equal to the mean training effect, and the observed scores (realizations) are then drawn from a distribtion paramaterized with the mean given by the individual school effect.  The model is given by:
+```{r sat_model.spec}
+model.sat.text<-"
+  model {
+    for(i in 1:N) {
+    schoolmean[i] ~ dnorm(mu,itau)
+    thes[i] <- 1/pow(sigma[i],2)
+    schoolobs[i] ~ dnorm(schoolmean[i],thes[i])
+    }
+ 
+  mu ~ dnorm(0,alpha)
+  alpha <- .01
+  itau   ~ dgamma(1e-3,pow(15,2)*1e-3)
+  tau <- pow(1/itau,1/2)
+}
+"
+model.sat.spec<-textConnection(model.sat.text)
+```
+
+This probability model can be represented graphically like so (note that the `y1` are the observed schools difference in means, `schoolobs`):
+
+```{r graph_example}
+gr<-graph.formula("N(0,0.01)"-+"mu",
+                  "mu"-+"N(0,1/tau)", 
+                  "N(0,1/tau)"-+"m1", 
+                  "N(0,1/tau)"-+"m2", 
+                  "N(0,1/tau)"-+"m8",
+                  "m1"-+"N(0,1/simga21)", 
+                  "m2"-+"N(0,1/simga22)",
+                  "m8"-+"N(0,1/simga28)", 
+                  "N(0,1/simga21)"-+"y1",
+                  "N(0,1/simga22)"-+"y2",  
+                  "N(0,1/simga28)"-+"y8")
+
+
+lo<-data.frame(x=c(2,2,2,1,2,3,1,2,3,1,2,3),y=c(6,5,4,3,3,3,2,2,2,1,1,1))
+plot(gr, 
+     layout=layout.reingold.tilford(gr), 
+     edge.arrow.size=.25
+     )
+
+```
+
+To estimate the unobserved parameters we send the model and data it to `JAGS` and get the MCMC chains back.
+
+```{r sat_jags}
+sat.jags <- jags.model(model.sat.spec,
+                       data=list('sigma'=sigma,
+                                 'schoolobs'=schoolobs,
+                                 'N'=length(schoolobs)
+                                 ),
+                       n.chains=4,
+                       n.adapt = 1000)
+
+#run with jags.samples
+samps.jags <- jags.samples(sat.jags,
+                           c('mu','tau'),
+                           n.iter=10000,
+                           thin=10
+                           )
+
+samps.jags
+#same thing but return a coda MCMC object
+samps.coda <- coda.samples(sat.jags,
+                           c('mu','tau', 'schoolmean'),
+                           n.chains=4,
+                           n.iter=10000,
+                           thin=10
+                           )
+
+head(samps.coda)
+
+summary(samps.coda)
+
+plot(samps.coda[[1]][,c("mu","tau")])
+```
+```{r long_plots, fig.height=15}
+plot(samps.coda[[1]][,2:5])
+plot(samps.coda[[1]][,6:9])
+
+```
+
+
+### Simulated RIT Equating Example
+OK. So let's define a simple model is the basis for  our simulated data and our probabilistic model of inference.  First we'll assume that there is in fact a latent ability attribute, $\theta_i$, for each student $i \in {1,\dots,.n}$ in our sample.  Further, we'll assume that this latent trait is accurately measured by an *unobserved* RIT score, which we'll denote $r_{i}$. In other words, RIT scores are a direct measure of $\theta_i$. Luckingly for us, students take a test that gives us an estimate of RIT scores, the MAP.  So we assume that the observed RIT, $\hat{r}$ is a realization from a distribution  centered on $r$
+Finally, we assuem that all other academic measures (interim assessments, Kahn objectives, individual test items, even Do Nows/Exit Tickets).  So we have observed realization of a RIT score for a student as well as all the other academic indicators.  All other RVs and parameters need to be estimated.  And our goal here is to make inferences about $r_i$ given our observation of other acadmeic indicators.  
+
+Here's a graphical representation of our probaility model:
+
+```{r equat_graph}
+require(Rgraphviz)
+
+rit.graph <- new("graphNEL", 
+                 nodes=c("theta[i]",
+                         "r[i]",
+                         "rhat[i]",
+                         "a[i]",
+                         "k[i]",
+                         "t[i]",
+                         "ahat[i]",
+                         "khat[i]",
+                         "that[i]"
+                         ),
+                 edgemode="directed")
+
+rit.graph <- addEdge("theta[i]", "r[i]", rit.graph, 1)
+rit.graph <- addEdge("r[i]", "rhat[i]" , rit.graph, 1)
+rit.graph <- addEdge("rhat[i]", "a[i]" , rit.graph, 1)
+rit.graph <- addEdge("rhat[i]", "k[i]" , rit.graph, 1)
+rit.graph <- addEdge("rhat[i]", "t[i]" , rit.graph, 1)
+rit.graph <- addEdge("a[i]", "ahat[i]" , rit.graph, 1)
+rit.graph <- addEdge("k[i]", "khat[i]" , rit.graph, 1)
+rit.graph <- addEdge("t[i]", "that[i]" , rit.graph, 1)
+
+plot(rit.graph)
+
+```
+Now, let's simulate some data based on this basic probability model. The $\theta_i$'s need a prior and I'll use the school level norms (because I'm on a plane and don't have the student level norms with me; we can change these later) for fall 5th grade math.  Thinking about this, we can collapse the $\theta_i$s and $r_i$, sunce we are assuming theta exists on the the RIT scale. I'll use $\theta_i$ to denote the RIT-scaled laten variable. 
+
+```{r simulate_thetas}
+n <- 90 # number of students
+theta<-rnorm(n = n, mean = 211.39, sd =5.83)
+```
+The $\theta_i$s are then noisily measured by the MAP test.  I'll assume a standard deviation of about 3, but that is completely arbitrary.
+```{r simulate_rhats}
+rhat<-rnorm(n, theta, sd=rep(3, times=n))
+
+head(rhat)
+```
+Ok. let's make some assumptions about how $\hat{r}$ is related to each of the three realizations of our academic indicators. Let's start with some arbitrary assessment that is graded on a zero to one scale (or zero to 100%) a realization of which is denoted $\hat{a}_i$. We'll keep it simple and assume that the $\hat{r}_i$ are linear predictors of $z.a_{i}$ in the inverse-logistic function.  That is,
+$$ z.a_{i} & = \alpha + \beta\hat{r}_{i} $$
+
+Asusming $\alpha = 1$ and $\beta = 2$, we simulating the data like so:
+```{r simulate_ahats}
+alpha<- -1
+beta<-.01
+z.a<- alpha +  beta*rhat
+ahat<-1/(1+exp(-z.a))
+head(z.a)
+head(ahat)
+```
+
+Let's pretend, for now, that this the only non-MAP assessment that we have.  All we observed are the $\hat{a}_i$
+
+
+
+
+

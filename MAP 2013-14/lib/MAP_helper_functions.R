@@ -697,3 +697,32 @@ pdf_waterfall <- function(.data, school, .by="grade", season1, season2=NULL, alp
 }
 
 
+
+# Goal Strand Plots ####
+plot_strands<-function(.data) {
+      ggplot(data=.data, 
+       aes(y=Goal_Name, 
+           x=value
+       )
+) +
+  geom_point(aes(fill=value-TestRITScore), 
+             shape=21,
+             color=NA
+  ) + 
+  geom_vline(aes(xintercept=mean(TestRITScore)), color="gray") + 
+  geom_vline(aes(xintercept=TestRITScore, color=TestQuartile), size=1.5, show_guide=T) + 
+  scale_fill_gradient("Deviation from\nOverall RIT",low="red", high="green") +
+  scale_color_discrete("Overall RIT Score\nQuartile") +
+  xlab("RIT Score") + 
+  ylab("Strand Name") +
+  facet_grid(StudentDisplayName~.) + 
+  theme_bw() + # xlim(150,300) +
+  theme(strip.text.y=element_text(angle=0), 
+        axis.text.y=element_text(size=5)#,
+        #legend.position="none"
+  )
+
+}
+
+
+
