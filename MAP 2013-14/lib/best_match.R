@@ -37,24 +37,22 @@ best_match <- function(input_column, .data, match_column, output_column, confide
     #get student number from attrition data frame that matches
     #out <- max(.data[which(.data[,m_col]==best),o_col])
     out <- .data[which(.data[,m_col]==best),o_col]
-    if(is.factor(out)) out<-as.character(out)
+    #if(is.factor(out)) out<-as.character(out)
     #return NA if below confidence
     if (max(distance) >= confidence) {
       return(out)
     } else {
-      return(NA)
+      return(as.factor(NA))
     }
   }
   
-  x<-mapply(FUN = inner,
-            as.list(as.character(input_column)), 
-            MoreArgs = list(.data=.data, 
-                            m_col=m_col,
-                            o_col=o_col,
-                            confidence=confidence
-                            ),
-            SIMPLIFY=TRUE
+  x<-lapply(as.list(as.character(input_column)),
+            inner, 
+            .data=.data, 
+            m_col=m_col,
+            o_col=o_col,
+            confidence=confidence
             )
-  #x<-unlist(x)
+  x<-unlist(x, use.names = TRUE)
   x
 }
