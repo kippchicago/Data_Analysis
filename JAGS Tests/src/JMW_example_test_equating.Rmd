@@ -7,9 +7,10 @@ output:
     fig_height: 6
 ---
 First, let's load the packages we'll sue
-```{r prerequisites}
+```{r prerequisites, message=FALSE, warning=FALSE}
 require(rjags)
 require(Rgraphviz)
+require(data.table)
 ```
 Create some simulated data:
 ```{r norm_sim_data}
@@ -19,10 +20,10 @@ set.seed(432104)
 # Simulated RIT Equating Example
 
 ## First pass at a model
-OK. So let's define a simple model is the basis for  our simulated data and our probabilistic model of inference.  First we'll assume that there is in fact a latent ability attribute, $\theta_i$, for each student $i \in {1,\dots,.n}$ in our sample.  Further, we'll assume that this latent trait is accurately measured by an *unobserved* RIT score, which we'll denote $r_{i}$. In other words, RIT scores are a direct measure of $\theta_i$. Luckingly for us, students take a test that gives us an estimate of RIT scores, the MAP.  So we assume that the observed RIT, $\hat{r}$ is a realization from a distribution  centered on $r$
-Finally, we assuem that all other academic measures (interim assessments, Kahn objectives, individual test items, even Do Nows/Exit Tickets).  So we have observed realization of a RIT score for a student as well as all the other academic indicators.  All other RVs and parameters need to be estimated.  And our goal here is to make inferences about $r_i$ given our observation of other acadmeic indicators.  
+OK. So let's define a simple model is the basis for  our simulated data and our probabilistic model of inference.  First we'll assume that there is in fact a latent ability attribute, $\theta_i$, for each student $i \in {1,\dots,.n}$ in our sample.  Further, we'll assume that this latent trait is accurately measured by an *unobserved* RIT score, which we'll denote $r_{i}$. In other words, RIT scores are a direct measure of $\theta_i$. Luckily for us, students take a test that gives us an estimate of RIT scores, the MAP.  So we assume that the observed RIT, $\hat{r}$ is a realization from a distribution  centered on $r$
+Finally, we assume that all other academic measures (interim assessments, Khan objectives, individual test items, even Do Nows/Exit Tickets).  So we have observed realization of a RIT score for a student as well as all the other academic indicators.  All other RVs and parameters need to be estimated.  And our goal here is to make inferences about $r_i$ given our observation of other academic indicators.  
 
-Here's a graphical representation of our probaility model:
+Here's a graphical representation of our probability model:
 
 ```{r equat_graph}
 
@@ -52,7 +53,7 @@ rit.graph <- addEdge("t[i]", "that[i]" , rit.graph, 1)
 plot(rit.graph)
 
 ```
-Now, let's simulate some data based on this basic probability model. The $\theta_i$'s need a prior and I'll use the school level norms (because I'm on a plane and don't have the student level norms with me; we can change these later) for fall 5th grade math.  Thinking about this, we can collapse the $\theta_i$s and $r_i$, sunce we are assuming theta exists on the the RIT scale. I'll use $\theta_i$ to denote the RIT-scaled laten variable. 
+Now, let's simulate some data based on this basic probability model. The $\theta_i$'s need a prior and I'll use the school level norms (because I'm on a plane and don't have the student level norms with me; we can change these later) for fall 5th grade math.  Thinking about this, we can collapse the $\theta_i$s and $r_i$, since we are assuming theta exists on the the RIT scale. I'll use $\theta_i$ to denote the RIT-scaled latent variable. 
 
 ```{r simulate_thetas}
 set.seed(432104)
@@ -67,7 +68,7 @@ rhat<-rnorm(n, r, sd=rep(3, times=n))
 
 head(rhat)
 ```
-Ok. let's make some assumptions about how $\hat{r}$ is related to each of the three realizations of our academic indicators. Let's start with some arbitrary assessment that is graded on a zero to one scale (or zero to 100%) a realization of which is denoted $\hat{a}_i$. We'll keep it simple and assume that the $\hat{r}_i$ are linear predictors of $z.a_{i}$ in the inverse-logistic function.  That is,
+OK. let's make some assumptions about how $\hat{r}$ is related to each of the three realizations of our academic indicators. Let's start with some arbitrary assessment that is graded on a zero to one scale (or zero to 100%) a realization of which is denoted $\hat{a}_i$. We'll keep it simple and assume that the $\hat{r}_i$ are linear predictors of $z.a_{i}$ in the inverse-logistic function.  That is,
 
 $$
 \begin{aligned}
@@ -77,40 +78,87 @@ $$
 $$
 
 
-Asusming $\alpha = -1$ and $\beta = 0.01$, we simulating the data like so:
+Assuming $\alpha = -1$ and $\beta = 0.01$, we simulating the data like so:
 ```{r simulate_ahats}
 alpha<- -1
 beta<-.01
 z.a<- alpha + beta*rhat
-ahat<-1/(1+exp(-z.a))
 head(z.a)
+
+a<-1/(1+exp(-z.a))
+head(a)
+
+ahat <- rnorm(n=n, mean=a,sd=.025)
 head(ahat)
 ```
 
-Let's pretend, for now, that this the only non-MAP assessment that we have.  Consequently, all we observed are the $\hat{a}_i$ and the current RIT scores $\hat{r}_i$.  Here's the simplified model in `JAGS/BUGS` syntax:
+Let's pretend, for now, that this the only non-MAP assessment that we have.  Consequently, all we have observed are the $\hat{a}_i$ and the current RIT scores $\hat{r}_i$.  Here's the simplified model in `JAGS/BUGS` syntax:
 
 ```{r jags_model}
-model.sat.text<-"
+model.jags<-"
   model {
-    for(i in 1:N) {
-    schoo[i] ~ dnorm(mu,itau)
-    thes[i] <- 1/pow(sigma[i],2)
-    schoolobs[i] ~ dnorm(schoolmean[i],thes[i])
+    for(i in 1:n) {
+    r[i] ~ dnorm(211.39, 1/5.39)
+    rhat[i] ~ dnorm(r[i],tau)
+    z[i] <- alpha +  beta*rhat[i]
+    a[i] <- 1/(1 + exp(-z[i]))
+    ahat[i] ~ dnorm(a[i], tau.a)
     }
  
-  mu ~ dnorm(0,alpha)
-  alpha <- .01
-  itau   ~ dgamma(1e-3,pow(15,2)*1e-3)
-  tau <- pow(1/itau,1/2)
+# priors
+  beta ~ dnorm(0,.0001)
+  alpha ~ dnorm(0, .0001)
+  tau   ~ dgamma(1e-3,pow(15,2)*1e-3)
+  tau.a   ~ dgamma(1e-3,pow(15,2)*1e-3)
+  sigma.a <- pow(1/tau,1/2)
 }
 "
-model.sat.spec<-textConnection(model.sat.text)
+model.spec<-textConnection(model.jags)
 
 
 ```
 
 
+Now run the mode and take a look at $\alpha$ and $\beta$ and see that they are relative the estimated values are relatively close to the acutal values (-1 and 0.01, respectivly):
+```{r model1}
 
+fit.jags <- jags.model(model.spec,
+                   data = list('ahat' = ahat,
+                               'rhat' = rhat,
+                               'n' = n),
+                   n.chains=4,
+                   n.adapt=100)
+
+
+samps.jags<-jags.samples(fit.jags,
+             c('beta', 'alpha'),
+             10000)
+
+samps.jags
+```
+
+No let's look at the estimated $a_i$'s and $r_i$'s (the latter being our variable of interest)
+
+```{r coda, fig.height=10}
+samps.coda <- coda.samples(fit.jags,
+             c('a', 'r', 'beta', 'alpha'),
+             10000)
+summary.coda<-summary(samps.coda)
+
+plot(samps.coda)
+```
+
+Let's extract the estimated $r_i$'s from the coda samples
+
+```{r r_estimates}
+r.estimated<-as.vector(summary.coda$statistics[93:nrow(summary.coda$statistics),"Mean"]) 
+
+rs<-data.table(Actual=r, Estimated=r.estimated)
+rs[,Residual:=Estimated-Actual]
+
+rs
+```
+Nicley, the mean residual is `r mean(rs$Residual)` and the mean squared residual is `r mean(rs$Residual^2)`. Not too shabby!
 
 
 

@@ -120,7 +120,7 @@ sat.jags <- jags.model(model.sat.spec,
 #run with jags.samples
 samps.jags <- jags.samples(sat.jags,
                            c('mu','tau'),
-                           n.iter=10000,
+                           n.iter=1000,
                            thin=10
                            )
 
@@ -129,7 +129,7 @@ samps.jags
 samps.coda <- coda.samples(sat.jags,
                            c('mu','tau', 'schoolmean'),
                            n.chains=4,
-                           n.iter=10000,
+                           n.iter=1000,
                            thin=10
                            )
 

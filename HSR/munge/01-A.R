@@ -33,3 +33,33 @@ hsr[Measure.Names=="% Chose Likert 4", Measure.Names:="Agree"]
 hsr[Measure.Names=="% Chose Likert 3", Measure.Names:="Neutral"]
 hsr[Measure.Names=="% Chose Likert 2", Measure.Names:="Disagree"]
 hsr[Measure.Names=="% Chose Likert 1", Measure.Names:="Strongly Disagree"]
+
+#remove national data from regional top quartile
+hsr.regional<-HSR.Regional.Top.Qrtl[!grepl("National", Variable)]
+
+hsr.regional[grepl("ENC", Region), Region:="KIPP ENC"]
+hsr.regional[, Region:=factor(as.character(Region), levels=unique(as.character(Region)))]
+
+#remove national data from schools top quartile
+hsr.schools<-HSR.Schools.Top.Qrtl[!grepl("National", Variable)]
+
+
+
+
+
+
+hsr.quests<-HSR.Regional.questions
+
+
+hsr.quests[grepl("National", Measure.Names), Level:="National"]
+hsr.quests[grepl("Region", Measure.Names), Level:="KIPP Chicago"]
+
+# recode all %, #, and other measure names to drop school, regional, region, and average
+hsr.quests[,Measure.Names:=gsub("(School|Regional|Region|National)( )(.+)", "\\3", Measure.Names)]
+
+# rename Lickert scales Pct to something usefule and put them in order. 
+hsr.quests[Measure.Names=="% Chose Likert 5", Measure.Names:="Strongly Agree"]
+hsr.quests[Measure.Names=="% Chose Likert 4", Measure.Names:="Agree"]
+hsr.quests[Measure.Names=="% Chose Likert 3", Measure.Names:="Neutral"]
+hsr.quests[Measure.Names=="% Chose Likert 2", Measure.Names:="Disagree"]
+hsr.quests[Measure.Names=="% Chose Likert 1", Measure.Names:="Strongly Disagree"]

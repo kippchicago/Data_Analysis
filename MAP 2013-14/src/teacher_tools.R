@@ -274,15 +274,44 @@ map.prep[,GrowthType:=factor(GrowthType, levels=c("Negative",
 
 map.prep[,GrowthTypeRank:=rank(Winter14_RIT, ties.method = "first"), by=list(Winter14_Grade, Subject, GrowthType)]
 
-ma
+map.prep.summary<-
+  rbind(
+  map.prep[,list(N=sum(GrowthType=="College Ready"),Tot=.N, Percent=sum(GrowthType=="College Ready")/.N, GrowthType="College Ready", loc=40), by=list(Winter14_Grade, Subject)]
+  ,map.prep[,list(N=sum(GrowthType=="Typical"), Tot=.N, Percent=sum(GrowthType=="Typical")/.N, GrowthType="Typical", loc=37.5), by=list(Winter14_Grade, Subject)]
+  ,map.prep[,list(N=sum(GrowthType=="Not Typical"), Tot=.N, Percent=sum(GrowthType=="Not Typical")/.N, GrowthType="Not Typical", loc=35), by=list(Winter14_Grade, Subject)]
+  ,map.prep[,list(N=sum(GrowthType=="Negative"), Tot=.N, Percent=sum(GrowthType=="Negative")/.N, GrowthType="Negative", loc=32.5), by=list(Winter14_Grade, Subject)]
+  )
+
+map.prep.summary[,Text:=paste("% ", GrowthType, " = ", round(Percent*100), "% (", N,"/", Tot, ")", sep="")]
 
 
-cairo_pdf("graphs/AmyLists_KAMS.pdf", height=11, width=8.5, onefile=T)
-ggplot(map.prep, aes(x=GrowthType, y=GrowthTypeRank)) +
-  geom_text(aes(label=StudentFirstLastNameRIT, color=GrowthType), size=1.25) + 
-  facet_grid(Winter14_Grade ~ Subject) + 
-  theme_bw() + theme(legend.position="bottom")
+grades<-unique(map.prep$Winter14_Grade)
+p<-list()
+for (g in grades){
+  
+ p[[g]] <- ggplot(map.prep[Winter14_Grade==g], aes(x=GrowthType, y=GrowthTypeRank)) +
+    geom_text(aes(label=StudentFirstLastNameRIT, color=GrowthType), size=1.75) + 
+    geom_text(data=map.prep.summary[Winter14_Grade==g], 
+              aes(x="Negative", y=loc, label=Text, color=GrowthType),
+              size=3,
+              hjust=0
+              ) +
+   scale_color_manual(values=c("red",
+                               "#C49A6C",
+                               "#8D8685",
+                               "#FEBC11")) +
+    facet_grid(Winter14_Grade ~ Subject) + 
+    theme_bw() + theme(legend.position="bottom") +
+   xlab("Growth Type") + 
+   ylab("Count of Students")
+}
+  
+cairo_pdf("graphs/AmyLists_KAMS.pdf", height=8.5, width=11, onefile=T)
+  p
 dev.off()
+  
+
+
 
 
 
