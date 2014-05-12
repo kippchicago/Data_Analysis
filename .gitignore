@@ -12,6 +12,7 @@ figure/
 reports/
 *.pdf
 *.xls
+*.png
 mapdb.dcf
 ps.dcf 
 
