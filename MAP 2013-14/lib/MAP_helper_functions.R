@@ -666,7 +666,7 @@ pdf_waterfall <- function(.data, school, .by="grade", season1, season2=NULL, alp
   for(s in sort(dtable[, unique(Subject)])){
       dfp<-dtable[Subject==s] #Datatable to Plot
       for(g in as.character(sort(unique(dfp[,get(group)])))){
-        ptitle <- paste0("Fall 2013 - Winter 2013 MAP RIT Scores (Percentiles)\n", 
+        ptitle <- paste0("Fall 2013 - Spring 2014 MAP RIT Scores (Percentiles)\n", 
                          school," ", g," ", s, 
                          "\nby Fall Quartile")
         

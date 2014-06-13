@@ -1,0 +1,182 @@
+---
+output: pdf_document
+---
+ KIPP Chicago \\\\ HSR-Style Student Attrition Report
+========================================================
+```{r options, echo=FALSE, message=FALSE}
+
+#knit2html("Weekly_Attendance_Report_131106.Rmd", output="test.html", options=c('fragment_only', 'skip_style')); system('cp ./test.html ~/Sites/test.local/'); system('cp -r ./figure/* ~/Sites/test.local/figure/'); system('cd ~/Sites/test.local/ && python updateWarHTML.py')
+
+
+require(knitr)
+options(replace.assign=TRUE,
+       width=90
+      )
+opts_knit$set(
+   self.contained=FALSE
+  )
+opts_chunk$set( 
+               #fig.align='center', 
+               #dev='tikz', 
+               #fig.width=18, 
+               #fig.height=10.5, 
+               #fig.show='hold', 
+               cache=TRUE,
+               par=TRUE,
+               echo=FALSE,
+               message=FALSE,
+               warning=FALSE,
+               autodepend=FALSE
+               )
+               
+```
+
+
+```{r load_libraries}
+library(ProjectTemplate)
+setwd('../')
+load.project()
+
+#source("~/Dropbox/Consulting/KIPP Ascend/Data Analysis/MAP/Code/R/MAP_helper_functions.R")
+```
+```{r calculate_date, cach=FALSE}
+date.first  <- "2013-08-19" # first day of school year
+
+date.second <- floor_date(today(), unit="week") 
+
+date.title <- date.second -weeks(1) + days(1) 
+
+title.date<-paste(lubridate::month(date.title, 
+                                   label=TRUE, 
+                                   abbr=FALSE),
+                  " ",
+                  lubridate::day(date.title), ", ", 
+                  lubridate::year(date.title), sep=""
+                  )
+```
+### Data current through week of `r I(title.date)`
+
+
+### Transfers 
+#### Healthy Schools & Regions transfer totals
+Cumulative transfers of students enrolled on October 1st of each year and transferred prior to September 20th of the next year.  Students who enrolled **after October 1st** and transferred during the school year are **not included** in in these tables and figures. 
+
+***Cumulative Transfers***. _Darker colors_ indicate the cumulative number of transfers for reasons other than moving. _Lighter colors_ indicate the additional transfers for students who moved outside of the city of Chicago.  The _angled orange lines_ indicate the rate at which a 10 percent attrition rate accumulates; it is an indicator if we are on track (below the line) or off track (above the line) in a given month.
+
+```{r fig_cumulative_transferes, fig.width=10, fig.height=6}
+
+source('../src/transfer_tables.R')
+
+
+detach("package:plyr")
+
+
+enrolled<-rbind(group_by(Enrolled.121003, SCHOOLID) %>% 
+     summarise(N=n()) %>% 
+        mutate(Year="SY12-13"), 
+      group_by(Enrolled.131001, SCHOOLID) %>% 
+        summarise(N=n()) %>% 
+        mutate(Year="SY13-14")
+      )
+
+enrolled$School<-mapply(function(x){ switch(as.character(x),
+                           "7810" = "KAMS",
+                           "78102" = "KAP",
+                           "400146"= "KCCP",
+                           "400163" = "KBCP"
+                           )
+                    },
+       enrolled$SCHOOLID
+       )
+
+enrolled<-mutate(enrolled, 
+                 School=factor(School, 
+                               levels=c("KAP", "KAMS", "KCCP", "KBCP")
+                               )
+                 )
+
+xferplot<-left_join(xferplot, 
+                    select(enrolled, -SCHOOLID), 
+                    by=c("School", "Year")
+                    ) 
+  
+xferplot <- mutate(xferplot, Pct=round(Value/N*100))
+
+todays_month<-as.character(lubridate::month(today(), label = TRUE, abbr = TRUE))
+
+#remove cumulative transfers passed this month
+xferplot2<-xferplot[!(xferplot$Year=="SY13-14" & 
+                        xferplot$Month >= todays_month & 
+                        xferplot$Variable=="Cumulative Transfers"),]
+
+xferplot2.nm<-xferplot.nm[!(xferplot.nm$Year=="SY13-14" & 
+                        xferplot.nm$Month >= todays_month & 
+                        xferplot.nm$Variable=="Cumulative Transfers"),]
+
+  ggplot(data=subset(xferplot2, Variable=="Ceiling"), 
+       aes(x=Month, y=Value)) + 
+  geom_area(data=subset(xferplot2, Variable!="Ceiling"), 
+           aes(x=Month, y=CumVal, fill=School, group=School), 
+           stat='identity',
+           #fill="#439539", 
+           width=.5, 
+           alpha=.4) + 
+  geom_area(data=subset(xferplot2.nm, Variable!="Ceiling"), 
+           aes(x=Month, y=CumVal, fill=School, group=School), 
+           stat='identity',
+           #fill="#439539", 
+           width=.5, 
+           alpha=1) + 
+  geom_line(aes(group=Variable), color="#E27425") + 
+  geom_text(data=subset(xferplot2, Variable!="Ceiling"), 
+            aes(x=Month, 
+                y=Value, 
+                group=Variable, 
+                label=paste0(Value,"\n(",Pct,"%)")), 
+            size=2.5,
+            vjust=0) +
+    geom_text(data=subset(xferplot2.nm, Variable!="Ceiling"), 
+            aes(x=Month, 
+                y=Value, 
+                group=Variable, 
+                label=Value), 
+            size=2.5,
+            vjust=1) +
+  facet_grid(Year~School, scale="free_y") +
+  scale_fill_manual(values = c("purple",  #KCCP 
+                               "#439539", #KAMS
+                               "#60A2D7", #KCCP
+                               "#A7CFEE"  #KBCP
+  )
+  ) + theme_bw() + 
+  theme(axis.title = element_blank(),
+        axis.text.x = element_text(size=7,angle=45, hjust=1),
+        axis.text.y = element_text(size=7),
+        strip.text = element_text(size=7),
+        legend.position="none"
+  )     
+
+```
+
+$\pagebreak$
+
+### Count of transfers by type
+```{r tbl_transfers_by_type, results='asis'}
+kable(xtable(Xfer.table), output=TRUE,  row.names=FALSE)
+```
+
+### Percent of transfers, movers versus non-movers
+
+```{r tbl_transfers_hsr, results='asis', echo=FALSE}
+HSR.attrtions<-data.frame('School'=c("KAP", "KAMS", "KCCP", "Region", "Network"),
+                          'Movers'=c("9%", "5%", "10%", "8%", "2%"),
+                          'Non Movers'=c("5%", "10%", "5%","7%", "9%"),
+                          'Total' = c("14%", "15%", "15%", "15%", "11%")
+                          )
+
+
+kable(xtable(HSR.attrtions),  output=TRUE,  row.names=FALSE)
+```
+
+
+

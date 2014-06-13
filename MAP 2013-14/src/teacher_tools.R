@@ -2,9 +2,9 @@ require(ProjectTemplate)
 load.project()
 
 
-m.w14<-map.all[TermName=="Winter 2013-2014"]
+m.w14<-map.all[TermName=="Spring 2013-2014"]
 
-m_w13_8m<-m.w14[Grade==8 & MeasurementScale=="Mathematics"]
+m_w13_8m<-m.w14[SchoolInitials=="KAMS" & MeasurementScale=="Mathematics"]
 
 
 # Get Homerooms ####
@@ -215,7 +215,7 @@ cairo_pdf("graphs/strands_test_3_1.pdf", height=8.5, width=11, onefile=T)
 p$class_by_strand + ggtitle
 dev.off()
 
-cairo_pdf("graphs/strands_test_3_2.pdf", height=11, width=8.5, onefile=T)
+cairo_pdf("graphs/strands_test_6_2.pdf", height=11, width=8.5, onefile=T)
 p$homeroom_strands + ggtitle(paste("MAP and Strand RIT Scores for\n", hrs[1], sep=""))
 dev.off()
 
@@ -259,39 +259,39 @@ dev.off()
 
 
 # Amy's list of lists ####
-map.F13W14[SchoolInitials=="KAMS"]
+map.F13S14[SchoolInitials=="KAMS"]
 
-map.prep<-PrepMAP(map.F13W14, "Fall13", "Winter14", growth.type = "KIPP")[SchoolIntials=="KAMS"]
+map.prep<-PrepMAP(map.F13S14, "Fall13", "Spring14", growth.type = "KIPP")
 map.prep<-map.prep[SchoolInitials=="KAMS"]
-map.prep[Winter14_RIT-Fall13_RIT<0, GrowthType:="Negative"]
-map.prep[Winter14_RIT-Fall13_RIT>=0, GrowthType:="Not Typical"]
-map.prep[ProjectedGrowth<=Winter14_RIT, GrowthType:="Typical"]
-map.prep[CollegeReadyGrowth<=Winter14_RIT, GrowthType:="College Ready"]
+map.prep[Spring14_RIT-Fall13_RIT<0, GrowthType:="Negative"]
+map.prep[Spring14_RIT-Fall13_RIT>=0, GrowthType:="Not Typical"]
+map.prep[ProjectedGrowth<=Spring14_RIT, GrowthType:="Typical"]
+map.prep[CollegeReadyGrowth<=Spring14_RIT, GrowthType:="College Ready"]
 map.prep[,GrowthType:=factor(GrowthType, levels=c("Negative", 
                                                   "Not Typical",
                                                   "Typical",
                                                   "College Ready"))]
 
-map.prep[,GrowthTypeRank:=rank(Winter14_RIT, ties.method = "first"), by=list(Winter14_Grade, Subject, GrowthType)]
+map.prep[,GrowthTypeRank:=rank(Spring14_RIT, ties.method = "first"), by=list(Spring14_Grade, Subject, GrowthType)]
 
 map.prep.summary<-
   rbind(
-  map.prep[,list(N=sum(GrowthType=="College Ready"),Tot=.N, Percent=sum(GrowthType=="College Ready")/.N, GrowthType="College Ready", loc=40), by=list(Winter14_Grade, Subject)]
-  ,map.prep[,list(N=sum(GrowthType=="Typical"), Tot=.N, Percent=sum(GrowthType=="Typical")/.N, GrowthType="Typical", loc=37.5), by=list(Winter14_Grade, Subject)]
-  ,map.prep[,list(N=sum(GrowthType=="Not Typical"), Tot=.N, Percent=sum(GrowthType=="Not Typical")/.N, GrowthType="Not Typical", loc=35), by=list(Winter14_Grade, Subject)]
-  ,map.prep[,list(N=sum(GrowthType=="Negative"), Tot=.N, Percent=sum(GrowthType=="Negative")/.N, GrowthType="Negative", loc=32.5), by=list(Winter14_Grade, Subject)]
+  map.prep[,list(N=sum(GrowthType=="College Ready"),Tot=.N, Percent=sum(GrowthType=="College Ready")/.N, GrowthType="College Ready", loc=40), by=list(Spring14_Grade, Subject)]
+  ,map.prep[,list(N=sum(GrowthType=="Typical"), Tot=.N, Percent=sum(GrowthType=="Typical")/.N, GrowthType="Typical", loc=37.5), by=list(Spring14_Grade, Subject)]
+  ,map.prep[,list(N=sum(GrowthType=="Not Typical"), Tot=.N, Percent=sum(GrowthType=="Not Typical")/.N, GrowthType="Not Typical", loc=35), by=list(Spring14_Grade, Subject)]
+  ,map.prep[,list(N=sum(GrowthType=="Negative"), Tot=.N, Percent=sum(GrowthType=="Negative")/.N, GrowthType="Negative", loc=32.5), by=list(Spring14_Grade, Subject)]
   )
 
 map.prep.summary[,Text:=paste("% ", GrowthType, " = ", round(Percent*100), "% (", N,"/", Tot, ")", sep="")]
 
 
-grades<-unique(map.prep$Winter14_Grade)
+grades<-unique(map.prep$Spring14_Grade)
 p<-list()
 for (g in grades){
   
- p[[g]] <- ggplot(map.prep[Winter14_Grade==g], aes(x=GrowthType, y=GrowthTypeRank)) +
+ p[[g]] <- ggplot(map.prep[Spring14_Grade==g], aes(x=GrowthType, y=GrowthTypeRank)) +
     geom_text(aes(label=StudentFirstLastNameRIT, color=GrowthType), size=1.75) + 
-    geom_text(data=map.prep.summary[Winter14_Grade==g], 
+    geom_text(data=map.prep.summary[Spring14_Grade==g], 
               aes(x="Negative", y=loc, label=Text, color=GrowthType),
               size=3,
               hjust=0
@@ -300,13 +300,13 @@ for (g in grades){
                                "#C49A6C",
                                "#8D8685",
                                "#FEBC11")) +
-    facet_grid(Winter14_Grade ~ Subject) + 
+    facet_grid(Spring14_Grade ~ Subject) + 
     theme_bw() + theme(legend.position="bottom") +
    xlab("Growth Type") + 
    ylab("Count of Students")
 }
   
-cairo_pdf("graphs/AmyLists_KAMS.pdf", height=8.5, width=11, onefile=T)
+cairo_pdf("graphs/AmyLists_KAMS_Spring.pdf", height=8.5, width=11, onefile=T)
   p
 dev.off()
   

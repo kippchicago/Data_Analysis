@@ -4,9 +4,11 @@
 
 #knit2html("Weekly_Attendance_Report_131106.Rmd", output="test.html", options=c('fragment_only', 'skip_style')); system('cp ./test.html ~/Sites/test.local/'); system('cp -r ./figure/* ~/Sites/test.local/figure/'); system('cd ~/Sites/test.local/ && python updateWarHTML.py')
 
-options(#replace.assign=TRUE,
-        width=60
-        )
+
+require(knitr)
+options(replace.assign=TRUE,
+       width=60
+      )
 opts_knit$set(
    self.contained=FALSE
   )
@@ -16,7 +18,7 @@ opts_chunk$set(
                #fig.width=8, 
                #fig.height=10.5, 
                #fig.show='hold', 
-               cache=FALSE, 
+               cache=TRUE,
                par=TRUE,
                echo=FALSE,
                message=FALSE,

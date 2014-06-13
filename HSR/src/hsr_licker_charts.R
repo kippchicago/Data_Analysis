@@ -71,7 +71,7 @@ hsr.sum.pos.neg[Sign=="Strongly Agree", x:=1.05]
 hsr.sum.pos.neg[Sign=="Strongly Disagree", x:=-0.85]
 hsr.sum.pos.neg[Sign=="Neutral", x:=0]
 
-topics<-hsr.plot.data[,unique(Topic.Names)]
+topics<-hsr.plot.data[,unique(Topic.Name)]
 
 
 
@@ -176,6 +176,40 @@ p$sbm_lbdd_fe_di<-plot_lickert(hsr.plot.data[School %in% schoollist], c("Student
 
 
 pdf("graphs/hsr_KBCP.pdf", height=11, width=8.5)
+p
+dev.off()
+
+# KAP ####
+
+schoollist<-c("KAP", "KC", "KN")
+p<-list()
+p$mcs<-plot_lickert(hsr.plot.data[School %in% schoollist], "Motivation, Commitment, and Satisfaction")
+
+p$ve_re<-plot_lickert(hsr.plot.data[School %in% schoollist], c("Values and Expectations",
+                                                               "Results orientation"))
+
+p$c_sap<-plot_lickert(hsr.plot.data[School %in% schoollist], c("Curriculum",
+                                                               "Student academic preparedness"))
+
+p$spm_srr_se<-plot_lickert(hsr.plot.data[School %in% schoollist], c("Student academic preparedness",
+                                                                    "Staff recruitment and retention",
+                                                                    "School Environment"))
+
+p$inspl_instrl_dl<-plot_lickert(hsr.plot.data[School %in% schoollist], c("Inspirational Leadership",
+                                                                         "Instructional Leadership",
+                                                                         "Distributed leadership"))
+
+p$is_ip<-plot_lickert(hsr.plot.data[School %in% schoollist], c("Instructional Strategies",
+                                                               "Instructional Planning"))
+
+p$sbm_lbdd_fe_di<-plot_lickert(hsr.plot.data[School %in% schoollist], c("Student Behavior Management",
+                                                                        "Leadership bench depth and development",
+                                                                        "Family engagement",
+                                                                        "Diversity and inclusivity"))
+
+
+
+pdf("graphs/hsr_KAP.pdf", height=11, width=8.5)
 p
 dev.off()
 

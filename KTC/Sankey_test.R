@@ -2,7 +2,9 @@
 require(dplyr)
 require(riverplot)
 require(data.table)
-
+require(igraph)
+require(rCharts)
+require(alluvial)
 # Need to generate data on student outcomes
 
 # let's start with 80 kids, since that is about the size
@@ -107,7 +109,8 @@ e2.melt<-melt(e2, id.vars = "StudentID")
 n_students<-length(unique(e2.melt$StudentID))
 
 # calculate edge weights ####
-edge_weights<-summarise(group_by(e2.melt, value),Pct=n()/n_students)
+edge_weights<-group_by(e2.melt, value) %>% summarise(N=n()) %>% mutate(Pct=N/n_students)
+edge_weights
 
 
 
@@ -199,10 +202,7 @@ ktc.alluvial[]
 alluvial(ktc.alluvial[,list(MAP_Quartile, HS1, HS2, HS3, HS4, ACT)], 
          freq=ktc.alluvial$N, 
          border=NA,
-         col=ifelse(ktc.alluvial$HS1=="DO"|
-                      ktc.alluvial$HS2=="DO"|
-                      ktc.alluvial$HS3=="DO"|
-                      ktc.alluvial$HS4=="DO", 
+         col=ifelse(ktc.alluvial$HS1=="NBS"|ktc.alluvial$HS1=="PDS", 
                     "red", 
                     "gray"
                     )
@@ -225,8 +225,188 @@ alluvial(ktc.alluvial[,list(MAP_Quartile, HS1, HS2, HS3, HS4, ACT)],
 # with student IDs
 alluvial(ktc.alluvial.2[,list(StudentID=factor(StudentID, levels=rev(StudentID)), MAP_Quartile, HS1, HS2, HS3, HS4, ACT)], 
          freq=ktc.alluvial.2$N, 
-         border=ifelse(ktc.alluvial.2$StudentID=="10", "seagreen", "gray"),
-         col=ifelse(ktc.alluvial.2$StudentID=="10", "seagreen", "gray"))
+         border=NA,
+         col=ifelse(ktc.alluvial.2$HS1=="DO"|
+                      ktc.alluvial.2$HS2=="DO"|
+                      ktc.alluvial.2$HS3=="DO"|
+                      ktc.alluvial.2$HS4=="DO"
+                    , "orange", "gray"))
+
+
+# Parallel sets with rcharts ####
+require(RCurl)
+require(rCharts)
+
+f <- getURL('https://raw.githubusercontent.com/benjh33/rcharts_plugins/master/parallelsets/titanic_agg.csv')
+d <- read.table(text=f, header=T, sep = ',')
+glimpse(d)
+
+# this creates a new S4 class called ParallelSets that inherits rCharts (I think)
+ParallelSets = setRefClass('ParallelSets', contains = 'rCharts', methods = list(
+  initialize = function(){
+    callSuper()
+    LIB <<- get_lib("http://mostlyconjecture.com/rcharts_plugins/parallelsets")
+    lib <<- "parallelsets"
+    templates$script <<- '
+    <script type="text/javascript">
+    function draw{{chartId}}(){
+    var params = {{{ chartParams }}}
+    var chart = {{{ parsets }}}
+    
+    d3.select("#{{chartId}}").append("svg")
+    .datum({{{ data }}})
+    .call(chart)
+    return chart;
+    };
+    
+    $(document).ready(function(){
+    draw{{chartId}}()
+    });
+    
+    </script>'
+  },
+  getPayload = function(chartId){
+    skip = c('id', 'dom')
+    parsets = toChain(params[!(names(params) %in% c(skip, 'data'))], "d3.parsets()")
+    chartParams = RJSONIO:::toJSON(params[skip])
+    list(parsets = parsets, chartParams = chartParams, data=toJSONArray(params[['data']]),
+         chartId = chartId, lib = basename(lib), liburl = LIB$url
+    )
+  }
+))
+
+chart <- ParallelSets$new()
+str(chart)
+
+ktc.pp<-select(ktc.data, MAP_Quartile, HS1, HS2, HS3, HS4, ACT)
+
+chart$set(data = ktc.pp,
+          dimensions = names(ktc.pp),
+          height= 800,
+          width=650,
+          dom="parsets", # human-readable identifier for css tweaking later 
+          tension=0.4 # controls curve of bands
+)
+
+chart
+
+# Mike Bostok's sankey plugin vai rcharts ####
+# get the data in source, target, value format
+ktc.bostock<-rbind(data.frame(source=paste("MAP", ktc.data$MAP_Quartile), target=paste("Y1", ktc.data$HS1)),
+      data.frame(source=paste("Y1", ktc.data$HS1), target=paste("Y2",ktc.data$HS2)),
+      data.frame(source=paste("Y2",ktc.data$HS2), target=paste("Y3",ktc.data$HS3)),
+      data.frame(source=paste("Y3",ktc.data$HS3), target=paste("Y4",ktc.data$HS4)),
+      data.frame(source=paste("Y4",ktc.data$HS4), target=paste("ACT", ktc.data$ACT))
+      )
+
+ktc.bostsock.sum<-group_by(ktc.bostock, source, target) %>% summarise(value=n()/nrow(ktc.bostock))
+
+bostockPlot<-rCharts$new()
+bostockPlot$setLib('http://timelyportfolio.github.io/rCharts_d3_sankey/libraries/widgets/d3_sankey')
+
+bostockPlot$set(
+  data = ktc.bostsock.sum,
+  nodeWidth = 15,
+  nodePadding = 10,
+  layout = 32,
+  width = 750,
+  height = 500,
+  labelFormat = ".1%"
+)
+
+bostockPlot
+
+# Rewrite of alluvial in ggplot ####
+
+
+
+ktc.alluvial.melt<-melt(ktc.alluvial.2,id.vars = c("StudentID", "N"))
+
+ktc.alluvial.melt
+group_by(ktc.alluvial.melt, )
+
+ggplot(filter(ktc.alluvial.melt, variable!=N), aes(x=variable, y=StudentID)) +
+geom_point(aes(color=value)) +geom_line()
+
+n.students<-10
+n.cats<-5
+n.perf_levels<-7
+
+students<-1:n.students
+cats<-1:n.cats
+perf_levels<-1:n.perf_levels
+
+d<-as.data.table(expand.grid(StudentID=students, Category=cats))
+
+d[,Performance:=sample(perf_levels,.N,replace = TRUE), by=list(StudentID)]
+
+d[,Rank:=rank(Performance, ties.method = "first"), by=Category]
+
+d[,y:=Rank/max(Rank), by=Category]
+
+
+f <- function(x, sid, n=10){
+  x<-filter(x, StudentID==sid)
+  d<-data.frame(spline(x$Category, x$y, n=nrow(x)*n,method="fmm" )) %>%
+    mutate(StudentID=sid)
+  d
+}
+
+
+f2 <- function(x, sid, shape=1){
+  x<-filter(x, StudentID==sid)
+  spl<-xsplinePoints(xsplineGrob(x=x$Category, y=x$y, open=TRUE, shape=shape, default.units = "inches", repEnds = T))
+  d<-data.frame(x=as.numeric(spl$x), y=as.numeric(spl$y)) %>%
+    mutate(StudentID=sid
+           #, x=x/max(x)*5, y=y/max(y)
+           )
+  d
+}
+
+
+
+add_padding<-function(x, padding=.1){
+  x.out<-c(x-(2*padding), x-padding, x , x+padding, x+(2*padding))
+  sort(x.out)
+}
+
+
+f2 <- function(.data, sid, shape=1, ...){
+  .data<-filter(.data, StudentID==sid)
+  perfs<-unique(.data$Performance)
+  n.perf<-length(perfs)
+  x<-add_padding(.data$Category, ...)
+  y<-rep(.data$y, each=5)
+  shape=rep(c(1,0,0,0,1), times=5)
+  spl<-xsplinePoints(xsplineGrob(x=x, y=y, open=TRUE, shape=shape, default.units = "inches", repEnds = T))
+  d<-data.frame(x=as.numeric(spl$x), y=as.numeric(spl$y)) %>%
+    mutate(StudentID=sid)
+  d
+}
+
+
+
+
+#d.splines<-rbindlist(lapply(X = unique(d$StudentID), FUN = f, x=d, n=10))
+
+d.splines2<-rbindlist(lapply(X = unique(d$StudentID), FUN = f2, .data=d, shape=-.25))
+
+#d.converted <- mutate(d, x=unit(x,"npc"), y=unit(y,"npc"))
+#setnames(d.splines, "x", "Category")
+
+setnames(d.splines2, "x", "Category")
+
+d.splines2$ymax<-d.splines2$y+.05
+d.splines2$ymin<-d.splines2$y-.05
+
+ggplot(data=d.splines2, aes(x=Category, y=y)) + 
+  geom_point(data=d, aes(color=StudentID)) +
+  geom_line(aes(group=StudentID, color=StudentID)) + 
+  geom_ribbon(aes(x=Category, 
+                  ymax=ymax, 
+                  ymin=ymin,
+                  group=StudentID,
+                  fill=StudentID), alpha=.2) 
 
 
 

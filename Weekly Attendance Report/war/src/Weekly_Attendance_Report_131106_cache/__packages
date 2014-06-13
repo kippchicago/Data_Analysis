@@ -1,0 +1,17 @@
+base
+bitops
+data.table
+DBI
+ggplot2
+gridExtra
+knitr
+lubridate
+plyr
+ProjectTemplate
+RCurl
+reshape
+reshape2
+rJava
+RJDBC
+stringr
+xtable
