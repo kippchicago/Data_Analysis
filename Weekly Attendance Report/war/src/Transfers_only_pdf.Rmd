@@ -146,7 +146,7 @@ xferplot2.nm<-xferplot.nm[!(xferplot.nm$Year=="SY13-14" &
   scale_fill_manual(values = c("purple",  #KCCP 
                                "#439539", #KAMS
                                "#60A2D7", #KCCP
-                               "#A7CFEE"  #KBCP
+                               "#C49A6C"  #KBCP
   )
   ) + theme_bw() + 
   theme(axis.title = element_blank(),
@@ -160,12 +160,12 @@ xferplot2.nm<-xferplot.nm[!(xferplot.nm$Year=="SY13-14" &
 
 $\pagebreak$
 
-### Count of transfers by type
+### Count of transfers by type, SY 2013-2014
 ```{r tbl_transfers_by_type, results='asis'}
 kable(xtable(Xfer.table), output=TRUE,  row.names=FALSE)
 ```
 
-### Percent of transfers, movers versus non-movers
+### Percent of transfers, movers versus non-movers, SY 2012-2013
 
 ```{r tbl_transfers_hsr, results='asis', echo=FALSE}
 HSR.attrtions<-data.frame('School'=c("KAP", "KAMS", "KCCP", "Region", "Network"),

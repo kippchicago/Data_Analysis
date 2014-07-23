@@ -159,12 +159,12 @@ dev.off()
 
 hsr.kams <- prepSurveyAvg(hsr.all, school = "KIPP Ascend Middle School")
 setnames(hsr.kams, "KAMS", "KIPP.Chicago")
-pdf("graphs/hsr_questions_2pager_KAMS.pdf", height=11, width=8.5)
+pdf("graphs/hsr_questions_2pager_KAMS_2.pdf", height=11, width=8.5)
 p.avg3 %+% 
   hsr.kams[Parent.Topic %in% c("Attainment", "Character", "Culture and Climate")] + 
-  ggtitle("KAMS")
+  ggtitle("KAMS | All 203 HSR Questions\nPage 1 of 2")
 p.avg3 %+% hsr.kams[!(Parent.Topic %in% c("Attainment", "Character", "Culture and Climate"))] +
-  ggtitle("KAMS")
+  ggtitle("KAMS | All 203 HSR Questions\nPage 2 of 2")
 dev.off()
 
 # KCCP 2 pager ###

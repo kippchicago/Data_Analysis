@@ -398,6 +398,7 @@ setnames(d.splines2, "x", "Category")
 
 d.splines2$ymax<-d.splines2$y+.05
 d.splines2$ymin<-d.splines2$y-.05
+d.splines2$Level<-trunc(d.splines2$Category)
 
 ggplot(data=d.splines2, aes(x=Category, y=y)) + 
   geom_point(data=d, aes(color=StudentID)) +
