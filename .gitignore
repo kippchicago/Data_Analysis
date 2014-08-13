@@ -16,6 +16,9 @@ reports/
 mapdb.dcf
 ps.dcf 
 
+# ignore _site directories
+_site/
+
 ## Ignore data/*.sql file (contains uid/pwd info for connecting to databases) in Project Template rendered projects
 data/*.sql
 
