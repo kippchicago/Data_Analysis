@@ -218,3 +218,15 @@ inset_zoom(p.buses,
 
 p.less + facet_wrap(~GRADE_LEVEL) + ggtitle("KIPP Chi: Students by Grade & School\nwith Busing ZIP Codes Highlighted")
 dev.off()
+
+
+pdf("graphs/busing_map_with_schools.pdf", height=17, width=11)
+inset_zoom(p.buses, 
+           zoom=2, 
+           x.expand=c(1135000, 1165000), 
+           y.expand=c(1885000, 1910000), 
+           j.expand="bl", 
+           inset.title="Vicinity of KAMS & KCCP")
+
+p.less + facet_wrap(~GRADE_LEVEL) + ggtitle("KIPP Chi: Students by Grade & School\nwith Busing ZIP Codes Highlighted")
+dev.off()

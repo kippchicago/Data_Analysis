@@ -797,6 +797,105 @@ cairo_pdf("graphs/BOD_MAP_all.pdf", height = 8, width=10.5, onefile = TRUE)
 
 dev.off()
 
+
+# HSR Survey Summary ####
+# data from one pagers on hsr.kipp.org
+
+hrs.recs<-hsr.all %>% filter(grepl("recommend", Survey.Question),
+                   grepl("Positive", Measure.Names),
+                   Role!="Staff"
+                   ) %>%
+  mutate(Prompt=paste0(Role, 
+                       "s", 
+                       str_replace(Survey.Question, "I ", " ")
+                      ),
+         Prompt=str_replace(Prompt, "my", "their"),
+         School=abbrev(School, exceptions = list(old=c("KAPS", "KCMS"), 
+                                                          new=c("KAP", "KCCP")
+                                                          )
+                                ),
+         School=factor(School, levels=c("KAP", "KAMS", "KCCP", "KBCP")),
+         Percent=as.numeric(as.character(Measure.Values))*100
+         )
+
+p.hsr.recs<-ggplot(hrs.recs, aes(x=Percent, y=Prompt)) + 
+  geom_point(aes(color=School),
+             size=3, 
+             shape=17,
+             alpha=0.6) + 
+  theme_bw() + 
+  theme(legend.position="bottom") +
+  scale_color_manual(values = c("purple",
+                                "#439539", 
+                                "#60A2D7", 
+                                "#C49A6C")
+                     )
+
+
+hsr.hilo <- hsr.all %>% 
+  filter(School=="KIPP.Chicago",
+         Measure.Names=="Average"
+         ) %>%
+  arrange(Role, Measure.Values) %>%
+  group_by(Role) %>%
+  mutate(Avg_Rank=row_number(Measure.Values)) %>%
+  filter(Avg_Rank==max(Avg_Rank) | Avg_Rank==min(Avg_Rank)) %>%
+  mutate(Rank=ifelse(Avg_Rank!=1, "High", "Low"),
+         Rank2=factor(as.character(Rank),levels=c("High", "Low"), ordered=T)
+  )
+         
+
+p.sample_questions<-ggplot(hsr.hilo, aes(x=Measure.Values, y=Survey.Question)) + 
+  geom_point() + 
+  facet_grid(Role~., drop = T, scales="free_y") + 
+  theme_bw() 
+  
+  
+# Back Page Summary ####
+
+summ.12<-data.frame(
+  Metric = c("Enrollment", "FRM Students", "Attendance", "Special Needs", "Attrition", "College Matriculation"),
+  Goal = c("1,038 students" ,"> 90%", "> 95 %", " ", " < 10%", "> 85%"),
+  "FY2014" = c(990, "93%", "95%", "12%", "8% (est.)", "75%"), 
+  "FY2013" = c(746, "93%", "94%", "12%", "16%", "85%")
+  )
+
+summ.table<-tableGrob(summ.12)
+
+summ.table
+# First page ala hsr summaries ####
+
+g.stu<-arrangeGrob(
+  textGrob("Students who would reccommend\nKIPP to their friends and family."),
+  tableGrob(data.frame(Region=3.97, Network=3.52), show.rownames = FALSE),
+  textGrob("70% of students aggree that\nthey would recommend KIPP."),
+  ncol=1,
+  nrow=3
+  )
+
+g.famlies<-arrangeGrob(
+  textGrob("Families who are satisfied or very\nsatisfied with their school."),
+  tableGrob(data.frame(Region=4.53, Network=3.39), show.rownames = FALSE),
+  textGrob("92% of families are satisfied\nwith their child's school."),
+  ncol=1,
+  nrow=3
+)
+
+g.teachers<-arrangeGrob(
+  textGrob("Teachers who would reccommend\nKIPP as a great place to work."),
+  tableGrob(data.frame(Region=3.95, Network=3.67), show.rownames = FALSE),
+  textGrob("73% of teachers would\n reccomend KIPP as a great\nplace to work."),
+  ncol=1,
+  nrow=3
+)
+
+g.tables<-arrangeGrob(g.stu, g.famlies, g.teachers,
+                      nrow=1, ncol=3)
+
+
+
+
+
 # EOY Summarry 11x17 ####
 
 
@@ -837,15 +936,18 @@ p.avg3<-ggplot(hsr.avg.chinat,
 todays_date <-format(today(), "%y%m%d")
 
 pdf(paste0("graphs/EOY_BOD_11_x_17_",todays_date, ".pdf"), width=17, height=11, onefile = TRUE)
-# pages 1-3
+# pages 1-4
 grid.arrange(
-  arrangeGrob(p.avg3, main="\nAll 2003 HSR Survery Questions", ncol=1, widths=1),
-  arrangeGrob(hsr.top.2, 
-              rectGrob(width = unit(.9, "npc"),
-                       height = unit(.9, "npc")), 
+  arrangeGrob(summ.table, 
+              rectGrob(width = unit(.9, "npc"), height=unit(.9, "npc")), 
+              main="\nSummary Statistics", ncol=1, widths=1, nrow=2, heights=c(1,3)),
+  arrangeGrob(g.tables,
+              p.sample_questions + ylab("") + ggtitle("Sample HSR Questions"),
+              hsr.top.2 + ylab(""), 
               ncol=1, 
-              nrow=2, 
-              heights=c(1,2)
+              nrow=3, 
+              heights=c(0.5,.5,1),
+              main="\nHealthy Schools and Regions Survey Summary"
               ),
   ncol=2,
   widths=c(1,1)
