@@ -12,6 +12,6 @@ setnames(ws.norms, "StartRIT", "TestRITScore")
 
 #info(logger, "Adding TypicalWinterToSpringGrowth")
 
-map.all<-left_join(map.all, ws.norms, by=c("Grade", "MeasurementScale", "TestRITScore"))
+map.all<-left_join(as.data.frame(map.all), ws.norms, by=c("Grade", "MeasurementScale", "TestRITScore"))
 
 map.all<-data.table(map.all)

@@ -1,8 +1,12 @@
-data_loading: on
-cache_loading: on
-munging: on
-logging: on
-load_libraries: on
-libraries: reshape, plyr, ggplot2, stringr, lubridate, RJDBC, grid, dplyr, mapvisuals, xtable, data.table, log4r
-as_factors: on
-data_tables: off
+data_loading: TRUE
+cache_loading: TRUE
+munging: TRUE
+logging: TRUE
+load_libraries: TRUE
+libraries: reshape, plyr, ggplot2, stringr, lubridate, RJDBC, grid,
+       dplyr, mapvisuals, xtable, data.table, log4r
+as_factors: TRUE
+data_tables: FALSE
+version: 0.6
+recursive_loading: FALSE
+attach_internal_libraries: TRUE

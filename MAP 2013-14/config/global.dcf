@@ -3,6 +3,6 @@ cache_loading: on
 munging: off
 logging: on
 load_libraries: on
-libraries: reshape2, plyr, ggplot2, stringr, lubridate, RJDBC, grid, dplyr, mapvisuals, data.table
+libraries: reshape2, assertthat, plyr, ggplot2, stringr, lubridate, RJDBC, grid, dplyr, mapvisuals, data.table
 as_factors: on
 data_tables: on

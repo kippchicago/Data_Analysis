@@ -1,0 +1,162 @@
+---
+title: "Random Forests Test"
+author: "Chris Haid"
+date: "October 22, 2014"
+output: html_document
+---
+```{r knitr_reqs}
+require(knitr)
+opts_chunk$set(
+  message=FALSE,
+  warning=FALSE
+  )
+```
+
+This document is attempt at Proof of Concept in using Random Forest estimation to model growth
+
+First, we load some "fake" map data from the `mapvisuals` package.  We also load the `randomForest` package.
+
+```{r prereqs}
+
+
+require(randomForest)
+require(mapvisuals)
+
+data(nweamap)
+map_mv <-mapvizier(nweamap)
+
+map<-map_mv$mapData
+
+map<-unique(map) #something going on wiht duplicates in the data
+glimpse(map)
+
+```
+
+Now we do some munging.  First we need to transform season into decimals that we subtract from grade levels so that grade level season can be plotted on numerical scale
+```{r munging}
+map <- map %>%
+  mutate(gls=mapply(grade_level_season, Season, SIMPLIFY = TRUE),
+         gls=Grade+gls)
+
+map %>% select(Grade, Season, gls) %>% tail
+```
+
+Let's select 25 random students who have 8th grade scores in reading and math and plot thier growth
+
+```{r plot 100}
+
+
+sample_stus <- map %>%
+  filter(gls==8,  
+         MeasurementScale %in% c("Mathematics", "Reading"), 
+         !is.na(StudentID)) %>% 
+  select(StudentID) %>%
+  unique %>% 
+  as.matrix %>%
+  sample(size=25, replace = FALSE)
+  
+  
+
+map_sample <- map %>% filter(StudentID %in% sample_stus, 
+                             MeasurementScale %in% c("Mathematics", "Reading"))
+
+ggplot(map_sample, aes(x=gls, y=TestRITScore)) + 
+  geom_line(aes(group=StudentID), color ="gray70", alpha=.5) + 
+  facet_grid(.~MeasurementScale) +
+  theme_bw()
+
+```
+
+Now let's cast our RIT scores over time for 8th grade completers:
+
+```{r cast_rit}
+require(tidyr)
+
+completed_8 <-map %>%
+  filter(gls==8,  
+         MeasurementScale %in% c("Mathematics", "Reading"), 
+         !is.na(StudentID)) %>% 
+  select(StudentID) %>%
+  unique
+
+map_2<-map %>% 
+  filter(StudentID %in% completed_8$StudentID, 
+         MeasurementScale %in% c("Reading", "Mathematics")) %>%
+  select(StudentID, 
+         StudentFirstname, 
+         StudentLastname, 
+         SchoolInitials, 
+         SchoolName, 
+         MeasurementScale, 
+         gls, 
+         TestRITScore) %>% 
+  unite(Subj_t, MeasurementScale, gls) %>% 
+  unique 
+# drop duplicates and spread
+dupes <-duplicated(map_2 %>% select(-TestRITScore))
+map_wide<-map_2[!dupes, ] %>%
+  spread(key=Subj_t, value=TestRITScore)
+
+glimpse(map_wide)
+
+```
+
+Let's est this fucker out!
+
+```{r rf}
+total_stus<-length(map_wide$StudentID)
+
+student_ids <- map_wide$StudentID 
+
+selected_stus <- sample(student_ids,
+                        size=round(total_stus), 
+                        replace = FALSE)
+  
+map_wide_subs<-map_wide %>% filter(StudentID %in% selected_stus)  
+n<-nrow(map_wide_subs)
+map_train<-map_wide_subs[1:round(n/2),]
+map_test<-map_wide_subs[round(n/2)+1:n,]
+#map_forecast<-map_wide_subs[round(2*n/3)+1:n,]
+
+map_train_read<-map_train %>% select(starts_with("Reading")) %>% na.exclude
+map_test_read<-map_test %>% select(starts_with("Reading")) %>% na.exclude
+
+
+
+bestmtry <- tuneRF(x = map_train_read %>% select(-Reading_8),
+                   y= map_train_read$Reading_8,
+                   ntreeTry=100,
+                   stepFActor=1.5, 
+                   improve=0.01,
+                   trace=TRUE,
+                   plot=TRUE,
+                   dobest=FALSE)
+
+reading.rf<-randomForest(Reading_8~.,data=map_train_read, mtry=6, ntree=1000, 
+     keep.forest=TRUE, importance=TRUE,test=map_test_read)
+
+importance(reading.rf)
+varImpPlot(reading.rf)
+
+```
+## kNN approach
+
+Let's try the k nearest neighbors appraoch:
+```{r knn}
+
+require(class)
+
+test_knn<-knn(map_train_read[,1:9],
+              map_test_read[,1:9],
+              map_train_read[,10],
+              k=3, prob=T)
+
+
+x<-data.frame(Predicted=test_knn, Actual=map_test_read[1:3,10])
+x %>% mutate(Sqrd_Diff=(as.integer(as.character(Actual))-
+                          as.integer(as.character(Predicted)))^2) %>%
+  summarize(sqrt(sum(Sqrd_Diff)/n()))
+
+
+```
+

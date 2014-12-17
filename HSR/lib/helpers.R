@@ -36,37 +36,79 @@ prepSurveyAvg <- function(.data=hsr, school="KIPP Ascend Primary School"){
   x.out
 }
 
-plotMAPRegs<-function(.data=map.combined, 
+plotMAPRegs<-function(.data, 
                       grade="5th Grade", 
                       subject="Mathematics",
-                      guides=FALSE){
-  plot.data<-.data[Grade==grade & Subtest.Name==subject]
+                      guides=FALSE, 
+                      vary.size=FALSE, 
+                      anonymize=FALSE,
+                      show.above=7,
+                      show.chicago=TRUE){
+  require(data.table)
+  .data<-data.table(.data)
+  plot.data<-copy(.data[Grade==grade & Sub_Test_Name==subject])
   
-  
-  regions<-plot.data[level2=="Region", as.character(Region)][order(plot.data[level2=="Region",Pct_ME])]
-  
-  plot.data[,Region:=factor(as.character(Region),levels=regions)]
+  if(anonymize){
+    plot.data[,Region2:=Region]
+    plot.data[,Region:=Region_Anon]
+    
+    
+    regions<-plot.data[level2=="Region", as.character(Region)][order(plot.data[level2=="Region",Pct_ME])]
+    #regions<-plot.data[,as.character(Region)][order(plot.data[,Pct_ME])]
+    plot.data[,Region:=factor(as.character(Region),levels=regions)]
+    
+    max.rank<-max(as.numeric(plot.data$Region))
+    plot.data[as.numeric(Region) %in% c((max.rank-show.above):max.rank), Region:=Region2]
+    
+    if(show.chicago) plot.data[Region_Name=="KIPP Chicago", Region:=Region2]
+    
+    regions<-plot.data[level2=="Region", as.character(Region)][order(plot.data[level2=="Region",Pct_ME])]
+    plot.data[,Region:=factor(as.character(Region),levels=regions)]
+    
+  } else {
+    regions<-plot.data[level2=="Region", as.character(Region)][order(plot.data[level2=="Region",Pct_ME])]
+    
+    plot.data[,Region:=factor(as.character(Region),levels=regions)]  
+  }
   
   
   p<-ggplot(plot.data, 
-            aes(x=Pct_ME, y=Region)) + 
-    geom_point(aes(shape=level, size=level, alpha=level)) +
-    geom_point(data=plot.data[Region=="KIPP Chicago"],
-               aes(shape=level, 
-                   size=level,
-                   alpha=level),
-               color="orange")+
-    scale_size_manual(values = c(3,2)) +
-    scale_alpha_manual(values = c(1,.5)) +
-    #geom_text(aes(x=min(Pct_ME)-2, label=KIPP.Region)) +
-    facet_grid(Grade~Subtest.Name, scales = "free_y", space="free_y") +
-    theme_bw() + 
-    xlab("% Meets/Exceeds Typical Growth")
+            aes(x=Pct_ME, y=Region))
+  
+  if(!vary.size) {
+    p <- p + geom_point(aes(shape=level, size=level, alpha=level), 
+                        color="#C49A6C") +
+      geom_point(data=plot.data[Region=="KIPP Chicago"],
+                 aes(shape=level, 
+                     size=level,
+                     alpha=level),
+                 color="purple")+
+      scale_size_manual(values = c(3,1.5)) +
+      scale_alpha_manual(values = c(.75,.5))
+  } else {
+    p <- p + geom_point(aes(shape=level, size=N, alpha=level),
+                        color="#C49A6C") +
+      geom_point(data=plot.data[Region=="KIPP Chicago"],
+                 aes(shape=level, 
+                     size=N,
+                     alpha=level),
+                 color="purple") +
+      #scale_size_manual(values = c(3,2)) +
+      scale_alpha_manual(values = c(.8,.4))  +
+      scale_size_continuous("Total\nStudents", 
+                            range = c(1, 7), 
+                            breaks=c(50,100,250,500,1000,2000)) 
+  }
+  p<- p + facet_grid(Grade~Sub_Test_Name, scales = "free_y", space="free_y") +
+    scale_x_continuous(breaks=c(20, 40, 60, 80), 
+                       labels=c("20%", "40%", "60%", "80%")
+    ) +
+    theme_bw() 
   if(!guides) p<- p+ guides(color="none", 
                             alpha="none", 
                             size="none", 
                             shape="none")
-  p
+  p + xlab("Percent Meets/Exceeds Typcial Growth")
   
 }
 

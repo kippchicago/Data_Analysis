@@ -12,9 +12,11 @@ figure/
 reports/
 *.pdf
 *.xls
+*.xlsx
 *.png
 mapdb.dcf
 ps.dcf 
+*.dcf
 
 # ignore _site directories
 _site/
