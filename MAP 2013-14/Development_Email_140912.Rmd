@@ -1,0 +1,92 @@
+---
+title: "Development Email Graphs"
+author: "Chris Haid"
+date: "September 12, 2014"
+output: html_document
+---
+
+
+
+```{r load_libraries}
+require(mapvisuals)
+require(dplyr)
+```
+
+```{r load_map_data, cache=TRUE}
+setwd('~/Dropbox (KIPP Chicago Schools)/Data Analysis/MAP 2013-14/')
+map.db<-as.data.frame(read.dcf('config//mapdb.dcf'))
+
+mapsrc<-src_mysql(dbname=as.character(map.db$dbname), 
+                  host=as.character(map.db$host), 
+                  user=as.character(map.db$user), 
+                  password=as.character(map.db$password))
+
+# get viewAllAssessments
+map_all<-collect(tbl(mapsrc, "viewAllAssessments"))
+
+map_mv <- mapvizier(map_all) 
+
+map_sum <- summary(map_mv)
+
+```
+
+
+```{r becca_plot}
+
+data_bp<-map_mv$mapData %>% 
+  filter(Year2==2014, 
+         Season=="Fall", 
+         Grade==5,
+         MeasurementScale!="General Science") %>% 
+  mutate(GradeSeason=3)
+
+data_fake_national<-data.frame(GradeSeason=rep(2, times=8),
+                               MeasurementScale=c(rep("Mathematics", 4), 
+                                                  rep("Reading", 4)),
+                               TestPercentile=rep(seq(24,100, by=25),2),
+                               CohortYear=rep(2021, 8),
+                               Year2=rep(2014,8),
+                               DistrictName="National"
+                               )
+
+data_bp2<-rbind(data_bp %>% select(GradeSeason,
+                             MeasurementScale,
+                             TestPercentile,
+                             CohortYear,
+                             Year2,
+                             DistrictName), data_fake_national)
+
+p<-becca_plot(.data = as.data.frame(data_bp2), 
+           grade_level_season_column="GradeSeason",
+           school_name_column="DistrictName", 
+           cohort_name_column="CohortYear",
+           academic_year_column="Year2",
+           measurement_scale_column="MeasurementScale", 
+           percentile_column="TestPercentile",
+           facets=". ~ MEASUREMENTSCALE", 
+           justify_widths=T, 
+           justify_min=1, 
+           justify_max=4
+           #, 
+           #first_and_spring_only=T
+)
+
+p + scale_fill_manual(values = c("#8D8685",  #1st 
+                                 "#CFCCC1",  #2nd
+                                 "#A7CFEE",  #3rd
+                                 "#60A2D7"   #4th
+                                 )
+                      )  +
+  scale_x_discrete(labels=c("",
+                            "National\nDistribution", 
+                            "Incoming 5th\nGrade Distribution",
+                            "")) +
+  xlab("") + 
+  guides(fill=guide_legend(title="Quartiles")) +
+  theme(axis.ticks=element_blank())
+
+```
+
+
+
+

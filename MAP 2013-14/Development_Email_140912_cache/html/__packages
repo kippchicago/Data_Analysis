@@ -1,0 +1,17 @@
+base
+data.table
+datasets
+DBI
+dplyr
+ggplot2
+graphics
+grDevices
+grid
+gridExtra
+mapvisuals
+methods
+plyr
+reshape
+RMySQL
+stats
+utils
