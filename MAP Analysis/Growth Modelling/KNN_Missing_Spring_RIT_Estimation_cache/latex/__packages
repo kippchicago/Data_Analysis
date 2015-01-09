@@ -1,0 +1,17 @@
+base
+caret
+data.table
+dplyr
+FNN
+ggplot2
+gridExtra
+knitr
+lattice
+mapvisuals
+miscTools
+plyr
+randomForest
+reshape
+stringr
+tidyr
+xtable

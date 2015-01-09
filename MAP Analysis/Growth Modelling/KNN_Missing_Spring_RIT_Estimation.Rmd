@@ -1,0 +1,694 @@
+---
+title: "Imputation \n of Missing Prior Spring RIT Scores"
+author: "Chris Haid & the Pilsen Team"
+date: "December 19, 2014"
+output:
+  rmarkdown::tufte_handout:
+    includes:
+      in_header: header.tex
+---
+```{r knitr_reqs, echo=FALSE, message=FALSE, warning=FALSE}
+require(knitr)
+opts_chunk$set(
+  message=FALSE,
+  warning=FALSE,
+  echo=FALSE, 
+  results="hide",
+  #fig.pos="h!",
+  cache=TRUE
+  )
+```
+```{r packages, echo=FALSE}
+setwd("~/Dropbox (KIPP Chicago Schools)/Data Analysis/MAP Analysis/Growth Modelling")
+
+require(FNN)
+require(mapvisuals)
+require(caret)
+require(randomForest)
+require(miscTools)
+
+```
+
+```{r prereqs, cache=TRUE}
+load("map_all_silo.Rdata")
+
+map_all_silo<-map_all_silo %>% 
+  dplyr::mutate(Grade=as.integer(ifelse(Grade=="K", 
+                                  0, 
+                                  Grade))) 
+
+
+map_mv <-mapvizier(map_all_silo)
+
+map<-map_mv$mapData
+```
+```{r functions}
+# functions are defined here.  The most importatnt function for this document runs 
+# a couple of different superivised learning methods to impute the prior spring score 
+# of a given data set using KNN (3 and 5 and 10 neighbors), Random Forest, linear regression. 
+
+
+run_sl <- function(formula, 
+                   .data, 
+                   na.replacement=-1, 
+                   pct_training=.75){
+  df <- model.frame(formula, .data) # suubsets data fram based on formula
+  y <- df[1] # response varialbe
+  X <- df[-1] # model matrix (or featers)
+  
+  # replace NAs in features with na.replacement value
+  for (col in names(X)){
+    X[,col]<-ifelse(is.na(X[,col]) | 
+                      X[,col]=="NA", na.replacement, X[,col])
+  }
+  
+  # separate y and X int test and train
+  
+  in_training_set <- createDataPartition(y[,1], p=pct_training, list=FALSE)
+ 
+  y_train <- y[in_training_set,]
+  X_train <- as.data.frame(X[in_training_set,])
+  colnames(X_train) <- names(X)
+  
+  y_test <- y[-in_training_set,]
+  X_test <- as.data.frame(X[-in_training_set,])
+  colnames(X_test) <- names(X)
+  # Run models
+  # Using FNN pacakge for NN search
+  require(FNN)
+  # 3NN
+  fit_fnn3<-knn.reg(train=X_train,
+                    test=X_test,
+                    y=y_train,
+                    k=3)
+  # 5NN
+    fit_fnn5<-knn.reg(train=X_train,
+                      test=X_test,
+                      y=y_train,
+                      k=5)
+  
+    # 10NN
+    fit_fnn10<-knn.reg(train=X_train,
+                       test=X_test,
+                       y=y_train,
+                       k=10)
+
+
+  # RF
+  require(randomForest)
+  
+  fit_rf <-  randomForest(y=y_train,
+                          x=X_train,
+                          mtry=1,
+                          ntree=1000
+                          )
+  # LR (note: I use df since it preserve factors)
+  lr = lm(formula, data=df[in_training_set,])
+
+
+  pred_lr<-predict(lr, newdata = df[-in_training_set,])
+
+  
+  
+  
+  # Collect actual versus collected for each 
+  pred_actual<-data.frame(actual=y_test) %>% 
+    mutate(predicted_knn_3 = fit_fnn3$pred %>% round,
+           diff_knn_3 = predicted_knn_3-actual,
+           abs_diff_knn_3 = abs(diff_knn_3),
+           predicted_knn_5 = fit_fnn5$pred %>% round,
+           diff_knn_5 = predicted_knn_5-actual,
+           abs_diff_knn_5 = abs(diff_knn_5),
+           predicted_knn_10 = fit_fnn5$pred %>% round,
+           diff_knn_10 = predicted_knn_3-actual,
+           abs_diff_knn_10 = abs(diff_knn_10),
+           predicted_rf = predict(fit_rf, X_test) %>% round,
+           diff_rf = predicted_rf - actual,
+           abs_diff_rf = abs(diff_rf),
+           predicted_lr = pred_lr %>% round,
+           diff_lr = predicted_lr-actual,
+           abs_diff_lr = abs(diff_lr),
+           fall=X_test$TestRITScore.x
+           )
+
+
+
+  diffs<-pred_actual %>% select(actual, diff_knn_3, diff_knn_5, diff_knn_10, diff_rf, diff_lr) 
+
+  diffs_long<-tidyr::gather(diffs, actual, "differences",diff_knn_3:diff_lr)
+
+  mses<-diffs_long %>% group_by(variable) %>%
+    mutate(value_sq=value^2) %>%
+    dplyr::summarize(MSE=sum(value_sq)/n()) %>%
+  mutate(RMSE=sqrt(MSE),
+         Model = c("3NN", "5NN", "10NN", "RF", "LR")) %>%
+    select(Model, MSE, RMSE)
+  
+
+  
+
+  list(y_train=y_train, 
+       y_test=y_test,
+       X_train=X_train, 
+       X_test=X_test,
+       pred_actual=pred_actual,
+       mses = mses
+       )
+}
+
+
+# This function can be used to gather the predic_actual objects data into 
+# a long data frame suitable for use with ggplot.  
+# it takes the run_sl object as it's only paramter
+gather_predactual <-  function(.data, string="abs"){
+  require(stringr)
+  require(tidyr)
+  
+  #get pred_actual object from .data
+  df<-.data$pred_actual
+  df_name <- as.character(substitute(.data)) 
+  # extract columns names and select on based on string
+  cols<-colnames(df)
+  selected_cols<-cols[grepl(string, cols)]
+  
+  #detect subject
+  is_math<-str_extract(df_name, "math")
+  is_reading<-str_extract(df_name, "reading")
+  is_science<-str_extract(df_name, "sciene")
+  
+  subj <- na.omit(c(is_math, is_reading, is_science))[1]
+  
+  out<-df[,selected_cols] %>% 
+    gather_(gather_cols=selected_cols)  %>%
+    mutate(subject=subj,
+           spec=df_name)
+  
+  out
+}
+
+
+```
+```{r xtable_setup, cache=FALSE}
+library(xtable)
+options(xtable.comment = FALSE)
+options(xtable.booktabs = TRUE)
+options(xtable.include.rownames=FALSE)
+```
+# Introduction
+\newthought{This document is an investigation/proof of concept} for using supervised machine learning techniques to impute missing RIT scores on NWEA's MAP assessment. Evaluating machine learning methods for RIT imputation was inspired by a question Ken Lee, a Fischer Fellow at KIPP Chicago, posed while regarding missing prior spring RIT scores for many of students: he wondered if we could `match' students with missing spring scores with students who have spring scores based on their fall scores.  What Ken was suggesting is the heart of a well known machine learning algorithm known as $k$ nearest neighbor (KNN) regression.\footnote{the $k$ in $K$NN refers to the number of close neighbors---that is candidates or for our purposes students that are proximate to one another---you match data on based on some  measure of proximity.  For the interested reader we use a weighted $LP1$ norm for our measure or proximity.} The goal, then, for this short report is to provide insight into the feasibility of using supervised learning to use data we already have (historical MAP data) to give us some guidance on data we are missing (prior spring scores, which we use for instructional planning).
+
+Below I will evaluate KNN regression for 3, 5, and 10 neighbors.  Additionally, I will evaluate a random forest regression\footnote{Random forest regression is an \emph{ensemble learning} technique that uses decision trees to bifurcate the data set sequentially.  Multiple trees are grown from bootstrapped samples of the data and bifurcation decision are also made from random draws of the remaining data.} to use for prediction.  Finally, as a benchmark (and potential solution) I  also estimate a linear regression.  Indeed, taking a peak at our data suggests that the relationship between current fall scores and prior spring scores has been  linear over the previous four years of MAP testing.
+
+Indeed examination of figures \ref{fig:fig_fall_v_spring} through \ref{fig:fig_fall_v_spring_by_grade} make very clear that the the underlying relationship between a given fall's scores and the prior springs scores are very linear. And splitting out the data subject, school year, or grades demonstrate that the linear relationship is very strong and persistent regardless of any of those classifiers. And as one would expect, a straightforward linear regression does very well in predicting missing data. Indeed it is only outperformed by the random forest regression (and yet, not always).
+
+```{r get_data_spring_fall}
+
+map_fall<-map %>% 
+  filter(Season=="Fall", Year2>=2012) %>% 
+  mutate(match_grade=Grade)
+map_spring<-map %>% 
+  filter(Season=="Spring", Year2>=2011) %>%
+  mutate(match_grade=Grade+1)
+
+map_fs <- inner_join(map_fall, 
+                     map_spring, 
+                     by=c("StudentID", 
+                          "MeasurementScale",
+                          "match_grade"
+                          )
+                     ) %>%
+  mutate(Grade=factor(match_grade),
+         SY = factor(Year2.x),
+         Fall = TestRITScore.x,
+         Spring = TestRITScore.y,
+         Subject = MeasurementScale,
+         Grade = factor(match_grade))
+```
+
+```{r fig_fall_v_spring, fig.margin = FALSE, fig.cap = "Fall vs Spring RIT Scores. The dark blue line is the is the best fit line obtianed by running a linear regression of prior Spring versus Fall; the relationship between these variables is highly linear.", }
+# These are thematic options
+gg_kippchi <- 
+  list(theme_bw(), 
+       theme(legend.position="bottom"),
+       guides(colour = guide_legend(override.aes = list(alpha = 1)))
+       )
+
+
+ggplot(map_fs %>% filter(MeasurementScale %in% c("Reading", "Mathematics")), aes(x=Fall, y=Spring)) + 
+  geom_point(aes(color=SY),
+             alpha=.2) + 
+  stat_smooth(method="lm") +
+  facet_grid(.~Subject) +
+  gg_kippchi
+```
+```{r fig_fall_v_spring_by_year, fig.margin = FALSE, fig.cap = "Fall vs Spring RIT Scores by Year, Math", fig.fullwidth=FALSE, fig.height=5}
+
+ggplot(map_fs %>% 
+         filter(MeasurementScale %in% c("Reading", "Mathematics")), 
+       aes(x=Fall, y=Spring)) + 
+  geom_point(aes(color=Grade),
+             alpha=.2) +
+  stat_smooth(method="lm") +
+  facet_grid(SY~Subject) +
+  gg_kippchi 
+  
+```
+
+```{r fig_fall_v_spring_by_grade, fig.margin = FALSE, fig.cap = "Fall vs Spring RIT Scores by Year, Math", fig.height=5}
+
+ggplot(map_fs %>% 
+         filter(MeasurementScale %in% c("Reading", "Mathematics")), 
+       aes(x=Fall, y=Spring)) + 
+  geom_point(aes(color=SY),
+             alpha=.2) + 
+  stat_smooth(method="lm") +
+  facet_grid(Grade~Subject) +
+  gg_kippchi
+```
+
+
+## Model Specifications
+While a simple linear regression of fall on spring scores provides a good fit of the data and good predictions of average prior spring performance, we are in the end more interested in accurate prediction of those scores, not just predicting average performance.  To this end then, I also fit models with specifications of increasing complexity in order to see if more information improves are predictive accuracy. So in addition to fitting models that account for fall RIT scores we also progressively add data for:
+
+* fall RIT scores given for ``goal strands'' (up to the first four), 
+* percent of questions answered correctly in the fall,  
+* the time students took to take the MAP assessment in the fall 
+* student grade in the fall (when we expand the data to include all graces).
+
+Finally, in the full data set I model conditional non-linearity between grade and fall RIT score by including an interaction term.
+
+## Data
+```{r subset_data}
+map_fs_6 <- map_fs %>% 
+  filter(Grade.y==6) 
+
+map_fs_6_reading <- map_fs_6 %>%
+  filter(MeasurementScale=="Reading")
+
+map_fs_6_math <- map_fs_6 %>%
+  filter(MeasurementScale=="Mathematics")
+
+map_fs_reading <- map_fs %>%
+  filter(MeasurementScale=="Reading")
+
+map_fs_math <- map_fs%>%
+  filter(MeasurementScale=="Mathematics")
+
+```
+
+The data is KIPP Chicago's are all matched fall and prior spring MAP results for the terms spring `r min(map_fs$Year2.y)` to fall `r max(map_fs$Year2.x)`. Initially, I fit three models (1A, 1B, and 1C) on a subset of data that included only students that were 6th graders in any given fall. I've included the results of those models below. However figures \ref{fig:fig_fall_v_spring}, \ref{fig:fig_fall_v_spring_by_year}, and \ref{fig:fig_fall_v_spring_by_grade} provide evidence that the relationship between fall and prior springs scores in invariant to year and the it seems the better part of valor would be to pool all of our data together.  The fact of the matter is we have a lot of data. We have `r nrow(map_fs_reading)` reading observations and `r nrow(map_fs_math)` math observations versus only `r nrow(map_fs_reading)` and `r nrow(map_fs_6_reading)` and `r nrow(map_fs_6_reading)` in reading and math, respectively, when we focus on 6th grade only. Models 2A through 2F use this extended data.
+
+The following table summarizes the model specifications in terms of the predictor variables and data set used. Note that the response variable is the same in each model: prior spring RIT score. 
+
+```{r specification_table, results='asis'}
+
+specs <-  data.frame(Model=c("1A", "1B", "1C", "2A", "2B", "2C", "2D", "2E", "2F"),
+                     Predictors=c("Fall RIT", 
+                                  "Fall RIT + Goal Strands",
+                                  "Fall RIT + Goal Strands + Pct Correct + Duration",
+                                  "Fall RIT", 
+                                  "Fall RIT + Goal Strands",
+                                  "Fall RIT + Goal Strands + Pct Correct + Duration",
+                                  "Fall RIT + Goal Strands + Pct Correct + Duration + Grade",
+                                  "Fall RIT*Grade + Goal Strands + Pct Correct + Duration",
+                                  "Fall RIT*Grade"), 
+                     Data=c(rep("Fall 6th grade", times=3), rep("All Grades", times=6)))
+
+options(xtable.comment = FALSE)
+options(xtable.booktabs = TRUE)
+
+specs.xtab<-xtable(specs, label="tab:specs", caption="Model specifications interms of predictors and data set used. The response variable is prior Spring RIT score for all 9 specifications.")
+
+hlines<-c(-1,0,3, nrow(specs.xtab))
+print(specs.xtab, size="footnotesize", hline.after=hlines)
+
+```
+
+## Evaluating predictions
+
+All models split the data into into a training and test set.  The training set comprises 75% of the observations and the test set the remainder.  The make predictions on the test set and compare our predicted prior spring RIT scores with the scores the students actually earned.
+
+In order to evaluate each predictive model, I  use the mean square error (MSE) root mean square error (RMSE).  The concept of the root mean square error is relatively straightforward:  we will make a prediction for a subset of students from each model and compare the predicted spring score with the students actual spring score.  The difference between the actual and predicted scores is called the \emph{error}.  We then square the differences (i.e., the errors) for each student (this is a s\emph{squared error} and ensures that over and under prediction are treated similarly).  Finally we find the mean of the squared errors---the mean squared.  The smaller this number the better. If we were to perfectly predict every students prior spring score in the the MSE would equal zero. If we take the square root of the mean square error (MSE) then we get the root mean square error (RMSE) which gives you an estimate of the average error for the mode. 
+
+
+# Results
+\newthought{The MSEs for all five estimation techniques} (i.e., 3NN, 5NN, 10NN, linear regression, and random forest) are summarized in figure \ref{fig:diagnostic_chart}.  
+
+```{r models}
+mod1_reading <- run_sl(TestRITScore.y ~ TestRITScore.x, 
+                       .data=map_fs_6_reading)
+mod1_math <- run_sl(TestRITScore.y ~ TestRITScore.x, 
+                    .data=map_fs_6_math)
+
+mod_gs_reading <- run_sl(TestRITScore.y ~ 
+                           TestRITScore.x + 
+                           Goal1RitScore.x +
+                           Goal2RitScore.x +
+                           Goal3RitScore.x +
+                           Goal4RitScore.x, 
+                         .data=map_fs_6_reading)
+mod_gs_math <- run_sl(TestRITScore.y ~ 
+                           TestRITScore.x + 
+                           Goal1RitScore.x +
+                           Goal2RitScore.x +
+                           Goal3RitScore.x +
+                           Goal4RitScore.x, 
+                       .data=map_fs_6_math)
+
+mod_gs_plus_reading <- run_sl(TestRITScore.y ~ 
+                           TestRITScore.x + 
+                           Goal1RitScore.x +
+                           Goal2RitScore.x +
+                           Goal3RitScore.x +
+                           Goal4RitScore.x +
+                           TestDurationMinutes.x +
+                           PercentCorrect.x, 
+                         .data=map_fs_6_reading)
+mod_gs_plus_math <- run_sl(TestRITScore.y ~ 
+                           TestRITScore.x + 
+                           Goal1RitScore.x +
+                           Goal2RitScore.x +
+                           Goal3RitScore.x +
+                           Goal4RitScore.x +
+                           TestDurationMinutes.x +
+                           PercentCorrect.x,
+                       .data=map_fs_6_math)
+
+# All grades models ####
+mod1_reading_all <- run_sl(TestRITScore.y ~ TestRITScore.x, .data=map_fs_reading)
+mod1_math_all <- run_sl(TestRITScore.y ~ TestRITScore.x, .data=map_fs_math)
+
+mod_gs_reading_all <- run_sl(TestRITScore.y ~ 
+                           TestRITScore.x + 
+                           Goal1RitScore.x +
+                           Goal2RitScore.x +
+                           Goal3RitScore.x +
+                           Goal4RitScore.x, 
+                         .data=map_fs_reading)
+mod_gs_math_all <- run_sl(TestRITScore.y ~ 
+                           TestRITScore.x + 
+                           Goal1RitScore.x +
+                           Goal2RitScore.x +
+                           Goal3RitScore.x +
+                           Goal4RitScore.x, 
+                       .data=map_fs_math)
+
+mod_gs_plus_reading_all <- run_sl(TestRITScore.y ~ 
+                           TestRITScore.x + 
+                           Goal1RitScore.x +
+                           Goal2RitScore.x +
+                           Goal3RitScore.x +
+                           Goal4RitScore.x +
+                           TestDurationMinutes.x +
+                           PercentCorrect.x, 
+                         .data=map_fs_reading)
+mod_gs_plus_math_all <- run_sl(TestRITScore.y ~ 
+                           TestRITScore.x + 
+                           Goal1RitScore.x +
+                           Goal2RitScore.x +
+                           Goal3RitScore.x +
+                           Goal4RitScore.x +
+                           TestDurationMinutes.x +
+                           PercentCorrect.x,
+                       .data=map_fs_math)
+
+
+mod_gs_plus_grades_reading_all <- run_sl(TestRITScore.y ~ 
+                           TestRITScore.x + 
+                           Goal1RitScore.x +
+                           Goal2RitScore.x +
+                           Goal3RitScore.x +
+                           Goal4RitScore.x +
+                           TestDurationMinutes.x +
+                           PercentCorrect.x + 
+                           Grade, 
+                         .data=map_fs_reading)
+
+mod_gs_plus_grades_math_all <- run_sl(TestRITScore.y ~ 
+                           TestRITScore.x + 
+                           Goal1RitScore.x +
+                           Goal2RitScore.x +
+                           Goal3RitScore.x +
+                           Goal4RitScore.x +
+                           TestDurationMinutes.x +
+                           PercentCorrect.x + 
+                           Grade,
+                       .data=map_fs_math)
+
+mod_gs_plus_grades_inter_reading_all <- run_sl(TestRITScore.y ~ 
+                           TestRITScore.x*Grade + 
+                           Goal1RitScore.x +
+                           Goal2RitScore.x +
+                           Goal3RitScore.x +
+                           Goal4RitScore.x +
+                           TestDurationMinutes.x +
+                           PercentCorrect.x 
+                           , 
+                         .data=map_fs_reading)
+mod_gs_plus_grades_inter_math_all <- run_sl(TestRITScore.y ~ 
+                           TestRITScore.x*Grade + 
+                           Goal1RitScore.x +
+                           Goal2RitScore.x +
+                           Goal3RitScore.x +
+                           Goal4RitScore.x +
+                           TestDurationMinutes.x +
+                           PercentCorrect.x 
+                           ,
+                       .data=map_fs_math)
+
+mod_grades_inter_reading_all <- run_sl(TestRITScore.y ~ 
+                           TestRITScore.x*Grade,
+                         .data=map_fs_reading)
+mod_grades_inter_math_all <- run_sl(TestRITScore.y ~ 
+                           TestRITScore.x*Grade,
+                       .data=map_fs_math)
+```
+
+```{r combine_model_tables}
+models<-rbind(
+  #1A
+  mod1_reading$mses %>% 
+    mutate(Subject="Reading", Specification="1A"),
+  mod1_math$mses %>% 
+    mutate(Subject="Mathematics", Specification="1A"),
+  #1B
+  mod_gs_reading$mses %>% 
+    mutate(Subject="Reading", Specification="1B"),
+  mod_gs_math$mses %>% 
+    mutate(Subject="Mathematics", Specification="1B"),
+  #1C
+  mod_gs_plus_reading$mses %>% 
+    mutate(Subject="Reading", Specification="1C"),
+  mod_gs_plus_math$mses %>% 
+    mutate(Subject="Mathematics", Specification="1C"),
+  #2A
+  mod1_reading_all$mses %>% 
+    mutate(Subject="Reading", Specification="2A"),
+  mod1_math_all$mses %>% 
+    mutate(Subject="Mathematics", Specification="2A"),
+  #2B
+  mod_gs_reading_all$mses %>% 
+    mutate(Subject="Reading", Specification="2B"),
+  mod_gs_math_all$mses %>% 
+    mutate(Subject="Mathematics", Specification="2B"),
+  #2C
+  mod_gs_plus_reading_all$mses %>% 
+    mutate(Subject="Reading", Specification="2C"),
+  mod_gs_plus_math_all$mses %>% 
+    mutate(Subject="Mathematics", Specification="2C"),
+  #2D
+  mod_gs_plus_grades_reading_all$mses %>% 
+    mutate(Subject="Reading", Specification="2D"),
+  mod_gs_plus_grades_math_all$mses %>% 
+    mutate(Subject="Mathematics", Specification="2D"),
+  #2E
+  mod_gs_plus_grades_inter_reading_all$mses %>% 
+    mutate(Subject="Reading", Specification="2E"),
+  mod_gs_plus_grades_inter_math_all$mses %>% 
+    mutate(Subject="Mathematics", Specification="2E"),
+  #2F
+  mod_grades_inter_reading_all$mses %>% 
+    mutate(Subject="Reading", Specification="2F"),
+  mod_grades_inter_math_all$mses %>% 
+    mutate(Subject="Mathematics", Specification="2F")
+  )
+  
+```
+
+```{r diagnositic_chart, fig.fullwidth=TRUE, fig.height=2, fig.cap="Mean Square Errors for all 90 predictive models in one image.  The dots connected by lines represent the MSEs for KNN models with values of $k$ set at 3, 5, and 10.  The horizontal black line is the MSE for a linear regression. The blue line is the MSE for a random forest."}
+ggplot(models %>% filter(grepl("NN", Model)),
+       aes(x=Model, y=MSE)) +
+  geom_point() +
+  geom_line(aes(group=Subject)) +
+  geom_hline(data=models %>% filter(Model=="LR"),
+             aes(yintercept=MSE)) + 
+    geom_hline(data=models %>% filter(Model=="RF"),
+             aes(yintercept=MSE),
+             color="blue") + 
+  facet_grid(Subject ~ Specification) + 
+  gg_kippchi +
+  scale_x_discrete("k", labels=c(3,5,10)) +
+  theme(axis.text=element_text(size=5),
+        axis.title=element_text(size=6),
+        strip.text=element_text(size=7))
+```
+
+
+```{r deviations_histogram}
+
+
+#1A
+m1am<-mod1_math %>% gather_predactual %>% mutate(Specifictation="1A")
+m1ar<-mod1_reading  %>% gather_predactual %>% mutate(Specifictation="1A")
+
+#1B
+m1bm<-mod_gs_math %>% gather_predactual %>% mutate(Specifictation="1B")
+m1br<-mod_gs_reading %>% gather_predactual %>% mutate(Specifictation="1B")
+
+#1C
+m1cm<-mod_gs_plus_math %>% gather_predactual %>% mutate(Specifictation="1C")
+m1cr<-mod_gs_plus_reading %>% gather_predactual %>% mutate(Specifictation="1C")
+
+
+
+#2A
+m2am<-mod1_math_all %>% gather_predactual %>% mutate(Specifictation="2A")
+m2ar<-mod1_reading_all %>% gather_predactual %>% mutate(Specifictation="2A")
+
+
+#2B
+m2bm<-mod_gs_math_all %>% gather_predactual %>% mutate(Specifictation="2B")
+m2br<-mod_gs_reading_all %>% gather_predactual %>% mutate(Specifictation="2B")
+
+#2C
+m2cm<-mod_gs_plus_math_all %>% 
+  gather_predactual %>% 
+  mutate(Specifictation="2C")
+m2cr<-mod_gs_plus_reading_all %>% 
+  gather_predactual %>% 
+  mutate(Specifictation="2C")
+
+#2D
+m2dm<-mod_gs_plus_grades_math_all %>% 
+  gather_predactual %>% 
+  mutate(Specifictation="2D")
+m2dr<-mod_gs_plus_grades_reading_all %>% 
+  gather_predactual %>% 
+  mutate(Specifictation="2D")
+
+#2E
+m2em<-mod_gs_plus_grades_inter_math_all %>% 
+  gather_predactual %>% 
+  mutate(Specifictation="2E")
+m2er<-mod_gs_plus_grades_inter_reading_all%>% 
+  gather_predactual %>% 
+  mutate(Specifictation="2E")
+
+#2F
+m2fm<-mod_grades_inter_math_all %>% 
+  gather_predactual %>% 
+  mutate(Specifictation="2F")
+m2fr<-mod_grades_inter_reading_all %>% 
+  gather_predactual %>% 
+  mutate(Specifictation="2F")
+
+pred_act_all_models <- 
+  rbind(m1am, m1bm, m1cm, m2am, m2bm, m2cm, m2dm, m2em, m2fm,
+        m1ar, m1br, m1cr, m2ar, m2br, m2cr, m2dr, m2er, m2fr)
+```
+
+```{r histo_math, fig.cap="Histograms of absolute predictive deviations (i.e. the absolute value of predicted minus actual prior spring scores. Math only. Specification 2D with the random forest fit has the largest mass with the smallest deviations.  Bin widths are 4 points.", fig.fullwidth=FALSE}
+ggplot(pred_act_all_models %>% filter(subject=="math",
+                                      grepl("2",Specifictation)), 
+       aes(x=value)) + 
+  geom_histogram(aes(y=..density..),
+                 binwidth = 4, 
+                 color="white") +
+    geom_histogram(data=pred_act_all_models %>% 
+                     filter(subject=="math",
+                            Specifictation=="2D",
+                            variable=="abs_diff_rf"),
+                 aes(y=..density..),
+                 binwidth = 4, 
+                 color="white", 
+                 fill="hotpink") +
+  facet_grid(variable~Specifictation) + 
+  gg_kippchi +
+  theme(axis.text=element_text(size=2),
+        axis.title=element_text(size=3),
+        strip.text=element_text(size=4))
+```
+
+```{r histo_read, fig.cap="Histograms of absolute predictive deviations (i.e. the absolute value of predicted minus actual prior spring scores. Reading only. Specification 2E with the random forest fit has the largest mass with the smallest deviations.  Bin widths are 4 points.", fig.fullwidth=FALSE}
+ggplot(pred_act_all_models %>% filter(subject=="reading",
+                                      grepl("2",Specifictation)), 
+       aes(x=value)) + 
+  geom_histogram(aes(y=..density..),
+                 binwidth = 4, 
+                 color="white") +
+    geom_histogram(data=pred_act_all_models %>% 
+                     filter(subject=="reading",
+                            Specifictation=="2E",
+                            variable=="abs_diff_rf"),
+                 aes(y=..density..),
+                 binwidth = 4, 
+                 color="white", 
+                 fill="hotpink") +
+  facet_grid(variable~Specifictation) + 
+  gg_kippchi +
+  theme(axis.text=element_text(size=2),
+        axis.title=element_text(size=3),
+        strip.text=element_text(size=4))
+```
+
+
+## KNN results
+
+The KNN regressions do not fair well. Increasing the number of neighbors parameter $k$ or the number of predictors does not in general improve predictive performance.  In almost all cases both the linear regression and the random forest outperform the KNN regressions. Why? Most likely \emph{the curse of dimensionality} is rearing its head.  As either the number of predictors increases or neighbors increase we end up selecting a neighborhood for a prediction that is sparse spatially. This is true regardless of the size of the data set. Indeed, KNN regression models are always outperformed by the linear model and random forest when run against the all grades data. 
+
+## Linear model and random forest results.
+The best model---in terms of least MSE---is the random forest, though the specifications the perform best differ between reading and math.  In reading the RF model with specification 2E (the most complex specification, including fall RIT a and goal strand scores, test duration, percent correct, and the interaction of grade and fall RIT score) is easily the best performing.  The best performing in math---specification 2D---includes the same predictors, but lacks the interaction between fall RIT score and grade.  Also notice that in mathematics the random forest model only marginally outperforms the linear regression;  the differences between the two are greater in reading.  It seems that the random forest regression is picking up on some non-linearities or discontinuities in reading instruction that might not exist in mathematics. 
+
+## Outcome
+I am leaning towards using the Random Forest regression results to predict missing spring scores based on fall results, but using different specifications for different subjects. 
+
+
+
+
+
+
+
+
+
+
+
+
+\clearpage
+
+# Appendix
+
+```{r actual_pred_spring, results='asis'}
+xtable(mod_gs_plus_grades_inter_reading_all$pred_actual %>% 
+         select("Actual Spring"=actual, 
+                "5NN"=predicted_knn_5, 
+                "LR"=predicted_lr, 
+                "RF"=predicted_rf, 
+                "Fall Score"=fall) %>% 
+         head(25),
+       caption="Actual vs. Predictions, Reading. Specification 2E (Fall RIT, Fall goal strand scores, percent correct, test duration, and grade interacted with Fall RIT. First 25 rows of acutal spring scores and scores predicted by 5NN, random forest, and linear regression models."
+       )
+```
+
+```{r single_table, results='asis', fig.cap="TESTETSE"}
+mod_tbl<-xtable(models %>% arrange(Subject, Specification) %>% select(Subject, Specification, Model, MSE, RMSE) %>% as.data.frame,
+       caption="MSE for 3 KNN models, Random Forest, and Linear Regression.  There are nine model specifications each for both reading and mathematics for a total of 90 models fitted to NWEA MAP spring and fall data from 2012 to 2014."
+      )
+
+print(mod_tbl,
+      tabular.environment="longtable",
+      floating=FALSE)
+```
+
+
+
+
