@@ -54,21 +54,42 @@ assessments_by_objective<-dbGetQuery(conn, qry)
 glimpse(assessments_by_objective)
 
 
+assess_data<-str_split(assessments_by_objective$local_assessment_id, pattern = "\\.")
+assess_data <-do.call(rbind.data.frame, assess_data)
+colnames(assess_data)<-c("test_grade", 
+                         "test_subject", 
+                         "test_week_number", 
+                         "test_type", 
+                         "test_unit_number", 
+                         "test_date", 
+                         "test_school")
+
+#assess_data <- assess_data %>%
+#  mutate(test_school = ifelse(!is.na(as.integer(test_school)), 
+#                              "All", test_school
+#  )
+#  )
+
+assessments_by_objective_1<-cbind(assessments_by_objective, assess_data)
+
 # Let's subset to 5th grade science ####
 info(logger, "Subsetting to Science, KAP, 5th grade, unit asssessments only")
-assessments <- assessments_by_objective %>%
+assessments <- assessments_by_objective_1 %>%
   mutate(mastered=as.integer(mastered)) %>%
-  filter(subject_area=="Science", 
+  filter(test_subject=="SCI", 
          #grepl("14-15", title),
          #grepl("Unit", title),
          #grepl("Assessment", title),
          #schoolid==78102,
          academic_year==2015,
-         grade_level==5
+         test_grade==5
   )
 
 
 glimpse(assessments)
+
+# get test data form local
+
 
 
 #assessments_wide <- assessments %>%
@@ -94,17 +115,19 @@ str_add_carriage_return <- function(string, n=2){
   }
   
   out2<-mapply(inner, 
-               string,
+               string, 
                MoreArgs = list(n=2),
-               SIMPLIFY = TRUE)
-  out2
+               SIMPLIFY = TRUE,
+               USE.NAMES = FALSE
+               ) 
   
+  as.vector(out2, mode="character")  
 }
 
 
 
 
-assessments_2<- assessments %>%
+assessments_2<- assessments%>%
   mutate(Mastered=mastered==1, 
          Objective=str_add_carriage_return(reporting_group),
          label=paste0(round(percent_correct,1),
@@ -164,16 +187,20 @@ info(logger, "Ordering Assessments by Date")
                                 administered_at),
          date=ymd(administered_at)) %>%
   filter(!is.na(date)) %>%
-  group_by(title) %>%
+  group_by(local_assessment_id) %>%
   summarize(Date=min(date)) %>%
   arrange(Date)
 
 assessments_5 <- assessments_4 %>%
-  mutate(Title=factor(as.character(title), levels = as.character(assessments_dates$title)))
+  mutate(Test_ID=factor(as.character(local_assessment_id), 
+                        levels = as.character(assessments_dates$local_assessment_id)
+                        )
+         )
 
 
 info(logger, "Plotting mastery")
-p<-ggplot(assessments_5, 
+p<-ggplot(assessments_5 %>% filter(test_unit_number==4, 
+                                   test_school=="KAP") , 
        aes(x=Objective, 
            y=lastfirst)) + 
   geom_tile(aes(fill=Mastered),
@@ -181,7 +208,7 @@ p<-ggplot(assessments_5,
   geom_text(aes(label=label), 
             size=1, 
             color="lightgray") +
-  facet_grid(School~Title, scales = "free", space =  "free") +
+  facet_grid(School~Test_ID, scales = "free", space =  "free") +
   scale_fill_manual(values = c("#E27425", "#439539")) +
   theme_bw() + 
   theme(axis.text.y = element_text(size=4.5),
@@ -196,10 +223,10 @@ pdf(file="graphs/mastery_by_objective_2.pdf", height = 8.25, width = 10.75)
 dev.off()
 
 # Roll-up by School
-assessments_school_level <- assessments_by_objective %>%
+assessments_school_level <- assessments_by_objective_1 %>%
   mutate(mastered=as.integer(mastered)) %>%
-  filter(subject_area=="Science", 
-         grepl("UnitAssessment", title),
+  filter(test_unit_number==4,
+         test_subject=="SCI",
          academic_year==2015,
          grade_level==5
   )
@@ -210,24 +237,20 @@ assessments_school_level <- assessments_by_objective %>%
 debug(logger, "Figuring out which tests are unit test and which aren't.")
 # need to use dates of unit identified tests to "coral" 
 # weekly assessments.
-science_assessmets<-assessments_by_objective %>% 
-  filter(subject_area=="Science", 
-         grade_level==5,
+science_assessmets<-assessments_by_objective_1 %>% 
+ filter(test_subject=="SCI", 
+         test_grade=="5",
          academic_year==2015, 
-         ymd(administered_at)>ymd('141002'),
-         ymd(administered_at)<=ymd('141030')) %>% 
+         test_unit_number=="4") %>% 
   arrange(administered_at) %>% 
-   mutate(Unit_Test=grepl("Unit", title),
-          Week = week(floor_date(ymd(administered_at), "week")) - 
-            week(ymd(140816)),
-          Title=ifelse(Unit_Test, paste("Unit Test: Week", Week),
-                       paste("Weekly Test: Week", Week)
-                       ),
-          row_names=paste(Title, reporting_group, schoolid)
+   mutate(Title=ifelse(test_type=="U", paste("Unit", test_unit_number, "Test: Week", test_week_number),
+                       paste("Weekly Test: Week", test_week_number)
+                       )
           )  
 
 schools <- data.frame(schoolid=c(78102, 7810, 400146, 400163),
-                      school=c("KAP", "KAMS", "KCCP")
+                      school=c("KAP", "KAMS", "KCCP", "KBCP")
+                      )
 
 a_sl<-science_assessmets %>% 
   mutate(Mastered=is_mastery==1,
@@ -236,10 +259,10 @@ a_sl<-science_assessmets %>%
                                 administered_at),
          date=ymd(administered_at)
          ) %>%
-  group_by(schoolid,  grade_level, subject_area, title, reporting_group, row_names, Title, date) %>% 
+  group_by(Title, schoolid, date, reporting_group) %>% 
   summarize(N=n(), 
             N_Mastered = sum(Mastered), 
-            Pct_Mastered=N_Mastered) %>%
+            Pct_Mastered=N_Mastered/N*100) %>%
   mutate(Mastery_Cat=cut(Pct_Mastered, c(0,50,75,100)))
 
 assessments_ordered <- a_sl %>% 
@@ -256,8 +279,8 @@ a_sl_ordered <- a_sl %>% ungroup %>%
 # Histogram ###
 ggplot(a_sl_ordered, aes(x=reporting_group, y=Pct_Mastered)) + 
   geom_histogram(aes(fill=Mastery_Cat), stat="identity") + 
-  facet_grid(schoolid ~ Title) + 
-  #facet_grid(Title ~schoolid) + 
+  facet_grid(schoolid ~ Title ) + 
+  #facet_grid(Title ~ test) + 
   coord_flip() +
   theme_bw() + 
   ylab("% of students mastering objective") + 
