@@ -180,3 +180,25 @@ strands_list_plot <- function(.data, ...){
   p
   
 }
+
+
+## longitudnal summary plot
+
+long_summary_plot<-function(map_summary_data, facets){
+  p<-ggplot(map_summary_data, 
+            aes(x=gsub("20","",SY), y=round(Pct_Typical*100)))+
+    geom_line(aes(group=Subject, color=Subject)) + 
+    geom_point(color="white", size=8.75) +
+    geom_text(aes(label=paste(round(Pct_Typical*100),"%",sep=""), 
+                  color=Subject),
+              size=3) +
+    facet_grid(facets) +
+    scale_color_manual(values=c("#439539", "#255694")) +
+    theme_bw()+
+    xlab("School Year") + 
+    ylab("% of students meeting/exceeding\ntypical growth") +
+    theme(legend.position="none")
+  
+  p  
+}
+

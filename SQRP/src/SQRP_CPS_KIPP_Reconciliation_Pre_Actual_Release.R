@@ -80,7 +80,7 @@ kipp_cps_2 <-inner_join(kipp_cps, map_s13, by=c("StudentID", "MeasurementScale")
 kipp_cps_2 %>% 
   mutate(Diff=RIT_Fall_Spring_Equated - RIT_Actual_Spring13) %>%
   group_by(MeasurementScale, Grade, SchoolName) %>%
-  summarize(Mean_Diff=mean(Diff, na.rm=T), 
+  dplyr::summarize(Mean_Diff=mean(Diff, na.rm=T), 
             N=n(), 
             N_Under_Predict = sum(Diff<0, na.rm=T), 
             Pct_Under_Predict=N_Under_Predict/N*100) %>%
@@ -94,8 +94,29 @@ kipp_cps_2 %>%
 kipp_cps %>%
   #mutate(CPSTestRIT=ifelse(is.na(CPSTestRIT), RIT_Spring, CPSTestRIT)) %>%
   group_by(MeasurementScale, Grade, SchoolName) %>%
-  summarize(n(),
+  dplyr::summarize(n(),
             Mean_Start=mean(RIT_Fall_Spring_Equated),
             Mean_End = mean(CPSTestRIT_Spring,na.rm=T)) %>% ungroup %>%
   arrange(SchoolName, MeasurementScale,Grade)
 
+
+# Get % M/E ####
+map_kipp_matched<-map_kipp$seasonMatched %>% 
+  as.data.frame %>% 
+  filter(Grade==5) %>%
+  mutate(TestRITScore_imputed=round(cps_equate(TestRITScore, 
+                                                  MeasurementScale,
+                                                  Grade)),
+         TypicalGrowth=R22,
+         TypicalTarget=TestRITScore_imputed + TypicalGrowth,
+         MetTypical=TestRITScore.2>=TypicalTarget)
+
+map_kipp_matched %>% 
+  group_by(SchoolInitials, Grade, MeasurementScale) %>%
+  dplyr::summarize(N=n(), 
+                   N_Met=sum(MetTypical), 
+                   Pct_Met=round(N_Met/N*100),
+                   Mean_Spring_1=round(mean(TestRITScore_imputed)),
+                   Mean_spring_2=round(mean(TestRITScore.2))) %>%
+  arrange(MeasurementScale, SchoolInitials)
+  

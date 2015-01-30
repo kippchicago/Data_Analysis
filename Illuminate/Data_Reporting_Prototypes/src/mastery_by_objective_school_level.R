@@ -278,7 +278,11 @@ a_sl_ordered <- a_sl %>% ungroup %>%
 
 # Histogram ###
 ggplot(a_sl_ordered, aes(x=reporting_group, y=Pct_Mastered)) + 
-  geom_histogram(aes(fill=Mastery_Cat), stat="identity") + 
+  geom_histogram(aes(fill=Mastery_Cat), stat="identity") +
+  geom_text(aes(label=round(Pct_Mastered)),
+            hjust=1,
+            color="white",
+            vjust=.5) +
   facet_grid(schoolid ~ Title ) + 
   #facet_grid(Title ~ test) + 
   coord_flip() +
