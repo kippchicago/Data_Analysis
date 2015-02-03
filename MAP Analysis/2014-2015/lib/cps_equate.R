@@ -6,7 +6,7 @@ cps_equate_scalar <- function(rit_score, subject, grade){
 
   
   inner <- function(rit_score, subject, grade) {
-    assert_that(subject %in% c("Mathematics", "Reading"))
+    #assert_that(subject %in% c("Mathematics", "Reading"))
     if(grade<=2) return(rit_score)
     grade<-as.character(grade)
     if(subject=="Mathematics"){

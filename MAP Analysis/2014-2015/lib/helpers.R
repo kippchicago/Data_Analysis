@@ -202,3 +202,217 @@ long_summary_plot<-function(map_summary_data, facets){
   p  
 }
 
+
+
+summary_plots <- function(grade, subject,  school){
+  map_fw<-map_mv_summ %>%
+    filter(Grade==grade, 
+           School==school,
+           Subject==subject,
+           GrowthSeason=="Fall - Winter",
+           N>10)
+  
+  map_sw<-map_mv_summ %>%
+    filter(Grade==grade, 
+           School==school,
+           Subject==subject,
+           GrowthSeason=="Spring - Winter", 
+           N>10)
+  
+  
+  map_sw_equated<-map_mv_summ_equated %>%
+    filter(Grade==grade, 
+           School==school,
+           Subject==subject,
+           GrowthSeason=="Spring - Winter", 
+           N>10) %>%
+    mutate(GrowthSeason="Spring - Winter\n(CPS equated)")
+  
+  map_test<-rbind(map_sw, map_fw, map_sw_equated) %>%
+    na.omit
+  
+  if(nrow(map_test)==0){
+    p<-grid.text(label = sprintf("Insufficient data for \n%s %s %s. :-(",
+                                 school, grade, subject),
+                 draw=FALSE)
+  } else {
+    p<-long_summary_plot(map_test,
+                         facets= GrowthSeason ~ .) + 
+      ggtitle("Historic Grade-level Growth")
+  }
+  
+  
+  # Becca Plots ####
+  require(ensurer)
+  # vectorize Andrew's mapvisuals::grade_level_season
+  gls<-Vectorize(grade_level_season)
+  
+  cy <- 2015+12-grade
+  
+  data_bp<-map_mv$mapData %>% 
+    filter(CohortYear==cy,
+           MeasurementScale==subject,
+           SchoolInitials==school)    
+    
+  
+  
+    
+  
+  
+  #  data_fake_national<-data.frame(GradeSeason=rep(2, times=8),
+  #                                 MeasurementScale=c(rep("Mathematics", 4), 
+  #                                                    rep("Reading", 4)),
+  #                                 TestPercentile=rep(seq(24,100, by=25),2),
+  #                                 CohortYear=rep(2021, 8),
+  #                                 Year2=rep(2014,8),
+  #                                 DistrictName="National"
+  # #                            )
+  
+  
+  data_fake_national<-data.frame(GradeSeason=rep(2, times=12),
+                                 MeasurementScale=c(rep("Mathematics", 4), 
+                                                    rep("Reading", 4),
+                                                    rep("General Science", 4)),
+                                 TestPercentile=rep(seq(24,100, by=25),3),
+                                 CohortYear=rep(2021, 12),
+                                 Year2=rep(2014,12),
+                                 DistrictName="National Distribution"
+  )
+  
+  if(nrow(data_bp)==0) {
+    p_bp2<-grid.text(label = sprintf("Insufficient data for\n%s %s %s.",
+                                    school, grade, subject),
+                    draw=FALSE)
+  } else {
+    if(all(is.na(data_bp$TestPercentile))){
+      p_bp2 <-grid.text(label = sprintf("NWEA doesn't provide percentiles\n for grade %s %s. :-(",
+                                        grade, subject),
+                        draw=FALSE)
+    } else {
+      data_bp2<-data_bp  %>%
+        mutate(GradeSeason=Grade+gls(Season)) %>%
+        select(GradeSeason,
+               MeasurementScale,
+               TestPercentile,
+               CohortYear,
+               Year2,
+               SchoolInitials)
+      
+      p_bp<-becca_plot(.data = as.data.frame(data_bp2), 
+                       grade_level_season_column="GradeSeason",
+                       school_name_column="SchoolInitials", 
+                       cohort_name_column="CohortYear",
+                       #academic_year_column="Year2",
+                       measurement_scale_column="MeasurementScale", 
+                       test_percentile_column="TestPercentile",
+                       facets=". ~ MEASUREMENTSCALE", 
+                       justify_widths=FALSE, 
+                       #justify_min=4.2, 
+                       #justify_max=5, 
+                       first_and_spring_only=FALSE,
+                       small_n_cutoff = 0.1
+      )
+      
+      p_bp2<-p_bp + scale_fill_manual(values = c("#8D8685",  #1st 
+                                                 "#CFCCC1",  #2nd
+                                                 "#A7CFEE",  #3rd
+                                                 "#60A2D7"   #4th
+      )
+      ) +  
+        xlab("") + 
+        guides(fill=guide_legend(title="Quartiles")) +
+        theme(axis.ticks=element_blank(),
+              axis.text.x=element_text(size=8)
+        ) + 
+        ggtitle("Historic Cohort Attainment")   
+      
+    }
+    
+  }
+  # Page one ####
+  require(gridExtra)
+  
+  message(paste("Plotting", school, subject, grade))
+  plots<-arrangeGrob(p, 
+                     p_bp2, ncol=2)
+  
+  titles<-textGrob(label = paste("Winter MAP Results", 
+                                 school, 
+                                 grade,
+                                 subject,
+                                 sep=" | "))
+  arrangeGrob(titles, plots, nrow=2, heights=c(unit(.1, "npc"),
+                                               unit(.9, "npc")
+  )
+  )
+}
+
+
+# Student Percentile Plots ####
+
+
+
+
+student_npr_long_plot <- function(school, grade, subject){
+  
+  fsm<-Vectorize(fall_spring_me)
+  fssm <- Vectorize(fall_spring_sort_me)
+  
+  
+  map_individual<-map_current %>% filter(SchoolInitials==school,
+                                         CohortYear==2015+12-grade,
+                                         MeasurementScale==subject) 
+  
+  if(nrow(map_individual)==0){
+    p_insufficent <- grid.text(label = sprintf("Insufficient data for\n%s %s %s.",
+                                               school, grade, subject),
+                               draw=FALSE)
+    return(arrangeGrob(p_insufficent, nrow=1, ncol=1))
+  }
+  
+  map_individual <- map_individual %>%
+    mutate(gls=Grade+gls(fws_string = Season),
+           Assessment=fsm(gls),
+           Asses_sort=fssm(gls),
+           Name=paste(StudentLastName, StudentFirstName, sep=", "))
+  
+  assessment_order<-map_individual %>% 
+    ungroup %>% 
+    select(Assessment, Asses_sort) %>% 
+    unique %>% 
+    mutate(Assessment=factor(Assessment, levels = Assessment))
+  
+  map_individual <- map_individual %>%
+    mutate(Assessment=factor(Assessment, levels=assessment_order$Assessment))
+  
+  
+  
+  min_grade <- min(map_individual$gls) 
+  max_grade <- max(map_individual$gls)
+  assessments_breaks<-unique(map_individual$gls)
+  
+  
+  p_indv<-ggplot(map_individual, aes(x=gls, y=TestPercentile)) +
+    geom_line(aes(group=StudentID)) +
+    geom_point(size=2) +
+    annotate("rect", ymin=0, ymax=25, xmin=min_grade, xmax=max_grade, fill="red", alpha=.1) +
+    annotate("rect", ymin=25, ymax=50, xmin=min_grade, xmax=max_grade, fill="gold", alpha=.1) +
+    annotate("rect", ymin=50, ymax=75, xmin=min_grade, xmax=max_grade, fill="blue", alpha=.1) +
+    annotate("rect", ymin=75, ymax=100, xmin=min_grade, xmax=max_grade, fill="green", alpha=.1) +
+    stat_smooth(method="lm", se = FALSE) + 
+    facet_wrap(~Name, ncol = 10) + 
+    scale_x_continuous("Assessments", 
+                       breaks=assessments_breaks,
+                       labels=assessment_order$Assessment) +
+    theme_minimal() + 
+    theme(strip.text=element_text(size=8),
+          axis.text.y=element_text(size=6),
+          axis.text.x=element_text(size=4)  
+    ) +
+    ylab("National Percentile Rank") + 
+    ggtitle(paste("Historical Percentile Ranks", school, subject, grade, sep=" | "))
+  
+  #return
+  p_indv
+  
+}
