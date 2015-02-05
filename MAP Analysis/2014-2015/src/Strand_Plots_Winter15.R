@@ -100,4 +100,19 @@ pdf(file = "graphs//Winter_Strand_Plots.pdf", height=10.75, width=9.25, onefile 
   p
 dev.off()
 
+pdf(file = "graphs//Winter_Strand_List_Plots_KAP.pdf", height=10.75, width=9.25, onefile = TRUE)
+p[names(p)[grepl("KACP_[^6-8]", names(p))]]
+dev.off()
 
+pdf(file = "graphs//Winter_Strand_List_Plots_KAMS.pdf", height=10.75, width=9.25, onefile = TRUE)
+p[names(p)[grepl("KACP_[6-8]", names(p))]]
+dev.off()
+
+
+pdf(file = "graphs//Winter_Strand_List_Plots_KCCP.pdf", height=10.75, width=9.25, onefile = TRUE)
+p[names(p)[grepl("KCCP", names(p))]]
+dev.off()
+
+pdf(file = "graphs//Winter_Strand_List_Plots_KBCP.pdf", height=10.75, width=9.25, onefile = TRUE)
+p[names(p)[grepl("KCCP", names(p))]]
+dev.off()
