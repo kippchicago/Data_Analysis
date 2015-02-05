@@ -30,8 +30,8 @@ pctl_change_plot<-function(.data,
                                      ifelse(Diff_RIT_Bool==FALSE & Diff_RIT<0, "Negative", "Zero")
            ),
            Diff_RIT_Neg_Pos=factor(Diff_RIT_Neg_Pos, levels=c("Zero", "Negative", "Positive")),
-           StudentName=paste(StudentFirstname.x,
-                             StudentLastname.x),
+           StudentName=paste(StudentFirstName.x,
+                             StudentLastName.x),
            Name=factor(StudentName, levels=unique(StudentName)[order(-Diff_Pctl)])
     )
   
@@ -99,9 +99,14 @@ strands_list_plot <- function(.data, ...){
 
   if(is.mapvizier(.data)) .data <- as.data.frame(.data$mapData)
   .data <- filter(.data, ...)
+  if(nrow(.data)==0){
+    p_bad <- arrangeGrob(grid.text(label="Not enough info :-("),
+                         ncol=1, nrow=1)
+    return(p_bad)
+  }
   m.sub.scores<-.data %>% select(StudentID, 
-                                           StudentFirstname,
-                                           StudentLastname,
+                                           StudentFirstName,
+                                           StudentLastName,
                                            SchoolInitials,
                                            Grade,
                                            MeasurementScale,
@@ -114,8 +119,8 @@ strands_list_plot <- function(.data, ...){
   
   
   m.sub.names<-.data %>% select(StudentID, 
-                                          StudentFirstname,
-                                          StudentLastname,
+                                          StudentFirstName,
+                                          StudentLastName,
                                           SchoolInitials,
                                           Grade,
                                           MeasurementScale,
@@ -129,7 +134,8 @@ strands_list_plot <- function(.data, ...){
   m.melt.scores<-melt(m.sub.scores, 
                       id.vars=names(m.sub.scores)[1:9], 
                       measure.vars = names(m.sub.scores)[-c(1:9)]
-  )
+  ) %>%
+    mutate(value=as.numeric(value))
   
   m.melt.names<-melt(m.sub.names, 
                      id.vars=names(m.sub.names)[1:9],
@@ -150,14 +156,14 @@ strands_list_plot <- function(.data, ...){
   assert_that(nrow(m.long)==nrow(m.melt.names))
   
   m.long.2<-m.long %>% filter(!is.na(Goal_Name))
-  m.long.2<-m.long %>% filter(!is.na(value))
+  m.long.2<-m.long.2 %>% filter(!is.na(value))
   assert_that(nrow(m.long)>=nrow(m.long.2))
   
   m.plot<-m.long.2 %>% mutate(Rank=rank(TestRITScore, ties.method="random"))
   
   m.plot<-m.plot %>% group_by(SchoolInitials, Grade, MeasurementScale, Goal_Name) %>%
     mutate(Rank2=rank(value, ties.method="random")) %>%
-    mutate(StudentFullName=paste(StudentFirstname, StudentLastname)) %>%
+    mutate(StudentFullName=paste(StudentFirstName, StudentLastName)) %>%
     filter(!is.na(Goal_Name)|is.na(value))
 
   x_max<-max(m.plot$value)+50

@@ -1,6 +1,6 @@
 data_loading: TRUE
 cache_loading: FALSE
-munging: FALSE
+munging: TRUE
 logging: TRUE
 load_libraries: TRUE
 libraries: assertthat, ggplot2, grid, lubridate, mapvisuals, dplyr, xlsx, RJDBC
