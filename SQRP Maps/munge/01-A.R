@@ -15,7 +15,8 @@ sqrp<-sqrp.cps %>%
          rating=factor(rating, 
                        levels=rev(c("1+", "1", "2+", "2", "3")), 
                        ordered=TRUE
-                       )
+                       ),
+         level=rating %in% c("1", "1+")
          )
 
 
@@ -31,7 +32,8 @@ kcs_schools_location<-data.frame(schoolname=c("KIPP Ascend Primary",
                                            "5515 S Lowe Ave 60621"),
                                  rating=factor(c("1+", "1+", "1+", "1"),
                                                levels=rev(c("1+", "1", "2+", "2", "3")), 
-                                               ordered=TRUE)
+                                               ordered=TRUE),
+                                 level=rating %in% c("1", "1+")
                                  )
 
 schools_geocoded<-geocode(kcs_schools_location$address)
