@@ -141,7 +141,7 @@ assessments_2<- assessments%>%
 
 totals_by_student<-assessments_2 %>% 
   group_by(schoolid, student_number, lastfirst) %>% 
-  summarize(points_possible=n(), 
+  dplyr::summarize(points_possible=n(), 
             points=sum(mastered), 
             percent_correct=points/points_possible*100, 
             title="Objectives\nMastered\nby Student", 
@@ -161,7 +161,7 @@ assessments_3<-rbind_all(list(assessments_2, totals_by_student))
 
 totals_by_objective <- assessments_3 %>%
   group_by(Objective, title) %>%
-  summarize(points_possible=n(), 
+  dplyr::summarize(points_possible=n(), 
             points=sum(mastered), 
             percent_correct=points/points_possible*100
             ) %>%
@@ -188,7 +188,7 @@ info(logger, "Ordering Assessments by Date")
          date=ymd(administered_at)) %>%
   filter(!is.na(date)) %>%
   group_by(local_assessment_id) %>%
-  summarize(Date=min(date)) %>%
+  dplyr::summarize(Date=min(date)) %>%
   arrange(Date)
 
 assessments_5 <- assessments_4 %>%
@@ -260,7 +260,7 @@ a_sl<-science_assessmets %>%
          date=ymd(administered_at)
          ) %>%
   group_by(Title, schoolid, date, reporting_group) %>% 
-  summarize(N=n(), 
+  dplyr::summarize(N=n(), 
             N_Mastered = sum(Mastered), 
             Pct_Mastered=N_Mastered/N*100) %>%
   mutate(Mastery_Cat=cut(Pct_Mastered, c(0,50,75,100)))

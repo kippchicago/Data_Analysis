@@ -195,4 +195,8 @@ pdf(file="graphs/mastery_by_objective_2.pdf", height = 8.25, width = 10.75)
   p + ggtitle("Science, KAP, 5th Grade, Unit and Weekly Tests\n PROOF OF CONCEPT")
 dev.off()
 
+png(file="graphs/mastery_by_objective_2.png", height = 8.25, width = 10.75)
+p + ggtitle("Science, KAP, 5th Grade, Unit and Weekly Tests\n PROOF OF CONCEPT")
+dev.off()
+
 

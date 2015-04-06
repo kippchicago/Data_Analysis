@@ -4,9 +4,10 @@ author: "Chris Haid"
 date: "April 22, 2014"
 output: html_document
 ---
-So let's try test equating as a measurement error model and let's get some camparison's with `Stan` and `JAGS`.  Let's assume that a student $i \in N$ has an underlying ability measured on NWEA's RIT scale $r_i>0 \forall i \in N$.  The MAP provides a noisy measure of $r$ that I'll denote $\hat{r}$, where $r = [r_{1}, r_{2}, \ldots, r_{N}]$ and simirlarly for $\hat{r}$.
+So let's try test equating as a measurement error model and let's get some comparisons with `Stan` and `JAGS`.  Let's assume that a student $i \in N$ has an underlying ability measured on NWEA's RIT scale $r_i>0 \forall i \in N$.  The MAP provides a noisy measure of $r$ that I'll denote $\hat{r}$, where $r = [r_{1}, r_{2}, \ldots, r_{N}]$ and similarly for $\hat{r}$.
 
-We'll first sample the $r_i$ from some likely scores and then create a nouisey measure of each.  Finally we'll linearly relate the $r_i$ to anther noisy measure $hat{a} in [0,1]$.
+We'll first sample the $r_i$ from some likely scores and then create a noisy measure of
+each.  Finally we'll linearly relate the $r_i$ to anther noisy measure $\hat{a} \in [0,1]$.
 
 So first let's sample $r$ from a known distribution
 ```{r sample_r}
@@ -14,7 +15,7 @@ set.seed(432104)
 require(rstan)
 N <- 30 # number of students
 
-r<-rnorm(n = N, mean = 211.39, sd =5.83) #8th grade Mat NWEA Norms
+r<-rnorm(n = N, mean = 211.39, sd =5.83) #8th grade Math NWEA Norm
 head(r)
 ```
 
@@ -27,22 +28,26 @@ rhat<-rnorm(n=N, mean=r, sd=sigma.r)
 head(rhat)
 ```
 
-And finally we simulate $hat{a}$ from $r$ as well.  In this case I want $a$ to be on the on the $[0,1]$ scale and so I pick $\alpha$ and $\beta$ to normalize the $r$'s on to that scale linearly:
+And finally we simulate $\hat{a}$ from $r$ as well.  In this case I want $a$ to be on the on the $[0,1]$ scale and so I pick $\alpha$ and $\beta$ to normalize the $r$'s on to that scale linearly:
 
 
 ```{r ahats}
   alpha <- -min(r)/diff(range(r))
-  beta <-1/diff(range(r))
+  beta <- 1/diff(range(r))
+
+  alpha
+
+  beta
 
   sigma.a=.01
-  ahat<-rnorm(n=N, mean=alpha + beta*r, sd=sigma.a)
-  ahat[ahat>1]<-1
-  ahat[ahat<0]<-0
+  ahat <- rnorm(n = N, mean = alpha + beta*r, sd = sigma.a)
+  ahat[ahat > 1] <- 1
+  ahat[ahat < 0] <- 0
 
 head(ahat)
 ```
 
-So we our data are the observed $\hat{r}_i$'s and $\hat{a}_i$'s. Our parameters of interest are the $r$, $\alpha$, and $\beta$.  I take the standard deviations---$\sigma_{r}$ and $\sigma_a$ to be unknown hyper paramters. So here's a `Stan` model that should estimate these values:
+So we our data are the observed $\hat{r}_i$'s and $\hat{a}_i$'s. Our parameters of interest are the $r$, $\alpha$, and $\beta$.  I take the standard deviations---$\sigma_{r}$ and $\sigma_a$ to be unknown hyper parameters. So here's a `Stan` model that should estimate these values:
 
 ```{r stan_measurement_model}
 model.1<-'
@@ -74,9 +79,9 @@ model.1<-'
 And now for the sampling:
 
 ```{r model1}
-stan.data<-list('ahat' = ahat,
-                'rhat' = rhat,
-                'N' = N)
+stan.data <- list('ahat' = ahat,
+                  'rhat' = rhat,
+                  'N' = N)
 
 fit1 <- stan(model_code = model.1,
                    data = stan.data,
@@ -89,7 +94,7 @@ fit2 <- stan(fit = fit1,
              data = stan.data,
              #pars = c(,'r', 'alpha', 'beta'),
              chains=4,
-             iter=1000)
+             iter=10000)
 
 fit2
 

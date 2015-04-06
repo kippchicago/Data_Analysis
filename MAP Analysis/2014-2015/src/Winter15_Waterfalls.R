@@ -36,7 +36,7 @@ for(term in c("Spring - Winter", "Fall - Winter")){
         ms2<-str_replace(ms, " ",  "_")
         w2<-str_replace(term, " - ",  "_")
         
-        p<-try(haid_plot(df=map_mv, 
+        p<-try(haid_plot(df=map_mv, p_name_size = 2,
                     SchoolInitials==s, 
                     Grade.2==g, 
                     MeasurementScale==ms, 
@@ -66,7 +66,7 @@ pdf(file = "graphs//Winter_Waterfall_Plots_KAP_by_grade.pdf", height=10.75, widt
 p_waterfalls[names(p_waterfalls)[grepl("KACP_[^6-8]", names(p_waterfalls))]]
 dev.off()
 
-pdf(file = "graphs//Winter_Waterfall_Plots_KAMS.pdf", height=10.75, width=8.25, onefile = TRUE)
+pdf(file = "graphs//Winter_Waterfall_Plots_KAMS.pdf", width=10.75, height=8.25, onefile = TRUE)
 p_waterfalls[names(p_waterfalls)[grepl("KACP_[6-8]", names(p_waterfalls))]]
 dev.off()
 
@@ -76,6 +76,6 @@ pdf(file = "graphs//Winter_Waterfall_Plots_KCCP.pdf", height=10.75, width=8.25, 
 p_waterfalls[names(p_waterfalls)[grepl("KCCP", names(p_waterfalls))]]
 dev.off()
 
-pdf(file = "graphs//Winter_Waterfall_Plots_KBCP.pdf", height=10.75, width=8.25, onefile = TRUE)
+pdf(file = "graphs//Winter_Waterfall_Plots_KBCP.pdf", height=8.5, width=11, onefile = TRUE)
 p_waterfalls[names(p_waterfalls)[grepl("KBCP", names(p_waterfalls))]]
 dev.off()

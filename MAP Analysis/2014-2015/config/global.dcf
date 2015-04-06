@@ -3,7 +3,7 @@ cache_loading: FALSE
 munging: TRUE
 logging: TRUE
 load_libraries: TRUE
-libraries: assertthat, ggplot2, grid, lubridate, mapvisuals, dplyr, xlsx, RJDBC
+libraries: assertthat, ggplot2, grid, lubridate, mapvisuals, dplyr, xlsx, RJDBC, mapvizieR
 as_factors: FALSE
 data_tables: FALSE
 recursive_loading: FALSE
