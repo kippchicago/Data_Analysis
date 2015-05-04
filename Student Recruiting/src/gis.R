@@ -1,4 +1,3 @@
-# Recruitement maps.
 setwd("~/Dropbox (KIPP Chicago Schools)/Data Analysis/Student Recruiting")
 
 require(ProjectTemplate)
@@ -6,24 +5,91 @@ require(ProjectTemplate)
 
 load.project()
 
-# glimpse(student.addresses)
+# sf<-read.dcf("config//sales_force.dcf") %>% as.data.frame(stringsAsFactors = FALSE)
+# 
+# 
+# session <- rforcecom.login(sf$username, 
+#                            sf$key, 
+#                            sf$instanceURL, 
+#                            sf$apiVersion)
+# 
+# stu_qry<-"
+# SELECT  LastName,
+#         FirstName,
+#         MailingStreet,
+#         MailingCity,
+#         MailingState,
+#         MailingPostalCode,
+#         Expected_HS_Graduation__c 
+# FROM Contact
+# "
+# 
+# sf_alumni <- rforcecom.query(session, stu_qry)
+# 
+# alumni_addresses<-as.data.frame(lapply(sf_alumni, as.character ), stringsAsFactors=FALSE)
 # 
 # 
 # 
-# student.addresses2 <- student.addresses %>%
+# alumni_addresses.2 <- alumni_addresses %>% 
+#   filter(!is.na(MailingStreet)) %>%
+#   mutate(Cohort=lubridate::year(lubridate::ymd(Expected_HS_Graduation__c)),
+#          complete_address=paste(MailingStreet, MailingCity, MailingState, MailingPostalCode),
+#          complete_address=toupper(complete_address),
+#          complete_address=gsub("(.+)\\s(APT.+|UNIT.+|\\#.+|FL\\s.+|BSMT.+|STE.+)\\s(CHICAGO.+)", "\\1 \\3", 
+#                                perl=TRUE,
+#                                complete_address
+#                                ),
+#         complete_address=stringr::str_replace_all(complete_address, "\\.", "")
+#          ) %>%
+#   filter(!grepl("PO BOX|P.O. BOX", complete_address))
+#   
+# 
+# max_batch<-nrow(alumni_addresses.2)/100
+# max_batch_split<-stringr::str_split(max_batch,pattern = "\\.")
+# 
+# batches<-c(rep((1:as.integer(max_batch_split[[1]][1])), each=100), 
+#            rep(as.integer(max_batch_split[[1]][1])+1, times=as.integer(max_batch_split[[1]][2])))                  
+# 
+# assertthat::assert_that(length(batches)==nrow(alumni_addresses.2))
+# 
+# # Must remove Unit numbers, floor number, bsmt designations and the like from address fields
+# alumni_addresses.3 <- alumni_addresses.2 %>%
+#   mutate(batch=batches)
+# 
+# # Geocoding fun ####
+# 
+# latlong_list<-lapply(alumni_addresses.3$complete_address, ggmap::geocode)
+# 
+# latlong_df<-rbind_all(latlong_list)
+# 
+# 
+# alumni_addr<-alumni_addresses.3 %>%
+#   mutate(lat=latlong_df$lat,
+#          long=latlong_df$lon)
+# 
+# save(alumni_addr, file = "data//alumni_geocoded.Rda")
+
+
+
+# glimpse(mailer.addresses)
+# 
+# 
+# 
+# mailer.addresses2 <- mailer.addresses %>%
 #   mutate(complete_address=paste(address, city, st, zip)) %>%
 #   filter(!grepl("po box", tolower(address)))
 # 
 # 
-# max_batch<-nrow(student.addresses2)/100
+# max_batch<-nrow(mailer.addresses2)/100
 # max_batch_split<-str_split(max_batch,pattern = "\\.")
 # 
 # batches<-c(rep((1:as.integer(max_batch_split[[1]][1])), each=100), 
 #            rep(as.integer(max_batch_split[[1]][1])+1, times=as.integer(max_batch_split[[1]][2])))                  
 # 
-# assertthat::assert_that(length(batches)==nrow(student.addresses2))
+# assertthat::assert_that(length(batches)==nrow(mailer.addresses2))
 # 
-# student.addresses3 <- student.addresses2 %>%
+# # Must remove Unit numbers, floor number, bsmt designations and the like from address fields
+# mailer.addresses3 <- mailer.addresses2 %>%
 #   mutate(batch=batches,
 #          complete_address=gsub("(.+)\\s(APT.+|UNIT.+|\\#.+|FL\\s.+|BSMT.+|STE.+)\\s(CHICAGO.+)", "\\1 \\3", 
 #                                     perl=TRUE,
@@ -33,32 +99,14 @@ load.project()
 # 
 # # Geocoding fun ####
 # 
-# geocodeBatch <- function(address, bounding_box) {
-#   #URL for batch requests
-#   URL=paste("http://open.mapquestapi.com/geocoding/v1/batch?key=", "Fmjtd%7Cluub2huanl%2C20%3Do5-9uzwdz", 
-#             "&location=", paste(address,collapse="&location="),sep = "") 
-#   
-#   URL <- gsub(" ", "+", URL)
-#   data<-RCurl::getURL(URL)
-#   data <- rjson::fromJSON(data)
-#   
-#   p<-sapply(data$results,function(x){
-#     if(length(x$locations)==0){
-#       c(NA,NA)
-#     } else{
-#       c(x$locations[[1]]$displayLatLng$lat, x$locations[[1]]$displayLatLng$lng)   
-#     }})
-#   
-#   out_list<-t(p)
-#   out<-data.frame(lat=out_list[,1], long=out_list[,2])  
-# }
+
 # 
 # 
 # batch_numbers<-unique(batches)
 # 
 # latlong_list<-lapply(batch_numbers,
 #                      function(x){
-#                        addr <- student.addresses3 %>% 
+#                        addr <- mailer.addresses3 %>% 
 #                          filter(batch==x) %>% 
 #                          select(complete_address)
 #                        
@@ -72,13 +120,13 @@ load.project()
 # latlong_df<-rbind_all(latlong_list)
 # 
 # 
-# stus_addr<-student.addresses3 %>%
+# mailer_addr<-mailer.addresses3 %>%
 #   mutate(lat=latlong_df$lat,
 #          long=latlong_df$long)
-# 
-#save(stus_addr, file="data/mailers_geocoded.Rda")
+#save(mailer_addr, file="data/mailers_geocoded.Rda")
 
-load("data/mailers_geocoded.Rda")
+#load("data/mailers_geocoded.Rda")
+
 
 # Here's where we do the map magic ####
 
@@ -98,7 +146,7 @@ chicago_map_base <- ggmap(chicago,
 
 
 chicago_map<-chicago_map_base + 
-  geom_point(data=stus_addr, 
+  geom_point(data=mailer_addr, 
              aes(x=long,
                  y=lat
              ),
@@ -126,7 +174,7 @@ nl<-get_map(location = "1616 S Avers Ave, Chicago, IL",
 nl_map_base <- ggmap(nl)
 
 nl_map<-nl_map_base + 
-  geom_point(data=stus_addr, 
+  geom_point(data=mailer_addr, 
              aes(x=long,
                  y=lat
              ),
@@ -149,7 +197,7 @@ austin<-get_map(location = "  4818 W Ohio St, Chicago, IL 60644",
 austin_map_base <- ggmap(austin)
 
 austin_map<-austin_map_base + 
-  geom_point(data=stus_addr, 
+  geom_point(data=mailer_addr, 
              aes(x=long,
                  y=lat
              ),
@@ -172,7 +220,7 @@ englewood<-get_map(location = "5515 S Lowe Ave, Chicago, IL 60621",
 englewood_map_base <- ggmap(englewood)
 
 englewood_map<-englewood_map_base + 
-  geom_point(data=stus_addr, 
+  geom_point(data=mailer_addr, 
              aes(x=long,
                  y=lat
              ),
@@ -264,7 +312,7 @@ p_hm <- chi_map_2 +
 #                      y=lat), 
 #                  size=.5
 #                  ) + 
-  stat_density2d(data=stus_addr,
+  stat_density2d(data=mailer_addr,
                  aes(x=long,
                      y=lat,
                      fill=..level..,
@@ -295,7 +343,7 @@ p_hm +
   ggtitle("Population Density of Families with 5th-6th graders")
 dev.off()
 
-## Getting down to cencues block groups/blocks/tracks ###
+## Getting down to cencues block groups/blocks/tracks ####
 
 census_blocks_shapefile<-readOGR("shapefiles/Census_Blocks/", 
                                  "Census Blocks")
@@ -303,15 +351,209 @@ census_blocks_shapefile<-readOGR("shapefiles/Census_Blocks/",
 census_blocks_shapefile<-spTransform(census_blocks_shapefile, 
                                      CRS("+proj=longlat +datum=WGS84"))
 
+
+
 # let's get some shapefiles 
-stus_sp <- na.exclude(stus_addr)
+mailer_sp <- na.exclude(mailer_addr)
 
-coordinates(stus_sp) = ~long+lat
-proj4string(stus_sp)<- CRS("+proj=longlat +datum=WGS84")
+coordinates(mailer_sp) = ~long+lat
+proj4string(mailer_sp)<- CRS("+proj=longlat +datum=WGS84")
 
-str(stus_sp)
+#str(mailer_sp)
 
-stus_blocked<-over(stus_sp, census_blocks_shapefile)
+mailer_blocked<-over(mailer_sp, census_blocks_shapefile)
 
-cbind(stus_sp, stus_blocked) %>%glimpse
-  
+mailer_blocked2<-cbind(mailer_sp, mailer_blocked) 
+
+
+# Austin Redux ####
+
+
+
+
+census_blocks_shapefile@data$id <- rownames(census_blocks_shapefile@data)
+census_blocks <- fortify(census_blocks_shapefile, region="id")
+census_blocks.df<-merge(census_blocks, 
+                        census_blocks_shapefile, 
+                        by="id") %>%
+  arrange(id, order) %>%
+  as.data.frame
+
+
+zips<-c(60624, 60644, 60651)
+
+austin<-get_map(location = "  4818 W Ohio St, Chicago, IL 60644", 
+                zoom=14, 
+                maptype = 'toner-lite', 
+                source = "stamen")
+
+census_filtered<-census_blocks.df%>%
+  filter(as.integer(BLOCK_ZIP) %in% zips)
+
+austin_map_base<-ggmap(austin, 
+                 base_layer = ggplot(data=municipalities.df,
+                                     aes(x=long, y=lat) 
+                                     ),
+                 extent = "normal", 
+                 maprange = FALSE
+                 )
+
+
+block_centers <- census_blocks.df %>%
+  group_by(CENSUS_T_1) %>%
+  mutate(max_long=max(long),
+         min_long=min(long),
+         max_lat=max(lat),
+         min_lat=min(lat)
+         ) %>%
+  select(long=BLOCK_CE_2, 
+         lat=BLOCK_CE_3, 
+         block_name=CENSUS_T_1, 
+         zip=BLOCK_ZIP,
+         max_long,
+         min_long,
+         max_lat,
+         min_lat
+  ) %>%
+  unique
+
+austin_map<-austin_map_base + 
+  geom_polygon(data=census_blocks.df %>%
+                 filter(as.integer(BLOCK_ZIP) %in% zips),
+               aes(x=long, 
+                   y=lat, 
+                   group=group),
+               color="hotpink",
+               size=1,
+               fill=NA,
+               alpha=.3) + 
+  geom_text(data=block_centers %>%
+                 filter(as.integer(zip) %in% zips),
+               aes(x=long, 
+                   y=lat,
+                   label=block_name),
+               color="hotpink",
+               size=1,
+               alpha=1) + 
+  geom_point(data=mailer_blocked2 %>%
+               filter(as.integer(BLOCK_ZIP) %in% zips), 
+             aes(x=long,
+                 y=lat
+             ),
+             color="orange",
+             size=2,
+             alpha=.4,
+  )  +
+  coord_map(projection = "mercator",
+            xlim=c(attr(austin, "bb")$ll.lon, 
+                   attr(austin, "bb")$ur.lon),
+            ylim=c(attr(austin, "bb")$ll.lat,
+                   attr(austin, "bb")$ur.lat
+            )
+  ) + 
+  theme_nothing()
+
+
+
+austin_map
+
+# Zooming in ###
+
+austin_blocks <- block_centers %>%
+  filter(as.integer(zip) %in% zips) %>%
+  arrange(block_name)
+
+
+
+n_per_batch <- 4
+n_batches<-nrow(austin_blocks)/n_per_batch %>% trunc
+n_last_batch <- nrow(austin_blocks) %% n_per_batch # number of cencus blocs mod 4
+
+batch_numbers<-rep(1:n_batches, each=n_per_batch)
+if(n_last_batch>0) batch_numbers <- c(batch_numbers, rep(n_batches+1, times = n_last_batch))
+
+
+
+austin_blocks$batch<- batch_numbers
+
+latlon <- austin_blocks %>%
+  filter(batch==20) %>%
+  select(min_long, max_long, min_lat, max_lat) %>%
+  ungroup %>%
+  summarize(min_long=min(min_long), min_lat=min(min_lat), max_long=max(max_long), max_lat=max(max_lat))
+
+austin_zoomed<-get_map(location = c(latlon$min_long, latlon$min_lat, latlon$max_long,latlon$max_lat), 
+                zoom=18, 
+                maptype = 'toner', 
+                source = "stamen")
+
+
+
+austin_filtered <- austin_blocks %>% filter(batch==20)
+
+census_blocks_filtered.df<-census_blocks.df %>%
+  filter(CENSUS_T_1 %in% austin_filtered$block_name)
+
+mailers_filtered<-mailer_blocked2 %>%
+  filter(CENSUS_T_1 %in% austin_filtered$block_name)
+
+
+
+
+austin_zoomed_map_base<-ggmap(austin_zoomed, 
+                       base_layer = ggplot(data=municipalities.df,
+                                           aes(x=long, y=lat) 
+                       ),
+                       extent = "normal", 
+                       maprange = FALSE
+)
+
+census_blocks_zoomed.df <- filter(census_blocks.df, 
+                                  CENSUS_T_1 %in% austin_filtered$block_name
+                                      )
+
+austin_map<-austin_zoomed_map_base + 
+  geom_polygon(data=census_blocks_zoomed.df,
+               aes(x=long, 
+                   y=lat, 
+                   group=group),
+               color="hotpink",
+               size=1,
+               fill=NA,
+               alpha=.3) + 
+  geom_text(data=austin_filtered,
+            aes(x=long, 
+                y=lat,
+                label=block_name),
+            color="hotpink",
+            size=8,
+            alpha=1) + 
+  geom_point(data=mailers_filtered %>%
+               filter(CENSUS_T_1 %in% austin_filtered$block_name), 
+             aes(x=long,
+                 y=lat
+             ),
+             color="orange",
+             size=4,
+             alpha=.8,
+  )  +
+  coord_map(projection = "mercator",
+            xlim=c(attr(austin_zoomed, "bb")$ll.lon, 
+                   attr(austin_zoomed, "bb")$ur.lon),
+            ylim=c(attr(austin_zoomed, "bb")$ll.lat,
+                   attr(austin_zoomed, "bb")$ur.lat
+            )
+  ) + 
+  theme_nothing()
+
+
+
+austin_map
+
+
+# one pager ###
+
+
+
+
+

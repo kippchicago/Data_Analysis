@@ -200,7 +200,10 @@ assessments_5 <- assessments_4 %>%
 
 info(logger, "Plotting mastery")
 p<-ggplot(assessments_5 %>% filter(test_unit_number==4, 
-                                   test_school=="KAP") , 
+                                   test_school %in% c("KAP", 
+                                                      "ALL"),
+                                   School =="KAP"
+                                   ), 
        aes(x=Objective, 
            y=lastfirst)) + 
   geom_tile(aes(fill=Mastered),
@@ -222,7 +225,7 @@ pdf(file="graphs/mastery_by_objective_2.pdf", height = 8.25, width = 10.75)
   p + ggtitle("Science, KAP, 5th Grade, Unit and Weekly Tests\n PROOF OF CONCEPT")
 dev.off()
 
-# Roll-up by School
+# Roll-up by School ###
 assessments_school_level <- assessments_by_objective_1 %>%
   mutate(mastered=as.integer(mastered)) %>%
   filter(test_unit_number==4,
@@ -235,7 +238,7 @@ assessments_school_level <- assessments_by_objective_1 %>%
 
 
 debug(logger, "Figuring out which tests are unit test and which aren't.")
-# need to use dates of unit identified tests to "coral" 
+# need to use dates of unit identified tests to "corale" 
 # weekly assessments.
 science_assessmets<-assessments_by_objective_1 %>% 
  filter(test_subject=="SCI", 
@@ -259,8 +262,9 @@ a_sl<-science_assessmets %>%
                                 administered_at),
          date=ymd(administered_at)
          ) %>%
-  group_by(Title, schoolid, date, reporting_group) %>% 
+  group_by(Title, schoolid,  reporting_group) %>% 
   dplyr::summarize(N=n(), 
+            date=min(date),       
             N_Mastered = sum(Mastered), 
             Pct_Mastered=N_Mastered/N*100) %>%
   mutate(Mastery_Cat=cut(Pct_Mastered, c(0,50,75,100)))
@@ -277,6 +281,42 @@ a_sl_ordered <- a_sl %>% ungroup %>%
 
 
 # Histogram ###
+p2<-ggplot(a_sl_ordered, aes(x=reporting_group, y=Pct_Mastered)) + 
+  geom_histogram(aes(fill=Mastery_Cat), stat="identity") +
+  geom_text(aes(label=round(Pct_Mastered)),
+            hjust=1,
+            color="white",
+            vjust=.5) +
+  facet_grid(schoolid ~ Title ) + 
+  #facet_grid(Title ~ test) + 
+  coord_flip() +
+  theme_bw() + 
+  ylab("% of students mastering objective") + 
+  xlab("Objective")
+
+p2
+
+cairo_pdf(filename = "graphs/weekly_and_unit_test.pdf", width=10.75, height=8.25)
+  p2 + 
+  theme(axis.text.y = element_text(size=6),
+        #axis.text.x = element_text(size=4.5, angle=45, hjust=1), 
+        strip.text.x = element_text(size=5),
+        strip.text.y=element_text(size=5, angle=0),
+        legend.position="bottom")
+dev.off()
+
+# ggvis version of above
+
+require(ggvis)
+  
+slider<-input_radiobuttons(c("KAP", "KCCP", "KBCP"), map = function(x) switch(x, KAP=78102, KCCP=400146, KBCP=400163))
+  ggvis(a_sl_ordered %>%
+          filter(schoolid==slider),
+    x=~reporting_group, y=~Pct_Mastered) %>%
+  group_by(reporting_group) %>%
+  layer_bars(fill=~Mastery_Cat, stack = FALSE)
+
+
 ggplot(a_sl_ordered, aes(x=reporting_group, y=Pct_Mastered)) + 
   geom_histogram(aes(fill=Mastery_Cat), stat="identity") +
   geom_text(aes(label=round(Pct_Mastered)),
@@ -289,3 +329,6 @@ ggplot(a_sl_ordered, aes(x=reporting_group, y=Pct_Mastered)) +
   theme_bw() + 
   ylab("% of students mastering objective") + 
   xlab("Objective")
+
+
+
