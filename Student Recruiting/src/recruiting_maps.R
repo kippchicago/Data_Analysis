@@ -9,25 +9,25 @@ load.project()
 
 # austin ####
 
-austin<-get_map(location = "  4818 W Ohio St, Chicago, IL 60644", 
-            zoom=14, 
-            maptype = 'toner-lite', 
+austin<-get_map(location = "  4818 W Ohio St, Chicago, IL 60644",
+            zoom=14,
+            maptype = 'toner-lite',
             source = "stamen")
 
-austin_map_base <- ggmap(austin, 
+austin_map_base <- ggmap(austin,
                          base_layer = ggplot(data=municipalities.df,
                                              aes(x=long, y=lat)
                                              ),
-                         extent = "normal", 
+                         extent = "normal",
                          maprange = FALSE
                          )
 
 
 addr_austin <- combined_addresses %>%
   filter(community_area %in% c("AUSTIN", "WEST GARFIELD PARK"))
-         
-  
-  
+
+
+
 austin_map<-austin_map_base +
   #geom_density2d(data=addr_austin %>% filter(type=="Postcard"),
   #               aes(x=long, y=lat)
@@ -41,14 +41,14 @@ austin_map<-austin_map_base +
                  bins=32,
                  geom="polygon"
                  ) +
-  geom_point(data=addr_austin %>% filter(type!="Postcard"), 
+  geom_point(data=addr_austin %>% filter(type!="Postcard"),
              aes(x=long,
                  y=lat
              ),
              size=3,
              alpha=1
              )  +
-  #geom_text(data=addr_austin %>% filter(type!="Postcard"), 
+  #geom_text(data=addr_austin %>% filter(type!="Postcard"),
   #           aes(x=jitter(long),
   #               y=jitter(lat),
   #               label=paste(first, last)
@@ -60,12 +60,12 @@ austin_map<-austin_map_base +
   scale_fill_gradient("Population Density",low="green", high="red") +
   scale_alpha(range=c(0,0.1), guide=FALSE) +
   coord_map(projection = "mercator",
-            xlim=c(attr(austin, "bb")$ll.lon, 
+            xlim=c(attr(austin, "bb")$ll.lon,
                    attr(austin, "bb")$ur.lon),
             ylim=c(attr(austin, "bb")$ll.lat,
                    attr(austin, "bb")$ur.lat)
             )
-  
+
 
 
 austin_map
@@ -80,11 +80,11 @@ kccp_rzs<-rbind_list(kccp_rz1, kccp_rz2, kccp_rz3, kccp_rz4)
 
 
 
-austin_map + 
+austin_map +
   geom_polygon(data=kccp_rzs,
                aes(x=long,
                    y=lat,
-                   group=rz), 
+                   group=rz),
                color="orange",
                fill="orange",
                size=3,
@@ -93,16 +93,16 @@ austin_map +
 
 # Englewood ####
 
-englewood<-get_map(location = "  S HALSTED ST AND  W 57TH ST, Chicago, IL 60644", 
-                zoom=14, 
-                maptype = 'toner-lite', 
+englewood<-get_map(location = "  S HALSTED ST AND  W 57TH ST, Chicago, IL 60644",
+                zoom=14,
+                maptype = 'toner-lite',
                 source = "stamen")
 
-englwood_map_base <- ggmap(englewood, 
+englwood_map_base <- ggmap(englewood,
                          base_layer = ggplot(data=municipalities.df,
                                              aes(x=long, y=lat)
                          ),
-                         extent = "normal", 
+                         extent = "normal",
                          maprange = FALSE
 )
 
@@ -125,14 +125,14 @@ englewood_map<-englwood_map_base +
                  bins=50,
                  geom="polygon"
   ) +
-  geom_point(data=addr_englwood %>% filter(type=="KIPPster"), 
+  geom_point(data=addr_englwood %>% filter(type=="KIPPster"),
              aes(x=long,
                  y=lat
              ),
              size=3,
              alpha=1
   )  +
-  #geom_text(data=addr_austin %>% filter(type!="Postcard"), 
+  #geom_text(data=addr_austin %>% filter(type!="Postcard"),
   #           aes(x=jitter(long),
   #               y=jitter(lat),
   #               label=paste(first, last)
@@ -144,7 +144,7 @@ englewood_map<-englwood_map_base +
   scale_fill_gradient("Population Density",low="green", high="red") +
   scale_alpha(range=c(0,0.1), guide=FALSE) +
   coord_map(projection = "mercator",
-            xlim=c(attr(englewood, "bb")$ll.lon, 
+            xlim=c(attr(englewood, "bb")$ll.lon,
                    attr(englewood, "bb")$ur.lon),
             ylim=c(attr(englewood, "bb")$ll.lat,
                    attr(englewood, "bb")$ur.lat)
@@ -171,10 +171,10 @@ kbcp_rz5_sp<-readOGR("kmls/kbcp_rz5.kml", "kbcp_rz5.kml") %>%
   spChFIDs("kbcp_rz5")
 
 
-kbcp_rzs_sp<-rbind(kbcp_rz1_sp, 
-                   kbcp_rz2_sp, 
-                   kbcp_rz3_sp, 
-                   kbcp_rz4_sp, 
+kbcp_rzs_sp<-rbind(kbcp_rz1_sp,
+                   kbcp_rz2_sp,
+                   kbcp_rz3_sp,
+                   kbcp_rz4_sp,
                    kbcp_rz5_sp)
 
 kbcp_rzs_sp <- spTransform(kbcp_rzs_sp, CRS("+proj=longlat +datum=WGS84 +ellps=WGS84 +towgs84=0,0,0"))
@@ -201,7 +201,7 @@ combined_addresses$rz <- rz_names$Name
 englwood_rz_addr <- combined_addresses %>%
   filter(grepl("kbcp", rz))
 
-englwood_map_base +
+englewood_map_2 <- englwood_map_base +
 #   geom_density2d(data=englwood_rz_addr,
 #                 aes(x=long, y=lat),
 #                 bins=10
@@ -215,24 +215,24 @@ englwood_map_base +
                  bins=35,
                  geom="polygon"
   ) +
-  geom_point(data=englwood_rz_addr, 
+  geom_point(data=englwood_rz_addr,
              aes(x=long,
                  y=lat,
                  color=type
              ),
              size=3,
              alpha=1
-             
-  )  + 
+
+  )  +
   geom_polygon(data=kbcp_rzs,
                aes(x=long,
                    y=lat,
-                   group=id), 
+                   group=id),
                color="orange",
                fill="orange",
                size=3,
                alpha=.05) +
-  #geom_text(data=addr_austin %>% filter(type!="Postcard"), 
+  #geom_text(data=addr_austin %>% filter(type!="Postcard"),
   #           aes(x=jitter(long),
   #               y=jitter(lat),
   #               label=paste(first, last)
@@ -245,36 +245,42 @@ englwood_map_base +
   scale_alpha(range=c(0,0.1), guide=FALSE) +
   scale_color_manual("student", values=c("darkblue", "darkgreen", "gray")) +
   coord_map(projection = "mercator",
-            xlim=c(attr(englewood, "bb")$ll.lon, 
+            xlim=c(attr(englewood, "bb")$ll.lon,
                    attr(englewood, "bb")$ur.lon),
             ylim=c(attr(englewood, "bb")$ll.lat,
                    attr(englewood, "bb")$ur.lat)
-  ) + 
+  ) +
   guides(color =  guide_legend(override.aes=list(fill=NA,
-                                                 linetype=0))) + 
+                                                 linetype=0))) +
   theme(legend.position="bottom")
 
+englewood_map_2
 
+cairo_pdf('graphs/kbcp_recruiting_map.pdf', height = 11, width=8.5)
 
-addr_kippsters_ordered<-englwood_rz_addr %>% 
+englewood_map_2 +ggtitle("Englewood Recruitment Zones\nwith known addresses & student age density")
+
+dev.off()
+
+addr_kippsters_ordered<-englwood_rz_addr %>%
   filter(type!="Posstcard") %>%
   arrange(long, desc(lat)) %>%
   mutate(nu=row_number())
-  
-top_map<-englewood_map + 
+
+top_map<-englewood_map +
   geom_polygon(data=kbcp_rzs,
                aes(x=long,
                    y=lat,
-                   group=id), 
+                   group=id),
                color="orange",
                fill="orange",
                size=3,
-               alpha=.05) + 
+               alpha=.05) +
   geom_text(data=addr_kippsters_ordered,
             aes(x=long, y=lat, label=nu), color="black", vjust=1.3)
 
 require(gridExtra)
- 
+
 
 g_tbl<-addr_kippsters_ordered %>%
   mutate(Notes=NA) %>%

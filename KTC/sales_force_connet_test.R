@@ -1,5 +1,5 @@
 username <- "eleman@kippchicago.org"
-password <- "lemKIPP5qz6gY31wUAJGPmn88a10EiGz"
+password <- "ellyKIPP5qz6gY31wUAJGPmn88a10EiGz"
 instanceURL <- "https://na8.salesforce.com/"
 apiVersion <- "25.0"
 session <- rforcecom.login(username, password, instanceURL, apiVersion)

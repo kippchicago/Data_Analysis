@@ -115,7 +115,7 @@ map_joined$SchoolName<-
 
 map_joined_kap_5<-map_joined %>%
   filter(SchoolName=="KIPP Ascend Primary School",
-         Grade==5, 
+         Current_Grade==5, 
          MeasurementScale %in% c("Reading", "Mathematics"),
          Fall_as_Spring==TRUE) %>%
   mutate(Fall_as_Spring=FALSE,
@@ -129,24 +129,33 @@ map_joined_kap_5<-map_joined %>%
          Goal4RitScore = Goal4RitScore,
          PercentCorrect=PercentCorrect,
          TestDurationMinutes=TestDurationMinutes,
-         Grade)
+         Grade,
+         Current_Grade)
 
 
-map_kap_5_reading_imputed<-map_joined_kap_5 %>% 
-  filter(MeasurementScale=="Reading") %>%
-  impute_spring(subject="reading")
-
-map_kap_5_math_imputed<-map_joined_kap_5 %>% 
-  filter(MeasurementScale=="Mathematics") %>%
-  impute_spring(subject="math")
-
-map_kap_5_imputed<-rbind(map_kap_5_reading_imputed, 
-                         map_kap_5_math_imputed) %>%
+map_kap_5_imputed<-map_joined_kap_5 %>% 
+  mutate(predict_spring_RIT=cps_equate(TestRITScore, 
+                                       MeasurementScale, 
+                                       Current_Grade)
+         ) %>%
   select(StudentID, 
          MeasurementScale, 
          Imputed_Spring_RIT =predict_spring_RIT
-         ) %>%
+  ) %>%
   mutate(Imputed_Spring_RIT = round(Imputed_Spring_RIT))
+
+
+# map_kap_5_math_imputed<-map_joined_kap_5 %>% 
+#   filter(MeasurementScale=="Mathematics") %>%
+#   impute_spring(subject="math")
+# 
+# map_kap_5_imputed<-rbind(map_kap_5_reading_imputed, 
+#                          map_kap_5_math_imputed) %>%
+#   select(StudentID, 
+#          MeasurementScale, 
+#          Imputed_Spring_RIT =predict_spring_RIT
+#          ) %>%
+#   mutate(Imputed_Spring_RIT = round(Imputed_Spring_RIT))
 
 
 map_joined<-left_join(map_joined, 
@@ -167,7 +176,7 @@ map_joined<-left_join(map_joined,
 
 map_growth<-mapvizier(map_joined)$mapData  %>%
   mutate(
-    Goal = ifelse(Grade==0, R42, R22),
+    Goal = ifelse(Current_Grade==0, R42, R22),
     TypicalGrowth_Spring=Spring_Score+Goal,
     TieredGrowth_Spring=Spring_Score+round(Goal*KIPPTieredGrowth),
     TypicalGrowth_Winter=Spring_Score+round(Goal/2),
@@ -321,7 +330,7 @@ map_joined_5<-left_join(map_joined,
                       map_kap_5_imputed, 
                       by=c("StudentID", "MeasurementScale")
 ) %>%
-  mutate(Fall_as_Spring=ifelse(!is.na(Imputed_Spring_RIT), 
+  dplyr::mutate(Fall_as_Spring=ifelse(!is.na(Imputed_Spring_RIT), 
                                FALSE, 
                                Fall_as_Spring),
          Spring_Imputed=!is.na(Imputed_Spring_RIT),

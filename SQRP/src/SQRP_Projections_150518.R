@@ -287,6 +287,14 @@ sims_KCCP$sim_summary %>%
   select(ada, pct_cr, prob_1_1plus) %>%
   tidyr::spread(ada, prob_1_1plus)
 
+sims_KCCP$sims %>% group_by(sim) %>%
+  summarize(n_2plus=sum(level=="2+"), pct_2plus=n_2plus/n())  %>%
+  tidyr::extract(sim,
+                 c("ada", "pct_cr"),
+                 regex="sim_([[:digit:]]+)_([[:digit:]]+)") %>%
+  select(ada, pct_cr, pct_2plus) %>%
+  tidyr::spread(ada, pct_2plus)
+
 
 # KBCP ####
 sims_KBCP<-do_all_sims(school="Bloom",
