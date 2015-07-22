@@ -1,0 +1,74 @@
+---
+title: "2015 versus 2011 NWEA Spring-to-Spring Growth Norms"
+author: "Chris Haid"
+date: "June 24, 2015"
+output: 
+  html_document: 
+    fig_height: 20
+runtime: shiny
+---
+
+
+```{r pre-reqs, echo=FALSE, include=FALSE}
+require(ggplot2)
+require(dplyr)
+
+
+norms_students_2015 <- readr::read_csv("2015_Norms.csv")
+norms_students_2011 <- readr::read_csv("2011_Norms.csv")
+
+n2015<-norms_students_2015 %>%
+  mutate(Student_StartRIT = round(Student_StartRIT),
+         Student_Growth = round(Student_Growth),
+         Norms = 2015) %>%
+  select(-6) %>%
+  unique
+  
+
+n2011<-norms_students_2011 %>% 
+  select(Subject = MeasurementScale,
+         Grade = StartGrade,
+         Student_StartRIT = StartRIT,
+         Student_Growth=R22) %>%
+  mutate(Norms = 2011) %>%
+  inner_join(n2015 %>%
+               select(Grade,
+                      Subject,
+                      Student_StartRIT,
+                      Percentile), 
+             by=c("Grade", "Subject", "Student_StartRIT"))
+
+norms<-rbind_list(n2015, n2011) %>%
+  dplyr::mutate(Norms = factor(Norms))
+
+```
+
+If you want to get a closer look at any grades just delete any unwanted grades from the input selection for *Grade*.  You can also look at just the 2011 or 2015 norms as well. 
+
+**Have fun!**
+
+```{r, echo=FALSE}
+inputPanel(
+  selectInput("grades", label = "Select Grades", multiple = TRUE,
+              choices = c(1,2,3,4,6,7,8), selected = c(1,2,3,4,6,7,8)),
+  
+  selectInput("norms", label = "Select Norms",
+              choices = c(2011, 2015), multiple = TRUE,
+              selected = c(2011, 2015))
+)
+
+renderPlot(
+ggplot(norms %>% filter(Percentile %in% seq(10, 90, by=10),
+                        Grade %in% input$grades,
+                        Norms %in% input$norms), 
+       aes(x = Percentile, y = Student_Growth)) +
+  geom_bar(aes(fill = Norms), 
+           stat = "identity", position = "dodge") +
+  coord_flip() + 
+  facet_grid(Grade~Subject) +
+  theme_bw() + 
+  ylab("Expected Growth in RIT Points"),
+  height=600
+  )
+```
+

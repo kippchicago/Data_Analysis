@@ -1,0 +1,119 @@
+---
+title: "Program Evaluation in the Real World Translated into R"
+author: "Chris Haid"
+date: "June 24, 2015"
+output: html_document
+---
+
+This document recreates the statistical techniques that Sarah Cohedes presented to the KIPP Data Retreat on June 24, 2015.
+
+
+# Prereqs
+
+We will first want to load the data sets from CSV files into our `R` session. 
+Since the files are csv comment we will use the approprialtely named `read.csv()` function to assign each csv file, which is effectively a table, to a `data.frame` in R:
+
+```{r laod_data}
+ practice_FE <- read.csv("practice_FE.CSV")
+ practice_reg <- read.csv("practice_reg.csv")
+ practice_dd <- read.csv("practice_dd.csv")
+ practice_rd <- read.csv("practic_rd.csv")
+```
+We can take a look at theses data sets by running `summary()` on each of them:
+
+```{r summary_data}
+ summary(practice_FE)
+ 
+ require(dplyr)
+ glimpse(practice_FE)
+```
+
+# Regression Discontinuity Design 
+```{r RD}
+
+ require(rdd)
+ require(dplyr)
+ 
+ rd_data <- practice_rd %>%
+   mutate(assigned_stmath = ifelse(diagnostic <= 40, 1, 0),
+          dtt = diagnostic- 40)
+ 
+ 
+ mod1<-
+ 
+ summary(mod1)
+ 
+ plot(mod1)
+ 
+mod_bw2 <- RDestimate(test ~ dtt, cutpoint = 0, data = rd_data, bw=4)
+ 
+# Rolling our own
+bw <- 1
+d_l <- rd_data %>% 
+  filter(dtt >= -bw*sd(dtt),
+         dtt <= 0)
+
+d_r <- rd_data %>% 
+  filter(dtt <= bw*sd(dtt),
+         dtt >= 0)
+
+ 
+mod_l <- lm(test ~ dtt, data = d_l)
+            
+mod_r <- lm(test ~ dtt, data = d_r)
+
+# LATE
+coef(mod_l)[[1]] - coef(mod_r)[[1]]
+
+
+ggplot(d_l, aes(y = test, x = dtt)) +
+  stat_smooth(method = "lm") + 
+  geom_point() +
+  stat_smooth(data = d_r, method="lm") + 
+  geom_point(data = d_r) + 
+  geom_vline(aes(xintercept = 0))
+ 
+ggplot(rbind_list(d_l, d_r), aes(x = dtt)) + 
+  geom_histogram()
+ 
+```
+
+# Difference-in-Difference Analysis
+
+$Y = \alpha + \beta\text{post}\times\text{Treat}
+```{r}
+glimpse(practice_dd)
+
+practice_dd %>% filter(grade==8) %>% select(grade) 
+
+mod_dd <- lm(test ~ st_math + factor(year) + factor(classid), data = practice_dd)
+
+mod_dd <- lm(test ~ st_math + I(year-min(year))*factor(classid))
+
+mod_dd
+
+```
+
+
+
+
+
+
+
+
+
+# Fixed Effects Analysis
+```{r fe}
+fe_model <- lm(test ~  + cluster(st_math))
+```
+
+# Regression Analsyis 
+
+
+You can also embed plots, for example:
+
+```{r, echo=FALSE}
+plot(cars)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
