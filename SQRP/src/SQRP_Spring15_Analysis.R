@@ -107,7 +107,7 @@ sqrp_kacp<-sqrp_level("Ascend",
                            kcs_growth_aa,
                            kcs_growth_dl,
                            kcs_pct_me,
-                           ada=.95,
+                           ada=.948,
                            mvms="WO",
                            dqi=.99
                            ) %>% mutate(school="KACP")
@@ -120,7 +120,7 @@ sqrp_kccp<-sqrp_level("Create",
                            kcs_growth_aa,
                            kcs_growth_dl,
                            kcs_pct_me,
-                           ada=.95,
+                           ada=.947,
                            mvms="O",
                            dqi=.997
                       )%>% mutate(school="KCCP")
@@ -133,9 +133,9 @@ sqrp_kbcp<-sqrp_level("Bloom",
                            kcs_growth_aa,
                            kcs_growth_dl,
                            kcs_pct_me,
-                           ada=.9,
+                           ada=.94,
                            mvms="WO",
-                           dqi=.98
+                           dqi=.99
                       ) %>% mutate(school="KBCP")
 
 rbind_list(sqrp_kacp, sqrp_kccp, sqrp_kbcp)

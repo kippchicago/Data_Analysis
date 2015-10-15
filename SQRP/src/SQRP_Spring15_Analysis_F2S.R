@@ -130,7 +130,7 @@ sqrp_kbcp<-sqrp_level("Bloom",
                            kcs_growth_aa,
                            kcs_growth_dl,
                            kcs_pct_me,
-                           ada=.9,
+                           ada=.94,
                            mvms="WO",
                            dqi=.98
                       ) %>% mutate(school="KBCP")

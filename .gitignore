@@ -17,6 +17,10 @@ reports/
 mapdb.dcf
 ps.dcf 
 *.dcf
+*.rds
+.httr-oauth
+*.md
+*.html
 
 # ignore _site directories
 _site/
