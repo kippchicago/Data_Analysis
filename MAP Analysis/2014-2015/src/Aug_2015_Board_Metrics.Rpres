@@ -1,0 +1,327 @@
+Aug 2015 Board Metrics
+========================================================
+author: Chris Haid
+date: `r lubridate::today()`
+
+```{r prereqs, include=FALSE}
+require(knitr)
+require(mapvizieR)
+require(dplyr)
+require(readr)
+require(stringr)
+require(scales)
+require(tidyr)
+```
+
+```{r setup, include=FALSE, cache=TRUE}
+
+
+load("../data/map_mv.RDA")
+load("../data/map_mv_all.RDA")
+```
+
+
+ABC Results
+========================================================
+```{r abc, include=FALSE}
+require(dplyr)
+
+# get students not tested at KIPP in the Spring of 2014
+
+not_tested_at_kipp <- map_mv$cdf %>%
+  filter(tested_at_kipp == "FALSE") %>%
+  select(studentid) %>%
+  arrange(studentid) %>%
+  unique
+
+
+# get spring 14 to to spring 15, but drop those not tested at KIPP
+map_s2s <- map_mv$growth_df %>%
+  filter(end_grade >= 3,
+         growth_window == "Spring to Spring",
+         end_map_year_academic == 2014,
+         complete_obsv == TRUE) %>%
+  anti_join(not_tested_at_kipp, by="studentid")
+
+spring_ids <- map_s2s %>% select(studentid) %>% unique
+
+map_f2s <- map_mv$growth_df %>%
+  filter(end_grade >= 3,
+         growth_window == "Fall to Spring",
+         end_map_year_academic == 2014,
+         complete_obsv == TRUE) %>%
+  anti_join(spring_ids, by="studentid")
+
+map_combined <- rbind_list(map_s2s, map_f2s)
+
+growth<-map_combined %>%
+  filter(!grepl("Science", measurementscale)) %>%
+  summarize(N = n(),
+            n_met = sum(met_typical_growth),
+            pct_met = sprintf("%s %%", round(n_met/N*100,1))) %>%
+  mutate(Metric = "1. % of Students M/E Typical Growth: Math and Reading")
+
+
+attain <- map_mv_all$cdf %>%
+  filter(termname == "Spring 2014-2015",
+         grade == 8) %>%
+  summarize(N=n(),
+            n_met = sum(testpercentile>=50),
+            pct_met = sprintf("%s %%", round(n_met/N*100,1))
+            ) %>%
+  mutate(Metric = "2. % of 8th Graders in top 2 quartiles: Math, Reading, & Science")
+
+
+abc_table<-rbind_list(growth, attain) %>%
+  select(Metric,
+         "# of Tests" = N,
+         "# Meeting/Exceeding Metric" = n_met,
+         "% Meeting/Exceeding Metric" = pct_met)
+
+```
+
+`r knitr::kable(abc_table, align=c("l","r", "r", "r"))`
+Note: Test note
+
+
+KIPP Chicago vs KIPP Network
+========================================================
+
+```{r read_data, include=FALSE, cache=TRUE}
+map_kipp_1415 <-  read_csv('../data/MAP_growth_2015.csv')
+map_kipp_1314 <-  read_csv('../data/Historical_MAP_2014 07 21.csv')
+
+map_kipp_hist <- map_kipp_1314[,-10] # Drop extra Growth_Academic_Year
+
+map_kipp_hist <- map_kipp_hist %>%
+  dplyr::mutate(met_tiered  = as.numeric(str_extract(met_tiered, "\\d+"))/100,
+                met_typical = as.numeric(str_extract(met_typical, "\\d+"))/100
+                )
+
+map_kipp <- rbind_list(map_kipp_1415, map_kipp_hist)
+
+map_kipp_avgs <-  read_csv('../data/Network_MAP_growth_2015.csv')
+
+
+map_kipp <- map_kipp %>% group_by(Growth_Academic_Year,
+                                  Start_Season,
+                                  End_Season,
+                                  Growth_Grade_Level,
+                                  Sub_Test_Name) %>%
+  mutate(rank_start = row_number(Start_Score),
+         rank_end = row_number(End_Score),
+         rank_tiered = row_number(met_tiered),
+         rank_typical = row_number(met_typical),
+         rank_magnitude = row_number(magnitude),
+         kcs = Region_Name=="KIPP Chicago"
+  )
+
+
+map_kipp_s2s <- map_kipp %>%
+         filter(Start_Season == "SPRING",
+                End_Season == "SPRING",
+                Growth_Grade_Level %in% c(3,4,6,7,8),
+                Sub_Test_Name != "Language")
+
+map_kipp_f2s <- map_kipp %>%
+         filter(Start_Season == "FALL",
+                End_Season == "SPRING",
+                Growth_Grade_Level %in% c(0:2,5),
+                Sub_Test_Name != "Language")
+
+map_kipp_f2s2s <- rbind_list(map_kipp_s2s, map_kipp_f2s) %>%
+  mutate(fall_start = Start_Season=="FALL",
+         grade_season = ifelse(fall_start,
+                               paste0(Growth_Grade_Level,
+                                      "\n(Fall-Spring)"),
+                               as.character(Growth_Grade_Level)
+                               ),
+         Sub_Test_Name = ifelse(Sub_Test_Name == "ScienceGeneral",
+                                "Science", Sub_Test_Name)
+         )
+
+# ditto for network averages
+map_kipp_s2s_avg <- map_kipp_avgs %>%
+         filter(Start_Season == "SPRING",
+                End_Season == "SPRING",
+                Growth_Grade_Level %in% c(3,4,6,7,8),
+                Sub_Test_Name != "Language")
+
+map_kipp_f2s_avg <- map_kipp_avgs %>%
+         filter(Start_Season == "FALL",
+                End_Season == "SPRING",
+                Growth_Grade_Level %in% c(0:2,5),
+                Sub_Test_Name != "Language")
+
+map_kipp_s2s_avg <- rbind_list(map_kipp_s2s_avg, map_kipp_f2s_avg) %>%
+  mutate(fall_start = Start_Season=="FALL",
+         grade_season = ifelse(fall_start,
+                               paste0(Growth_Grade_Level, "\n(Fall-Spring)"),
+                               as.character(Growth_Grade_Level)))
+
+
+```
+
+```{r April_rollsups, include =FALSE}
+# Chicago first
+kcs_rollup <-  map_kipp_f2s2s %>% filter(Region_Name == "KIPP Chicago") %>%
+    ungroup %>%
+    mutate(est_n_typical = met_typical * n_count) %>%
+    group_by(Growth_Academic_Year) %>%
+    summarize(N = sum(n_count),
+              est_N_typical = sum(est_n_typical),
+              est_pct_typical = est_N_typical/N) %>%
+    mutate(type = "KIPP Chicago")
+
+kn_rollup <-  map_kipp_f2s2s %>%
+    ungroup %>%
+    mutate(est_n_typical = met_typical * n_count) %>%
+    group_by(Growth_Academic_Year) %>%
+    summarize(N = sum(n_count),
+              est_N_typical = sum(est_n_typical),
+              est_pct_typical = est_N_typical/N) %>%
+  mutate(type = "KIPP Network")
+
+
+rollup <- rbind_list(kcs_rollup, kn_rollup)
+
+rollup
+
+kn_rollup_by_type_by_subject <-  map_kipp_f2s2s %>%
+    mutate(school_type = ifelse(Growth_Grade_Level<=4,
+                                "Primary",
+                                "Middle")) %>%
+    ungroup %>%
+    mutate(est_n_typical = met_typical * n_count) %>%
+    group_by(Growth_Academic_Year, school_type, Sub_Test_Name) %>%
+    summarize(N = sum(n_count),
+              est_N_typical = sum(est_n_typical),
+              est_pct_typical = est_N_typical/N) %>%
+  mutate(type = "KIPP Network")
+
+kn_rollup_by_type_by_subject %>%
+  filter(Growth_Academic_Year == 2015)
+
+kn_rollup_by_type <- kn_rollup_by_type_by_subject %>%
+  summarize(N = sum(N),
+            est_N_typical = sum(est_N_typical),
+            est_pct_typical = est_N_typical/N)
+
+kn_rollup_by_type %>%
+  filter(Growth_Academic_Year == 2015)
+
+
+# now for KCS
+kcs_rollup_by_type_by_subject <-  map_kipp_f2s2s %>%
+  filter(Region_Name == "KIPP Chicago") %>%
+    mutate(school_type = ifelse(Growth_Grade_Level<=4,
+                                "Primary",
+                                "Middle")) %>%
+    ungroup %>%
+    mutate(est_n_typical = met_typical * n_count) %>%
+    group_by(Growth_Academic_Year, school_type, Sub_Test_Name) %>%
+    summarize(N = sum(n_count),
+              est_N_typical = sum(est_n_typical),
+              est_pct_typical = est_N_typical/N) %>%
+  mutate(type = "KIPP Chicago")
+
+
+kcs_rollup_by_type <- kcs_rollup_by_type_by_subject %>%
+  summarize(N = sum(N),
+            est_N_typical = sum(est_N_typical),
+            est_pct_typical = est_N_typical/N)
+
+kcs_by_sub<-kcs_rollup_by_type_by_subject %>%
+  filter(Growth_Academic_Year == 2015)
+
+
+kcs_combined<-kcs_rollup_by_type %>%
+  filter(Growth_Academic_Year == 2015) %>%
+  mutate(Sub_Test_Name =
+           ifelse(school_type=="Middle",
+           "Math, Reading, & Sci",
+           "Math & Reading"),
+         type = "KIPP Chicago")
+
+
+kn_by_sub<-kn_rollup_by_type_by_subject %>%
+  filter(Growth_Academic_Year == 2015)
+
+
+kn_combined<-kn_rollup_by_type %>%
+  filter(Growth_Academic_Year == 2015) %>%
+  mutate(Sub_Test_Name =
+           ifelse(school_type == "Middle",
+                  "Math, Reading, & Sci",
+           "Math & Reading"),
+         type = "KIPP Network")
+
+kcs_kn_table<-rbind_list(kcs_by_sub,
+                         kcs_combined,
+                         kn_by_sub,
+                         kn_combined)
+
+kcs_kn_table_middle<-kcs_kn_table %>%
+  filter(school_type=="Middle") %>%
+  select(Subject = Sub_Test_Name,
+         est_pct_typical,
+         type) %>%
+  mutate(est_pct_typical =
+           sprintf("%s %%",
+                   round(est_pct_typical*100, 1))) %>%
+  spread(type, est_pct_typical)
+
+kcs_kn_table_primary<-kcs_kn_table %>%
+  filter(school_type=="Primary") %>%
+  select(Subject = Sub_Test_Name,
+         est_pct_typical,
+         type) %>%
+  mutate(est_pct_typical =
+           sprintf("%s %%",
+                   round(est_pct_typical*100, 1))) %>%
+  spread(type, est_pct_typical)
+
+```
+
+Primary
+`r knitr::kable(kcs_kn_table_primary)`
+***
+Middle
+`r knitr::kable(kcs_kn_table_middle)`
+
+KIPP Chicago vs KIPP Network over time
+========================================================
+
+```{r plot_april_rollup, echo=FALSE, fig.width=11}
+
+p2 <- ggplot(rollup %>%
+               filter(Growth_Academic_Year>=2011),
+             aes(x=Growth_Academic_Year,
+                 y=est_pct_typical)
+             ) +
+  geom_line(aes(group=type, color = type)) +
+  geom_point(color = "white", size=9) +
+  geom_text(aes(label = round(est_pct_typical*100),
+                color=type)
+            ) +
+  scale_y_continuous(
+    "Percent Meeting/Exceeding Typical Growth",
+    labels = percent) +
+  scale_color_discrete("Schools") +
+  scale_x_continuous("SY",
+                     breaks = c(2011:2015),
+                     labels=c("10-11",
+                                    "11-12",
+                                    "12-13",
+                                    "13-14",
+                                    "14-15")
+                     ) +
+  theme_bw() +
+  theme(legend.position = "bottom") +
+  ggtitle("Rollup of NWEA MAP % M/E Typical Growth\nMath, Reading, Science\nGrades K-2 & 5 are Fall-Spring")
+
+p2
+
+
+```
+

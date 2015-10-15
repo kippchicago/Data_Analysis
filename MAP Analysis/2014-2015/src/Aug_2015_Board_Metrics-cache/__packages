@@ -1,0 +1,9 @@
+base
+knitr
+dplyr
+gridExtra
+ggplot2
+mapvizieR
+readr
+stringr
+scales
