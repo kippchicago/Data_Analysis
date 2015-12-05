@@ -99,7 +99,7 @@ kcs_pct_me<-calc_pct_me(kcs_growth)
 
 # KAP ##
 
-sqrp_kacp<-sqrp_level("Ascend Primary",
+sqrp_kap<-sqrp_level("Ascend Primary",
                            kcs_growth,
                            kcs_attain,
                            kcs_growth_aa,
@@ -112,13 +112,13 @@ sqrp_kacp<-sqrp_level("Ascend Primary",
 
 # KAMS ##
 
-sqrp_kacp<-sqrp_level("Ascend Middle",
+kams<-sqrp_level("Ascend Middle",
                       kcs_growth,
                       kcs_attain,
                       kcs_growth_aa,
                       kcs_growth_dl,
                       kcs_pct_me,
-                      ada=.947,
+                      ada=.95,
                       mvms="WO",
                       dqi=.99
 ) %>% mutate(school="KAMS")
@@ -126,90 +126,110 @@ sqrp_kacp<-sqrp_level("Ascend Middle",
 
 
 
-# KCCP ##
+# moving 5th from KAP to KAMS ####
 
-sqrp_kccp<-sqrp_level("Create",
-                           kcs_growth,
-                           kcs_attain,
-                           kcs_growth_aa,
-                           kcs_growth_dl,
-                           kcs_pct_me,
-                           ada=.947,
-                           mvms="O",
-                           dqi=.997
-                      )%>% mutate(school="KCCP")
+map_2 <-map_all_silo %>%
+  mutate(schoolname = ifelse(grepl("Ascend", schoolname) &
+                               grade == 5,
+                             "KIPP Ascend Middle School",
+                             schoolname)
+         )
 
-# KBCP ##
+#subset to group ####
+map_s14s15_2<-map_2 %>%
+  filter(termname %in% c("Spring 2013-2014", "Spring 2014-2015")) %>%
+  left_join(sped15, by="studentid") %>%
+  mutate(sped=ifelse(is.na(sped), "FALSE", sped))
 
-sqrp_kbcp<-sqrp_level("Bloom",
-                           kcs_growth,
-                           kcs_attain,
-                           kcs_growth_aa,
-                           kcs_growth_dl,
-                           kcs_pct_me,
-                           ada=.94,
-                           mvms="WO",
-                           dqi=.99
-                      ) %>% mutate(school="KBCP")
+map_f14_2<-map_2 %>%
+  filter(termname %in% c("Fall 2014-2015")) %>%
+  select(studentid, measurementscale, testritscore, grade)
 
-rbind_list(sqrp_kacp, sqrp_kccp, sqrp_kbcp)
+map_s15_2<-map_2 %>%
+  filter(termname %in% c("Spring 2014-2015"))
 
 
-# suppose higher attendance #####
 
-# KACP ##
+#calculate growth
+kcs_growth_2<-school_growth_percentile(map_s14s15_2, fall_equate_scores = map_f14_2)
 
-sqrp_kacp<-sqrp_level("Ascend",
-                      kcs_growth,
-                      kcs_attain,
-                      kcs_growth_aa,
-                      kcs_growth_dl,
-                      kcs_pct_me,
-                      ada=.96,
+#calculate_attainment
+kcs_attain_2<-school_attainment_percentile(map_s15_2)
+
+
+#calculate growth priority groups ####
+#AA
+kcs_growth_aa_2<-priority_group(kcs_growth_2,
+                              group_column = "studentethnicgroup",
+                              group_id = "Black or African American",
+                              fall_equate_scores = map_f14_2
+)
+
+#IEP
+kcs_growth_dl_2<-priority_group(kcs_growth_2,
+                              group_column = "sped",
+                              group_id = "TRUE",
+                              fall_equate_scores = map_f14_2
+)
+
+# calculate %me growth by school ####
+# to do: move this to sqrpr
+kcs_pct_me_2<-calc_pct_me(kcs_growth_2)
+
+
+# KAP less 5th ##
+
+sqrp_kap_2<-sqrp_level("Ascend Primary",
+                     kcs_growth_2,
+                     kcs_attain_2,
+                     kcs_growth_aa_2,
+                     kcs_growth_dl_2,
+                     kcs_pct_me_2,
+                     ada=.95,
+                     mvms="WO",
+                     dqi=.99
+) %>% mutate(school="KAP")
+
+# KAMS ##
+
+sqrp_kams_2<-sqrp_level("Ascend Middle",
+                      kcs_growth_2,
+                      kcs_attain_2,
+                      kcs_growth_aa_2,
+                      kcs_growth_dl_2,
+                      kcs_pct_me_2,
+                      ada=.95,
                       mvms="WO",
                       dqi=.99
-) %>% mutate(school="KACP")
+) %>% mutate(school="KAMS")
 
-# KCCP ##
 
-sqrp_kccp<-sqrp_level("Create",
-                      kcs_growth,
-                      kcs_attain,
-                      kcs_growth_aa,
-                      kcs_growth_dl,
-                      kcs_pct_me,
-                      ada=.95,
-                      mvms="O",
-                      dqi=.997
-)%>% mutate(school="KCCP")
 
-# KBCP ##
 
-sqrp_kbcp<-sqrp_level("Bloom",
-                      kcs_growth,
-                      kcs_attain,
-                      kcs_growth_aa,
-                      kcs_growth_dl,
-                      kcs_pct_me,
-                      ada=.95,
-                      mvms="WO",
-                      dqi=.99
-) %>% mutate(school="KBCP")
+# Separateing 13-14 data ####
+# map_all_silo_combinded <- map_all_silo %>%
+#   mutate(schoolname = ifelse(grepl("Ascend", schoolname), "Ascend",))
+# Accomodationrogram Assignments ####
 
-rbind_list(sqrp_kacp, sqrp_kccp, sqrp_kbcp)
 
-# 2013-14 #####
+sped14 <- accomodations %>%
+  filter(termname == "Spring 2013-2014") %>%
+  select(studentid) %>%
+  group_by(studentid) %>%
+  summarize(N_accom=n()) %>%
+  mutate(sped = "TRUE",
+         studentid = as.numeric(studentid))
 
-# sped
- sped14<-accomodations %>% filter(termname=="Spring 2013-2014") %>%
-   group_by(studentid) %>%
-   summarize(N=n()) %>%
-   mutate(sped="TRUE", studentid=as.numeric(studentid)) %>% select(-N)
+
+# sped15<-sped %>% filter(termname=="Spring 2014-2015") %>%
+#   group_by(studentid) %>%
+#   summarize(N=n()) %>%
+#   mutate(sped="TRUE", studentid=as.numeric(studentid)) %>% select(-N)
 
 
 #subset to group ####
-map_s13s14<-map_all_silo %>%
-  filter(termname %in% c("Spring 2012-2013", "Spring 2013-2014")) %>%
+map_f13s14<-map_all_silo %>%
+  filter(termname %in% c("Fall 2013-2014", "Spring 2013-2014")) %>%
   left_join(sped14, by="studentid") %>%
   mutate(sped=ifelse(is.na(sped), "FALSE", sped))
 
@@ -223,7 +243,7 @@ map_s14<-map_all_silo %>%
 
 
 #calculate growth
-kcs_growth<-school_growth_percentile(map_s13s14, fall_equate_scores = map_f13)
+kcs_growth<-school_growth_percentile(map_f13s14, fall_equate_scores = map_f13)
 
 #calculate_attainment
 kcs_attain<-school_attainment_percentile(map_s14)
@@ -246,131 +266,116 @@ kcs_growth_dl<-priority_group(kcs_growth,
 
 # calculate %me growth by school ####
 # to do: move this to sqrpr
-
 kcs_pct_me<-calc_pct_me(kcs_growth)
 
 
 
-# KACP ##
-
-sqrp_kacp_1314<-sqrp_level("Ascend",
-                      kcs_growth,
-                      kcs_attain,
-                      kcs_growth_aa,
-                      kcs_growth_dl,
-                      kcs_pct_me,
-                      ada=.948,
-                      mvms="WO",
-                      dqi=.997
-) %>% mutate(school="KACP")
-
-# KCCP ##
-
-sqrp_kccp_1314<-sqrp_level("Create",
-                      kcs_growth,
-                      kcs_attain,
-                      kcs_growth_aa,
-                      kcs_growth_dl,
-                      kcs_pct_me,
-                      ada=.951,
-                      mvms="WO",
-                      dqi=.997
-)%>% mutate(school="KCCP")
-
-# KBCP ##
-
-sqrp_kbcp_1314<-sqrp_level("Bloom",
-                      kcs_growth,
-                      kcs_attain,
-                      kcs_growth_aa,
-                      kcs_growth_dl,
-                      kcs_pct_me,
-                      ada=.944,
-                      dqi=.97
-) %>% mutate(school="KBCP")
-
-rbind_list(sqrp_kacp_1314, sqrp_kccp_1314, sqrp_kbcp_1314)
 
 
-# 2012-13 #####
+# KAP ##
 
-# sped
-sped14<-accomodations %>% filter(termname=="Fall 2012-2013") %>%
-  group_by(studentid) %>%
-  summarize(N=n()) %>%
-  mutate(sped="TRUE", studentid=as.numeric(studentid)) %>% select(-N)
+sqrp_kap<-sqrp_level("Ascend Primary",
+                     kcs_growth,
+                     kcs_attain,
+                     kcs_growth_aa,
+                     kcs_growth_dl,
+                     kcs_pct_me,
+                     ada=.95,
+                     mvms="WO",
+                     dqi=.99
+) %>% mutate(school="KAP")
 
+# KAMS ##
+
+kams<-sqrp_level("Ascend Middle",
+                 kcs_growth,
+                 kcs_attain,
+                 kcs_growth_aa,
+                 kcs_growth_dl,
+                 kcs_pct_me,
+                 ada=.948,
+                 mvms="WO",
+                 dqi=.99
+) %>% mutate(school="KAMS")
+
+
+
+# moving 5th from KAMS to KAP ####
+
+map_2 <-map_all_silo %>%
+  mutate(schoolname = ifelse(grepl("Ascend", schoolname) &
+                               grade == 5,
+                             "KIPP Ascend Primary School",
+                             schoolname)
+  )
 
 #subset to group ####
-map_s12s13<-map_all_silo %>%
-  filter(termname %in% c("Spring 2011-2012", "Spring 2012-2013")) %>%
+map_f13s14_2<-map_2 %>%
+  filter(termname %in% c("Fall 2013-2014", "Spring 2013-2014")) %>%
   left_join(sped14, by="studentid") %>%
-  mutate(sped=ifelse(is.na(sped), "FALSE", sped),
-         studentethnicgroup = ifelse(studentethnicgroup %in% c(3,4), "Black or African American", "Other"))
+  mutate(sped=ifelse(is.na(sped), "FALSE", sped))
 
-map_f12<-map_all_silo %>%
-  filter(termname %in% c("Fall 2012-2013")) %>%
+map_f13_2<-map_2 %>%
+  filter(termname %in% c("Fall 2013-2014")) %>%
   select(studentid, measurementscale, testritscore, grade)
 
-map_s13<-map_all_silo %>%
-  filter(termname %in% c("Spring 2012-2013"))
+map_s14_2<-map_2 %>%
+  filter(termname %in% c("Spring 2013-2014"))
 
 
 
 #calculate growth
-kcs_growth<-school_growth_percentile(map_s12s13, fall_equate_scores = map_f12)
+kcs_growth_2<-school_growth_percentile(map_f13s14_2, fall_equate_scores = map_f13_2)
 
 #calculate_attainment
-kcs_attain<-school_attainment_percentile(map_s13)
+kcs_attain_2<-school_attainment_percentile(map_s14_2)
 
 
 #calculate growth priority groups ####
 #AA
-kcs_growth_aa<-priority_group(kcs_growth,
-                              group_column = "studentethnicgroup",
-                              group_id = "Black or African American",
-                              fall_equate_scores = map_f12
+kcs_growth_aa_2<-priority_group(kcs_growth_2,
+                                group_column = "studentethnicgroup",
+                                group_id = "Black or African American",
+                                fall_equate_scores = map_f13_2
 )
 
 #IEP
-kcs_growth_dl<-priority_group(kcs_growth,
-                              group_column = "sped",
-                              group_id = "TRUE",
-                              fall_equate_scores = map_f13
+kcs_growth_dl_2<-priority_group(kcs_growth_2,
+                                group_column = "sped",
+                                group_id = "TRUE",
+                                fall_equate_scores = map_f13_2
 )
 
 # calculate %me growth by school ####
 # to do: move this to sqrpr
-
-kcs_pct_me<-calc_pct_me(kcs_growth)
-
+kcs_pct_me_2<-calc_pct_me(kcs_growth_2)
 
 
-# KACP ##
+# KAP less 5th ##
 
-sqrp_kacp_1213<-sqrp_level("Ascend",
-                           kcs_growth,
-                           kcs_attain,
-                           kcs_growth_aa,
-                           kcs_growth_dl,
-                           kcs_pct_me,
-                           ada=.945,
-                           mvms="O",
-                           dqi=.997
-) %>% mutate(school="KACP")
+sqrp_kap_2<-sqrp_level("Ascend Primary",
+                       kcs_growth_2,
+                       kcs_attain_2,
+                       kcs_growth_aa_2,
+                       kcs_growth_dl_2,
+                       kcs_pct_me_2,
+                       ada=.95,
+                       mvms="WO",
+                       dqi=.99
+) %>% mutate(school="KAP")
 
-# KCCP ##
+# KAMS ##
 
-sqrp_kccp_1213<-sqrp_level("Create",
-                           kcs_growth,
-                           kcs_attain,
-                           kcs_growth_aa,
-                           kcs_growth_dl,
-                           kcs_pct_me,
-                           ada=.956,
-                           dqi=.997
-)%>% mutate(school="KCCP")
+sqrp_kams_2<-sqrp_level("Ascend Middle",
+                        kcs_growth_2,
+                        kcs_attain_2,
+                        kcs_growth_aa_2,
+                        kcs_growth_dl_2,
+                        kcs_pct_me_2,
+                        ada=.95,
+                        mvms="WO",
+                        dqi=.99
+) %>% mutate(school="KAMS")
 
-# KBCP ##
 
-rbind_list(sqrp_kacp_1213, sqrp_kccp_1213)
+

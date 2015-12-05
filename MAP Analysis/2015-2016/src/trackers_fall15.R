@@ -13,7 +13,7 @@
 setwd("~/Dropbox (KIPP Chicago Schools)/Data Analysis/MAP Analysis/2015-2016")
 require(ProjectTemplate)
 load.project()
-
+require(purrr)
 
 
 # subjects
@@ -70,20 +70,25 @@ map_spring <- map_all_silo %>%
 
 # find current students with missing spring scores ###
 
-current_stus_no_spring<-anti_join(current_ps_roster,
-                                  map_spring,
-                                  by=c("StudentID")
-                                  ) %>%
-  select(StudentID) %>%
-  unique
 
+current_stus_no_spring <- map_spring %>%
+  split(.$MeasurementScale) %>%
+  map(~anti_join(current_ps_roster,
+            .,
+            by=c("StudentID")
+            ) %>%
+        mutate(MeasurementScale = unique(.x$MeasurementScale)) %>%
+  select(StudentID, MeasurementScale) %>%
+  unique) %>%
+  bind_rows
 
 # Get fall
 map_fall <- map_all_silo %>%
   filter(TermName=="Fall 2015-2016",
          Grade != 0,
-         MeasurementScale %in% subjs,
-         StudentID %in% current_stus_no_spring$StudentID) %>%
+         MeasurementScale %in% subjs) %>%
+   inner_join(current_stus_no_spring,
+            by = c("StudentID", "MeasurementScale")) %>%
   mutate(Current_Grade=Grade,
          Orignal_Score=TestRITScore,
          Original_Percentile=TestPercentile,
@@ -92,12 +97,15 @@ map_fall <- map_all_silo %>%
          TermName = "Spring 2014-2015")
 
 # get fall kinder
-current_stus_kinder<-current_ps_roster %>% filter(Grade_Level == 0) %>% select(StudentID)
+current_stus_kinder<-current_ps_roster %>%
+  filter(Grade_Level == 0) %>%
+  select(StudentID)
 
 map_fall_kinder <- map_all_silo %>%
   filter(TermName=="Fall 2015-2016",
          MeasurementScale %in% subjs,
-         StudentID %in% current_stus_kinder$StudentID) %>%
+         StudentID %in% current_stus_kinder$StudentID
+         ) %>$
   mutate(Current_Grade=Grade,
          Orignal_Score=TestRITScore,
          Original_Percentile=TestPercentile,
@@ -116,17 +124,19 @@ map_fall_kinder <- map_all_silo %>%
 map_fall_reading <-  map_fall %>%
   filter(MeasurementScale == "Reading") %>%
   mutate(TestRITScore = as.integer(sqrpr::cps_equate(TestRITScore, MeasurementScale, Grade)),
-         CPS_Imputed = TRUE)
+         CPS_Imputed = TRUE,
+         Grade = Grade -1)
 
 map_fall_math <-  map_fall %>%
   filter(MeasurementScale == "Mathematics") %>%
   mutate(TestRITScore = as.integer(sqrpr::cps_equate(TestRITScore, MeasurementScale, Grade)),
-         CPS_Imputed = TRUE)
-
+         CPS_Imputed = TRUE,
+         Grade = Grade -1)
 
 map_fall_sci <-  map_fall %>%
   filter(MeasurementScale == "General Science") %>%
-  mutate(CPS_Imputed = FALSE)
+  mutate(CPS_Imputed = FALSE,
+         Grade = Grade -1)
 
 
 
@@ -136,15 +146,23 @@ map_joined <- dplyr::rbind_list(map_spring %>%
                                 map_fall_math,
                                 map_fall_sci
                                ) %>%
-  inner_join(current_ps_roster %>% select(-StudentFirstName,
-                                          -StudentLastName),
-             by = "StudentID")
+  group_by(StudentID, TermName) %>%
+  filter(Grade == min(Grade)) %>% #need to remove retained students
+  ungroup
+
+
+# %>%
+#   inner_join(current_ps_roster %>% select(-StudentFirstName,
+#                                           -StudentLastName),
+#              by = "StudentID")
 
 
 
 # Calcualte Growth
 
 cdf <- separate_cdf(map_joined, "KIPP Chicago")
+
+
 map_mv<-mapvizieR(cdf = cdf$cdf, roster = cdf$roster)
 
 cdf_k <- separate_cdf(map_fall_kinder, "KIPP Chicago")
@@ -190,7 +208,7 @@ growth_df_joined$SchoolName<-
 
 
 
-map_growth_final<-growth_df_joined %>%
+map_growth_final_1<-growth_df_joined %>%
   mutate(
     #Goal = ifelse(Current_Grade==0, R42, R22),
     TypicalGrowth_Spring=start_testritscore + reported_growth,
@@ -204,6 +222,7 @@ map_growth_final<-growth_df_joined %>%
   select(SchoolInitials,
          MeasurementScale = measurementscale,
          Grade=Grade_Level,
+         StudentID,
          StudentFirstName,
          StudentLastName,
          Spring_Score = start_testritscore,
@@ -219,6 +238,25 @@ map_growth_final<-growth_df_joined %>%
 
   ) %>%
   mutate(Spring_Score = ifelse(Grade==0, NA, Spring_Score)) %>% # fix for kinder
+  arrange(SchoolInitials, MeasurementScale, Grade, StudentLastName, StudentFirstName)
+
+# get original fall scores
+
+map_fall_actual <- map_all_silo %>%
+  filter(TermName=="Fall 2015-2016",
+         MeasurementScale %in% subjs) %>%
+  select(StudentID,
+        MeasurementScale,
+        Fall_RIT = TestRITScore)
+
+map_growth_final<-map_growth_final_1 %>%
+  left_join(map_fall_actual %>%
+              select(StudentID,
+                     MeasurementScale,
+                     Fall_RIT),
+            by = c("StudentID", "MeasurementScale")) %>%
+  mutate(Fall_Score = Fall_RIT) %>%
+  select(-Fall_RIT, -StudentID) %>%
   arrange(SchoolInitials, MeasurementScale, Grade, StudentLastName, StudentFirstName)
 
 
