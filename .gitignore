@@ -1,5 +1,7 @@
 ## Ignore temp files 
 *~
+## Ignore .hhtr_oauth files
+.httr-oauth
 
 ## Ignore .dropbox
 *.dropbox
@@ -21,6 +23,7 @@ ps.dcf
 .httr-oauth
 *.md
 *.html
+*.csv
 
 # ignore _site directories
 _site/

@@ -55,19 +55,29 @@ separate_cdf <- function(combinded_cdf, district_name = "Not provided"){
 
 # get current non-kinder
 current_stus_non_k<-current_ps_roster %>% filter(Grade_Level != 0) %>%
-  select(StudentID)
+  select(StudentID, Current_Grade = Grade_Level)
 
 # Get spring
+# map_spring <- map_all_silo %>%
+#   filter(TermName=="Spring 2014-2015",
+#          MeasurementScale %in% subjs,
+#          StudentID %in% current_stus_non_k$StudentID) %>%
+#   mutate(Current_Grade=Grade+1,
+#          Orignal_Score=TestRITScore,
+#          Original_Percentile=TestPercentile,
+#          Original_Term = "Spring 2015",
+#          Fall_as_Spring = FALSE)
+
+
 map_spring <- map_all_silo %>%
   filter(TermName=="Spring 2014-2015",
-         MeasurementScale %in% subjs,
-         StudentID %in% current_stus_non_k$StudentID) %>%
-  mutate(Current_Grade=Grade+1,
+         MeasurementScale %in% subjs) %>%
+  inner_join(current_stus_non_k, by = "StudentID") %>%
+  mutate(
          Orignal_Score=TestRITScore,
          Original_Percentile=TestPercentile,
          Original_Term = "Spring 2015",
          Fall_as_Spring = FALSE)
-
 # find current students with missing spring scores ###
 
 
@@ -105,7 +115,7 @@ map_fall_kinder <- map_all_silo %>%
   filter(TermName=="Fall 2015-2016",
          MeasurementScale %in% subjs,
          StudentID %in% current_stus_kinder$StudentID
-         ) %>$
+         ) %>%
   mutate(Current_Grade=Grade,
          Orignal_Score=TestRITScore,
          Original_Percentile=TestPercentile,
@@ -257,7 +267,8 @@ map_growth_final<-map_growth_final_1 %>%
             by = c("StudentID", "MeasurementScale")) %>%
   mutate(Fall_Score = Fall_RIT) %>%
   select(-Fall_RIT, -StudentID) %>%
-  arrange(SchoolInitials, MeasurementScale, Grade, StudentLastName, StudentFirstName)
+  arrange(SchoolInitials, MeasurementScale, Grade, StudentLastName, StudentFirstName) %>%
+  unique
 
 
 todays_date<-format(today(), "%y%m%d")
