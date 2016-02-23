@@ -1,4 +1,9 @@
-
+require(RJDBC)
+require(dplyr)
+require(mapvizieR)
+require(tidyr)
+require(purrr)
+require(readr)
 
 source("data/map_all_silo.R")
 source("data/current_ps_roster.R")

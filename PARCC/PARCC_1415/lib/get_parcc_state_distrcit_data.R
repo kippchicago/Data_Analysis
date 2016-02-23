@@ -80,7 +80,7 @@ scaffold_parcc_math <- function(
 
 
 # function to parse reading scores. Scores (so far) appear
-# across two lines, but differe on which data points are which
+# across two lines, but differ on which data points are which
 # line by grade.
 line_parser_reading <- function(data, level = "PARCC", grade=5){
 

@@ -29,6 +29,8 @@ subject_grade_paths <-
              path = files
              )
 
+# Read the PDFS content into a list for grades and subjects
+# map() is a lambda calculus funtion
 parsed_pdfs <- list()
 parsed_pdfs <- files %>%
   purrr::map(~pdf_reader(elem = list(uri = .),
@@ -39,11 +41,12 @@ parsed_pdfs <- files %>%
 subject_grade_data<-subject_grade_paths %>%
   mutate(data = parsed_pdfs)
 
-
+# Parse text and reassmble to something useful
 parcc_benchmarks <- subject_grade_data %>%
   split(., 1:nrow(.)) %>%
   purrr::map_df(~extract_parcc_bechmarks(data = .$data[[1]],
                                subject = .$subject,
                                grade = .$grade))
 
+# save it
 save(parcc_benchmarks, file = "data/parcc_benchmarks.rda")
