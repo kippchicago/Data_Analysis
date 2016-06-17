@@ -46,6 +46,15 @@ map_sep$cdf <- map_sep$cdf %>%
                            levels = c("KAP", "KAMS", "KCCP", "KBCP", "KAS"))
   )
 
-map_viz<-mapvizieR(map_sep$cdf, map_sep$roster, include_unsanctioned_windows=TRUE)
+map_viz<-mapvizieR(map_sep$cdf, map_sep$roster, include_unsanctioned_windows = TRUE)
+
+map_viz_2011_norms<-mapvizieR(map_sep$cdf, map_sep$roster,
+                              include_unsanctioned_windows = TRUE,
+                              norm_df_long = mapvizieR:::norms_students_wide_to_long(student_growth_norms_2011))
+
+map_viz_2015_norms<-mapvizieR(map_sep$cdf, map_sep$roster,
+                              include_unsanctioned_windows = TRUE,
+                              norm_df_long = mapvizieR:::norms_students_wide_to_long(student_growth_norms_2015))
+
 
 ProjectTemplate::cache('map_viz')
