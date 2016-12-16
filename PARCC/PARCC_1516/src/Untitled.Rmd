@@ -1,0 +1,97 @@
+---
+title: "Compile and load PARCC data"
+subtitle: "SY 2015-2016"
+output: html_notebook
+---
+```{r packages}
+require(dplyr)
+require(silounloadr)
+require(lubridate)
+require(stringr)
+require(bigrquery)
+require(janitor)
+
+```
+
+
+Let's load up some files 
+
+```{r}
+setwd("~/Dropbox (KIPP Chicago Schools)/Data Analysis/PARCC/PARCC_1516")
+
+files_list <- list.files(path = "data/", pattern = ".csv", full.names = TRUE)
+files_list
+
+require(purrr)
+
+parcc <- map(files_list, readr::read_csv)
+
+parcc <- bind_rows(parcc)
+
+parcc <- janitor::clean_names(parcc)
+
+glimpse(parcc)
+
+```
+
+Let's pull student data.  Notices that the PARCC data uses **state** student ids rather than CPS and the 
+```{r stutents}
+students <- get_ps("students") %>% collect()
+
+students <- clean_names(students)
+glimpse(students) 
+
+```
+
+Let's get school data for students by joining on state student ids:
+
+```{r join}
+
+parcc_2 <- parcc %>%
+  left_join(students %>%
+              mutate(state_student_identifier = as.integer(state_studentnumber)) %>%
+              select(state_student_identifier,
+                     schoolid,
+                     student_number),
+            by = "state_student_identifier")
+
+assertthat::noNA(parcc_2$student_number)
+assertthat::noNA(parcc_2$schoolid)
+
+glimpse(parcc_2)
+
+sy <- calc_academic_year("2016-05-01", format = "second_year" )
+
+parcc_student_results <- parcc_2 %>% 
+  mutate(subject = str_extract(test_name, "ELA/Literacy|Mathematics"),
+         grade = as.integer(grade),
+         student_number = as.integer(student_number),
+         local_student_identifier = student_number,
+         schoolid = as.integer(schoolid),
+         date_of_birth = mdy(date_of_birth),
+         school_year = as.integer(sy)
+         )
+
+glimpse(parcc_student_results)
+  
+```
+
+Let's load this into BigQuery for the time being:
+```{r bq, include=FALSE}
+
+
+
+bq_res <- insert_upload_job(
+  project = "kipp-big-query-test",
+  dataset = "PARCC",
+  table = "parcc_student_results",
+  value = parcc_student_results, 
+  write_disposition = "WRITE_TRUNCATE"
+  )
+
+wait_for(bq_res)
+
+
+
+```
+

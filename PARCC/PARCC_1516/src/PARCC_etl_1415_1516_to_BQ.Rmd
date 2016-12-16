@@ -1,0 +1,330 @@
+---
+title: "Prep PARCC DAta"
+output: html_notebook
+---
+
+
+Load Packages 
+```{r packages}
+library(readxl)
+library(purrr)
+library(dplyr)
+library(janitor)
+library(bigrquery)
+```
+
+Read in Excel files, use 2016 column headers for 14-15 and add year column 
+
+```{r ela_16}
+
+parcc_16_ela_files <- list.files(path = "PARCC_1516/source_files/excel_originals/", 
+                         pattern = "PARCCELA_Final_RosterSY16", full.names = TRUE)
+
+parcc_16_ela_files
+
+parcc_16_ela <- purrr::map(parcc_16_ela_files, ~readxl::read_excel(path = .x,
+                                                                   sheet = "Roster",
+                                                                    na = " "))
+
+parcc_16_ela <- bind_rows(parcc_16_ela)
+
+parcc_16_ela <- janitor::clean_names(parcc_16_ela)
+
+glimpse(parcc_16_ela)
+
+parcc_ela_col_names <- names(parcc_16_ela)
+
+
+
+```
+
+```{r ela_15}
+
+parcc_15_ela_files <- list.files(path = "../source_files/excel_originals/", 
+                         pattern = "PARCCELA_Final_RosterSY15", full.names = TRUE)
+
+parcc_15_ela_files
+
+parcc_15_ela <- purrr::map(parcc_15_ela_files, ~readxl::read_excel(path = .x,
+                                                                   sheet = "Roster"))
+
+parcc_15_ela <- bind_rows(parcc_15_ela)
+
+parcc_15_ela <- janitor::clean_names(parcc_15_ela)
+
+# SY 15 is  missing two columns: year and tested grade.  Let's add them
+parcc_15_ela <- parcc_15_ela %>% 
+  mutate(year = "2014-2015",
+         test_subject = "ELA",
+         tested_grade  = as.numeric(stringr::str_extract(test_code, "\\d$")),
+         school_id = as.numeric(school_id)) %>%
+  filter(!is.na(school_id)) %>%
+  select(year, 
+         school_id:first_name,
+         tested_grade,
+         race:state_ell_yes_or_no,
+         test_subject,
+         test_code:suppression_code_5_blank_for_most_students)
+
+names(parcc_15_ela) <- parcc_ela_col_names
+
+
+glimpse(parcc_15_ela)
+
+parcc_ela <- bind_rows(parcc_15_ela, parcc_16_ela)
+
+
+```
+
+```{r math_16}
+
+parcc_16_math_files <- list.files(path = "../source_files/excel_originals/", 
+                         pattern = "PARCCMath_Final_RosterSY16", full.names = TRUE)
+
+parcc_16_math_files
+
+parcc_16_math <- purrr::map(parcc_16_math_files, ~readxl::read_excel(path = .x,
+                                                                   sheet = "Roster",
+                                                                    na = " "))
+
+parcc_16_math <- bind_rows(parcc_16_math)
+
+parcc_16_math <- janitor::clean_names(parcc_16_math)
+
+glimpse(parcc_16_math)
+
+parcc_math_col_names <- names(parcc_16_math)
+
+
+
+```
+
+```{r math_15}
+
+parcc_15_math_files <- list.files(path = "../source_files/excel_originals/", 
+                         pattern = "PARCCMath_Final_RosterSY15", full.names = TRUE)
+
+parcc_15_math_files
+
+parcc_15_math <- purrr::map(parcc_15_math_files, ~readxl::read_excel(path = .x,
+                                                                   sheet = "Roster"))
+
+parcc_15_math <- bind_rows(parcc_15_math)
+
+parcc_15_math <- janitor::clean_names(parcc_15_math)
+
+glimpse(parcc_15_math)
+
+# SY 15 is  missing two columns: year and tested grade.  Let's add them
+parcc_15_math <- parcc_15_math %>% 
+  mutate(year = "2014-2015",
+         test_subject = "Math",
+         tested_grade  = as.numeric(stringr::str_extract(test_code, "\\d$")),
+         school_id = as.numeric(school_id)) %>%
+  filter(!is.na(school_id)) %>%
+  select(year, 
+         school_id:first_name,
+         tested_grade,
+         race:state_ell_yes_or_no,
+         test_subject,
+         test_code:suppression_code_5_blank_for_most_students)
+
+names(parcc_15_math) <- parcc_math_col_names
+
+
+glimpse(parcc_15_math)
+
+parcc_math <- bind_rows(parcc_15_math, parcc_16_math)
+
+
+```
+
+Let's throught them up on BQ:
+
+```{r bq}
+
+bq_res <- insert_upload_job(
+  project = "kipp-chicago-silo-2",
+  dataset = "parcc",
+  table = "student_results_ela",
+  value = parcc_ela, 
+  write_disposition = "WRITE_TRUNCATE"
+  )
+
+wait_for(bq_res)
+
+
+bq_res <- insert_upload_job(
+  project = "kipp-chicago-silo-2",
+  dataset = "parcc",
+  table = "student_results_math",
+  value = parcc_math, 
+  write_disposition = "WRITE_TRUNCATE"
+  )
+
+wait_for(bq_res)
+
+```
+##CPS results. 
+```{r read_cps_parcc}
+
+parcc_cps_ela <- readxl::read_excel(
+  path = "../source_files/excel_originals/cps_school_level/PARCC_2016_SchoolLevel.xlsx", 
+  sheet = "PARCC ELA Results",
+  skip = 2, 
+  col_names = c("school_id",
+                "school_name",
+                "year",
+                "test_name",
+                "n_students_tested",
+                "ela_mean_scale_score",
+                "ela_pct_did_not_meet",
+                "ela_pct_partially_met",
+                "ela_pct_approached",
+                "ela_pct_met",
+                "ela_pct_exceeded",
+                "ela_pct_met_or_exceeded",
+                "reading_mean_scale_score",
+                "reading_literary_pct_did_not_or_partially_met",
+                "reading_literary_pct_approached",
+                "reading_literary_pct_met_or_exceeded",
+                "reading_information_pct_did_not_or_partially_met",
+                "reading_information_pct_approached",
+                "reading_information_pct_met_or_exceeded",
+                "reading_vocabulary_pct_did_not_or_partially_met",
+                "reading_vocabulary_pct_approached",
+                "reading_vocabulary_pct_met_or_exceeded",
+                "writing_mean_scale_score",
+                "writing_expression_pct_did_not_or_partially_met",
+                "writing_expression_pct_approached",
+                "writing_expression_pct_met_or_exceeded",
+                "writing_conventions_pct_did_not_or_partially_met",
+                "writing_conventions_pct_approached",
+                "writing_conventions_pct_met_or_exceeded"
+                ),
+  col_types = c("numeric",
+                "text",
+                "numeric",
+                "text",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric"
+                )
+  
+  )
+
+parcc_cps_ela %>% glimpse
+
+```
+
+```{r read_cps_parcc_math}
+
+parcc_cps_math <- readxl::read_excel(
+  path = "../source_files/excel_originals/cps_school_level/PARCC_2016_SchoolLevel.xlsx", 
+  sheet = "PARCC Math Results",
+  skip = 2, 
+  col_names = c("school_id",
+                "school_name",
+                "year",
+                "test_name",
+                "n_students_tested",
+                "math_mean_scale_score",
+                "math_pct_did_not_meet",
+                "math_pct_partially_met",
+                "math_pct_approached",
+                "math_pct_met",
+                "math_pct_exceeded",
+                "math_pct_met_or_exceeded",
+                
+                "math_major_content_pct_did_not_or_partially_met",
+                "math_major_content_pct_approached",
+                "math_major_content_pct_met_or_exceeded",
+                "math_supporting_content_pct_did_not_or_partially_met",
+                "math_supporting_content_pct_approached",
+                "math_supporting_content_pct_met_or_exceeded",
+                "math_reasoning_pct_did_not_or_partially_met",
+                "math_reasoning_pct_approached",
+                "math_reasoning_pct_met_or_exceeded",
+                
+                "math_modelling_pct_did_not_or_partially_met",
+                "math_modelling_pct_approached",
+                "math_modelling_pct_met_or_exceeded"
+                ),
+  col_types = c("numeric",
+                "text",
+                "numeric",
+                "text",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                "numeric",
+                
+                "numeric",
+                "numeric",
+                "numeric"
+                )
+)
+
+parcc_cps_math %>% glimpse
+
+```
+
+```{r load_cps_data}
+bq_res <- insert_upload_job(
+  project = "kipp-chicago-silo-2",
+  dataset = "parcc",
+  table = "cps_results_ela",
+  value = parcc_cps_ela, 
+  write_disposition = "WRITE_TRUNCATE"
+  )
+
+wait_for(bq_res)
+
+
+bq_res <- insert_upload_job(
+  project = "kipp-chicago-silo-2",
+  dataset = "parcc",
+  table = "cps_results_math",
+  value = parcc_cps_math, 
+  write_disposition = "WRITE_TRUNCATE"
+  )
+
+wait_for(bq_res)
+```
+

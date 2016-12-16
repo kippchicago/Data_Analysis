@@ -1,0 +1,31 @@
+---
+title: "Google BigQuery"
+output: html_notebook
+---
+
+Looking at access data from Google BigQuery, which has native support in the `dplyr` package
+
+```{r}
+library(dplyr) 
+
+library(bigrquery)
+```
+
+I've uploaded a baby names table (`names_2014`) in the `babynames` dataset. 
+
+```{r connect}
+bq_con <- src_bigquery(project = 'kipp-big-query-test', dataset = 'babynames')
+
+names_2014 <- tbl(bq_con, 'names_2014')
+
+names_2014_f<-names_2014 %>% filter(gender == 'F') %>% collect()
+
+names_2014_m<-names_2014 %>% filter(gender == 'M')
+
+bigrquery::insert_upload_job("kipp-big-query-test", 'babynames', 'names_2014_f', names_2014_f)
+
+bigrquery::insert_upload_job("kipp-big-query-test", 'babynames', 'names_2014_m', names_2014_m)
+
+names_2014 %>% 
+  filter(name == 'Mirabel')
+```
