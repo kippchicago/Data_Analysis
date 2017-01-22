@@ -135,12 +135,15 @@ x <-
   map(~plot_tntp(tntp, .) + ggtitle(.))
 
 
+# Heat Maps %%%%
 
-tntp %>% glimpse
+domains <- na.omit(unique(tntp_slt$domain)[-c(1,6,10,11,13:16)])
 
-domains
+tntp_slt %>% glimpse
 
-tntp_domains <- tntp %>%
+
+
+tntp_domains <- tntp_slt %>%
   filter(domain %in% domains) %>%
   mutate(
          abbrev = mapvizieR::abbrev(school,
@@ -150,17 +153,16 @@ tntp_domains <- tntp %>%
 
 tntp_domains$school %>% unique()
 
-tntp_domains_kipp_tq <- tntp_domains %>% filter(school == "KIPP Top Quartile Schools")
-tntp_domains_kipp_avg <- tntp_domains %>% filter(school == "KIPP Network Average")
-tntp_domains_kipp_kcs <- tntp_domains %>% filter(!school %in% c("KIPP Network Average", "KIPP Top Quartile Schools"))
+tntp_domains_kipp_tq <- tntp_domains %>% filter(school == "KIPP Top Quartile Schools**")
+tntp_domains_kipp_avg <- tntp_domains %>% filter(school == "KIPP Network Average*")
+tntp_domains_kipp_kcs <- tntp_domains %>% filter(!school %in% c("KIPP Network Average*", "KIPP Top Quartile Schools**"))
 
 
 # Need to redeuce to single score for each domeain then inner_join by col index ####
 tntp_tile_data <- tntp_domains_kipp_kcs %>%
   filter(stringr::str_detect(prompt,
-                             "Score|Current Instructional Culture Index|compensated fairly|my workload|\\% of teachers planning to leave this year or next year"),
+                             "Score|systems track|percent of teaching positions|successor| my workload is sustainable"),
          !is.na(value)) %>%
-  filter(!str_detect(prompt, "Effective")) %>%
   inner_join(tntp_domains_kipp_tq %>%
                select(col_index,
                       value_tq_avg = value),
@@ -190,51 +192,3 @@ ggplot(tntp_tile_data, aes(x=as.factor(0), y=as.factor(0))) +
         legend.position = "bottom") +
   scale_fill_manual("KIPP Chicago score is:", values = c(scales::muted("red"), "#BCD631","#439539"),
                     labels = c("< Network Avg", "≥ Network Avg", "≥ Top Quartile Avg "))
-
-
-# Quickly look at KCCP and KAP for year over year
-
-tntp_yoy <- tntp_S16 %>%
-  mutate(period = "Spring 2016") %>%
-  bind_rows(tntp %>%
-              mutate(period = "Fall 2016")) %>%
-  mutate(period =  forcats::fct_inorder(period)) %>%
-  filter(domain %in% domains) %>%
-  mutate(
-    abbrev = mapvizieR::abbrev(school,
-                               exceptions = list(old = "KAPS",
-                                                 new = "KAP"))) %>%
-  filter(!school %in% c("KIPP Network Average", "KIPP Top Quartile Schools")) %>%
-  filter(stringr::str_detect(prompt,
-                             "Score|Current Instructional Culture Index|compensated fairly|my workload|\\% of teachers planning to leave this year or next year"),
-         !is.na(value)) %>%
-  filter(!str_detect(prompt, "Effective")) %>%
-  mutate(domain = forcats::fct_inorder(str_wrap(domain, width = 5)))
-
-
-glimpse(tntp_yoy)
-
-tntp_yoy_2 <- tntp_yoy %>%
-  mutate(period2 = if_else(period=='Spring 2016', "y0", "y1")) %>%
-  select(abbrev, domain, period2, value) %>%
-  tidyr::spread(period2, value) %>%
-  mutate(diff = y1 - y0,
-         positive = diff >= 0)
-
-ggplot(tntp_yoy_2 %>%
-         filter(abbrev == "KAP",
-                !is.na(diff)),
-       aes()) +
-  geom_segment(aes(x = 0, xend = 1, y=y0, yend=y1,
-                   color = positive),
-               size = 3) +
-  scale_color_manual(values = c(scales::muted("red"), "#439539"),
-                     guide = FALSE) +
-  scale_x_continuous(breaks = c(0,1), labels = c("S", "F")) +
-  #geom_text(aes(label=round(y0,1) ) )+
-  facet_wrap(~domain) +
-  theme_linedraw() +
-  ylim(0, 10) +
-  labs(x = "Spring and Fall 2016",
-       y = "Score")
-

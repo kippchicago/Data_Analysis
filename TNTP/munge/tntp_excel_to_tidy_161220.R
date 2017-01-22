@@ -4,8 +4,11 @@ library(tidyr)
 library(zoo)
 library(ggplot2)
 
+
+
+tntp_file <- "data/Fall 2016 KIPP Chicago_Teacher Survey School Sorter.xlsx"
 # grab headers and make tidy
-headers<-read.xlsx("data/KIPP Chicago teachers.xlsx",
+headers<-read.xlsx(tntp_file,
                    sheetIndex = 2,
                         startRow = 1,
                         endRow = 2,
@@ -23,7 +26,7 @@ headers_t <- t(headers) %>%
          prompt = ifelse(prompt == "School Sorter", NA, prompt))
 
 # grab column to use for informational purposes
-column_A<-read.xlsx("data/KIPP Chicago teachers.xlsx",
+column_A<-read.xlsx(tntp_file,
                     sheetIndex = 2,
                    colIndex = 1,
                    header = FALSE,
@@ -31,13 +34,13 @@ column_A<-read.xlsx("data/KIPP Chicago teachers.xlsx",
 
 # Get some info from column A like the first row with the word "Note"
 
-first_foundation_row <- note_row<-grep("School Sorter", column_A$X1) + 1
+first_foundation_row <- grep("Insight Report", column_A$X1) + 2
 note_row<-grep("Note", column_A$X1)
 last_school_row <- note_row - 1
 
 
 # get foundation data
-tntp_foundation <-read.xlsx("data/KIPP Chicago teachers.xlsx",
+tntp_foundation <- read.xlsx(tntp_file,
                             sheetIndex = 2,
                    startRow = first_foundation_row,
                    endRow = first_foundation_row + 2,
@@ -52,7 +55,7 @@ tntp_foundation <- tntp_foundation %>%
 
 
 # get schools  data
-tntp_schools <-read.xlsx("data/KIPP Chicago teachers.xlsx",
+tntp_schools <-read.xlsx(tntp_file,
                          sheetIndex = 2,
                             startRow = first_foundation_row + 4,
                             endRow = last_school_row,
@@ -69,7 +72,7 @@ tntp_schools <- tntp_schools %>%
 
 # combine schools and foundation data into one data frame
 
-tntp_S16 <- bind_rows(tntp_schools, tntp_foundation)
+tntp <- bind_rows(tntp_schools, tntp_foundation)
 
 
 
