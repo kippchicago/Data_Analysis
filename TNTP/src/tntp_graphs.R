@@ -125,8 +125,6 @@ plot_tntp_scores  <- function(data, wrap_width = 30) {
 
 
 
-plot_tntp_scores(tntp)
-
 domains[-1]
 
 x <- list()
