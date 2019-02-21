@@ -1,6 +1,8 @@
 ---
 title: "Attendance Analysis and Modelling"
 author: "Steph Oliva and Chris Haid"
+resource_files:
+- kipp-chicago-silo-2-aa786970aefd.json
 output:
   html_document:
     df_print: paged
@@ -22,6 +24,7 @@ library(caret)
 library(broom)
 library(modelr)
 library(tidymodels)
+library(prophet)
 
 theme_set(theme_kipp_light())
 
@@ -29,13 +32,13 @@ theme_set(theme_kipp_light())
 bigrquery::set_service_token("kipp-chicago-silo-2-aa786970aefd.json")
 
 ```
+
 ```{r knitr_options}
-knitr::opts_knit$set(comment = FALSE, 
+knitr::opts_knit$set(comment = FALSE,
                      warning = FALSE, 
                      progress = FALSE, 
-                     verbose = FALSE)
-
-knitr::opts_chunk$set(fig.width = 10)
+                     verbose = FALSE, 
+                     width = "90%")
 ```
 
 
@@ -107,14 +110,6 @@ student_att <- member_att %>%
 
 
 ```
-We'd like some more information about students from the powerschool attendance table:
-```{r student data}
-students <- get_powerschool("students")
-
-students
-```
-
-
 
 Now we calculate some quantitities of interest: year_end ADA, cumulative ADA by date
 ```{r cumulative quantities of interest}
@@ -169,7 +164,8 @@ yca_filtered <- yearly_cum_ada %>%
                select(-yearid),
              by = c("date")) %>%
   ungroup() %>%
-  mutate(yearid = as.factor(yearid))
+  mutate(yearid = as.factor(yearid),
+         schoolid = as.factor(schoolid))
 
 
 yca_filtered
@@ -331,6 +327,114 @@ yca_augmented %>%
   geom_abline(aes(intercept = 0, slope = 1)) +
   facet_grid(yearid~.) +
   scale_color_kipp(discrete = FALSE)
+```
+
+To do: we should distance to school.  
+
+```{r}
+formula_0 <- as.formula(year_end ~ cum_enrolled + cum_absent + yearid)
+
+mod_0 <- lm(formula = formula_0, 
+            data = yca_filtered)
+
+formulas <- list(
+  as.formula(year_end ~ cum_enrolled + cum_absent),
+  as.formula(year_end ~ cum_enrolled + cum_absent + yearid),
+  as.formula(year_end ~ cum_enrolled + cum_absent + yearid + schoolid))
+
+list_names <- formulas %>% 
+  map_chr(deparse)
+
+names(formulas) <- list_names
+
+set.seed(1234)
+rs_data <- vfold_cv(yca_filtered, v = 10, repeats = 3)
+
+holdout_test <- function(splits, ...){
+  model <- lm(..., 
+              data = splits)
+  
+  holdout <- assessment(splits)
+  
+  res <- broom::augment(model, newdata = holdout)
+  
+  res
+}
+
+map_holdout <- function(data, formula){
+  data$results <- map(data$splits,
+                holdout_test,
+                formula)
+  
+  data$mod_id <- as.character(deparse(formula))
+  
+  data
+
+}
+
+run_models <- formulas %>% 
+  map(~{map_holdout(rs_data, .x) %>% 
+      as_tibble()})
+
+calc_rmse <- run_models %>% 
+map_df(~mutate(.x, 
+            rmse_0 = map2_dbl(results, 
+                              results, 
+                              ~rmse_vec(.x$year_end, 
+                                        .y$.fitted))))
+
+
+summarize_rmse <- calc_rmse %>% 
+  group_by(mod_id) %>% 
+  summarize(avg_rmse = mean(rmse_0))
+
+```
+
+
+```{r}
+
+holdout_model_spec <- function(splits, model_type, ...){
+  if(tolower(model_type) == "linear"){
+    model_spec <- linear_reg() %>% 
+      set_engine("lm")
+    model <- model_spec %>% 
+      fit(..., 
+          data = as.data.frame(splits)) #parsnip wants df
+  
+  } 
+  
+  if(tolower(model_type) == "logistic"){
+    model_spec <- logistic_reg() %>%
+      set_engine("glm")
+    model <- model_spec %>% 
+      fit(...,
+          data = as.data.frame(splits))
+
+  }
+  
+  ##Requires additional set of variables: mtry, ntrees
+  # if(tolower(model_type) = "random_forest"){
+  #   model_spec <- rand_forest() %>% 
+  #     set_engine("rand_forest")
+  #   model <- model_spec %>% 
+  #     fit(..., 
+  #         data = splits)
+  # 
+  # }
+  holdout <- assessment(splits) 
+  
+  res <- broom::augment(model$fit, newdata = holdout) #won't work with parsnip models
+  
+  res
+  
+}
+
+models <- rep("linear", 3)
+
+holdout_model_spec(rs_data$splits[[1]], "linear", formula_0) #works!
+holdout_model_spec(rs_data$splits[[1]], "logistic", formula_0) %>%  #.fitted not adjusted
+mutate(.fitted = exp(.fitted)/(1+exp(.fitted)))
+
 ```
 
 
