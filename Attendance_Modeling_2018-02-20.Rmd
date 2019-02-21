@@ -1,0 +1,336 @@
+---
+title: "Attendance Analysis and Modelling"
+author: "Steph Oliva and Chris Haid"
+output:
+  html_document:
+    df_print: paged
+---
+
+This is a first pass at modeling student-level attendence.  The primary use cases are:
+* to provide predictions of end-of-year average daily attendance (ADA) by for each student earlier in the year (say the middle of the 1st quarter).
+* to provide predictions of end-of-year aveage daily attendance (ADA) by for each school and at the school level earlier in the year (say the middle of the 1st quarter).
+* Prepare for the addition of an On-Track metric in SQRP. 
+
+Another goal is gain familiarity with the [tidymodels](https://github.com/tidymodels) suite of packages (e.g, `recipes`, `parsnip`, `resample`)
+```{r packages, }
+library(tidyverse)
+library(silounloadr)
+library(kippcolors)
+library(janitor)
+library(lubridate)
+library(caret)
+library(broom)
+library(modelr)
+library(tidymodels)
+
+theme_set(theme_kipp_light())
+
+
+bigrquery::set_service_token("kipp-chicago-silo-2-aa786970aefd.json")
+
+```
+```{r knitr_options}
+knitr::opts_knit$set(comment = FALSE, 
+                     warning = FALSE, 
+                     progress = FALSE, 
+                     verbose = FALSE)
+
+knitr::opts_chunk$set(fig.width = 10)
+```
+
+
+Here we grab basic attendances and enrollment data from Silo (our warehouse):
+```{r tables, cache=FALSE}
+membership <- get_powerschool("ps_membership_reg") %>% 
+  select(studentid,
+         schoolid,
+         date = calendardate,
+         enrolled = studentmembership,
+         grade_level,
+         attendance = ATT_CalcCntPresentAbsent,
+         yearid) %>%
+  filter(yearid >= 25)
+
+
+attendance <- get_powerschool("attendance") %>% 
+  filter(yearid >= 25,
+        att_mode_code == "ATT_ModeDaily") 
+
+attendance_code <- get_powerschool("attendance_code") %>%
+  mutate(att_code = if_else(att_code == "true", "T", att_code)) %>% 
+  select(attendance_codeid = id,
+         att_code)
+  
+  
+```
+And now we do some pre-procecessing:
+```{r joining tables, cache=TRUE}
+member_att <- membership %>% 
+  dplyr::left_join(attendance %>% 
+              select(-schoolid,
+                        -yearid) %>% 
+              dplyr::left_join(attendance_code,
+                        by = "attendance_codeid"),
+            by = c("studentid",
+                   "date" = "att_date")) %>% 
+  collect()
+
+```
+Recoding enrollmeent and attendance data:
+```{r recoding}
+member_att %>% 
+  janitor::tabyl(att_code)
+
+student_att <- member_att %>%
+  mutate(enrolled0 = 1,
+         enrolled = if_else(att_code == "D" & !is.na(att_code), 0, enrolled0),
+         present0 = ifelse(is.na(att_code), 1, 0),
+         present1 = ifelse(att_code %in%  c("A", "S"), 0, present0),
+         present2 = ifelse(att_code == "H", 0.5, present1),
+         present3 = ifelse(att_code %in% c("T", "E", "I"), 1, present2),
+         present = ifelse(is.na(present2), 1, present3),
+         absent = (1 - present)*enrolled,
+         tardy = ifelse(att_code %in% "T", 1, 0),
+         dna0 = if_else(att_code == "D", 1, 0),
+         dna = if_else(is.na(dna0), 0, dna0)) %>%
+  select(yearid,
+         schoolid,
+         studentid,
+         grade_level,
+         date,
+         att_code,
+         enrolled,
+         present,
+         absent,
+         tardy,
+         dna)
+
+
+```
+We'd like some more information about students from the powerschool attendance table:
+```{r student data}
+students <- get_powerschool("students")
+
+students
+```
+
+
+
+Now we calculate some quantitities of interest: year_end ADA, cumulative ADA by date
+```{r cumulative quantities of interest}
+yearly_ada <- student_att %>% 
+  filter(yearid < 28) %>%
+  group_by(yearid,
+           studentid) %>% 
+  summarize(enrolled = sum(enrolled),
+            absent = sum(absent),
+            year_end = 1 - (absent/enrolled))
+ 
+cum_ada <- student_att %>% 
+  filter(yearid < 28) %>%
+  group_by(yearid,
+           studentid) %>% 
+  arrange(date) %>% 
+  mutate(cum_enrolled = cumsum(enrolled),
+         cum_absent = cumsum(absent),
+         running_ada = 1 - (cum_absent/cum_enrolled)) %>% 
+  filter(cum_enrolled > 0)
+
+yearly_cum_ada <- cum_ada %>% 
+  select(yearid,
+         schoolid,
+         grade_level,
+         studentid,
+         date,
+         cum_enrolled,
+         cum_absent,
+         running_ada) %>% 
+  dplyr::left_join(yearly_ada %>% 
+              select(-c(enrolled,
+                        absent)),
+            by = c("yearid",
+                   "studentid"))
+
+yearly_cum_ada %>% filter(studentid == 14852)
+```
+
+Now we begin doing some subsetting to build a basic model. We'll pull the data for each student over the last few years (excluding SY 18-19) for the last school day in December.  We'll build our model off of this "snapshot". The resulting table shows for each student their number of days enrolled (`cum_enrolled`), days absent (`cum_absent`), ADA through last school day in december (`running_ada`), and the given year's EOY ADA (`year_end`).
+```{r dec_subset}
+dec_dates <- yearly_cum_ada %>% 
+  group_by(yearid) %>% 
+  select(date) %>% 
+  distinct() %>% 
+  filter(lubridate::month(date) == 12) %>% 
+  filter(date == max(date))
+
+yca_filtered <- yearly_cum_ada %>% 
+  inner_join(dec_dates %>% 
+               ungroup() %>% 
+               select(-yearid),
+             by = c("date")) %>%
+  ungroup() %>%
+  mutate(yearid = as.factor(yearid))
+
+
+yca_filtered
+  
+```
+## Models 
+
+our first model (`mod_0`) models year end ADA as a function of cumulative days enrolled and cumulaitve days absent through the last day of December, using school year as a fixed effect:
+
+$$ y_{i} = f(\alpha + \beta_{e}d_{e} + \beta_{a}d_{a} +\delta_{year} ) $$
+
+We'll first fit a linear model:
+```{r lm}
+
+formula_0 <- as.formula(year_end ~ cum_enrolled + cum_absent + yearid)
+
+mod_0 <- lm(formula = formula_0, 
+            data = yca_filtered)
+
+summary(mod_0)
+
+  
+```
+Let's plot the ranked residulas of `mod_0`)
+```{r plot_residuals_lm}
+# yca_filtered %>% 
+#   ungroup() %>% 
+#   modelr::add_predictions(mod_0) %>% 
+#   modelr::add_residuals(mod_0) %>% 
+#   arrange(resid) %>% 
+#   group_by(yearid) %>% 
+#   mutate(rank = row_number(resid)) %>% 
+#   ggplot(aes(x = rank, y = resid)) +
+#   geom_segment(aes(xend = rank, yend = 0),
+#                size = .075, alph=.3) +
+#   facet_grid(yearid~.)
+
+
+plot_ranked_residuals <- function(data,model){
+data %>% 
+  modelr::add_predictions(model) %>% 
+  modelr::add_residuals(model) %>% 
+  arrange(resid) %>% 
+  group_by(yearid) %>% 
+  mutate(rank = row_number(resid)) %>% 
+  ggplot(aes(x = rank, y = resid)) +
+  geom_segment(aes(xend = rank, yend = 0),
+               size = .075, alpha =  .3) +
+  facet_grid(yearid~.)
+
+    
+}
+
+plot_ranked_residuals(yca_filtered, mod_0)
+
+```
+And heres the residuals as a funtion of actuals. 
+```{r}
+# yca_filtered %>% 
+#   ungroup() %>% 
+#   modelr::add_predictions(mod_0) %>% 
+#   modelr::add_residuals(mod_0) %>% 
+#   arrange(resid) %>% 
+#   group_by(yearid) %>% 
+#   mutate(rank = row_number(resid)) %>% 
+#   ggplot(aes(x = year_end, y = resid)) +
+#   geom_point(aes(color = cum_enrolled),
+#              size = .001) +
+#   scale_color_kipp(discrete = FALSE) +
+#   facet_grid(yearid ~.)
+
+plot_actual_v_residuals <- function(data, model){
+  data %>% 
+  ungroup() %>% 
+  modelr::add_predictions(model) %>% 
+  modelr::add_residuals(model) %>% 
+  arrange(resid) %>% 
+  group_by(yearid) %>% 
+  mutate(rank = row_number(resid)) %>% 
+  ggplot(aes(x = year_end, y = resid)) +
+  geom_point(aes(color = cum_enrolled),
+             size = .001) +
+  scale_color_kipp(discrete = FALSE) +
+  facet_grid(yearid ~.)
+}
+  
+
+plot_actual_v_residuals(yca_filtered, mod_0)
+```
+```{r predicted v actual}
+plot_actual_v_predicted <- function(data, model){
+  data %>% 
+  ungroup() %>% 
+  modelr::add_predictions(model) %>% 
+  modelr::add_residuals(model) %>% 
+  arrange(resid) %>% 
+  group_by(yearid) %>% 
+  mutate(rank = row_number(resid)) %>% 
+  ggplot(aes(x = year_end, y = pred)) +
+  geom_point(aes(color = cum_enrolled),
+             size = .001) +
+  scale_color_kipp(discrete = FALSE) +
+  facet_grid(yearid ~.)
+}
+
+plot_actual_v_predicted(yca_filtered, mod_0)
+```
+
+Let's fits these with a logit
+```{r logit}
+mod_1 <- glm(formula = formula_0,
+             family = binomial(link = "logit"),
+             data = yca_filtered)
+
+summary(mod_1)
+
+plot_ranked_residuals(yca_filtered, mod_1)
+plot_actual_v_residuals(yca_filtered, mod_1)
+
+```
+```{r}
+yca_filtered %>% 
+  ungroup() %>%
+  modelr::add_predictions(mod_1) %>%
+  modelr::add_residuals(mod_1)
+```
+## Partitioning 
+
+WE need to partition in train and test to better evaluate our models.  
+
+We'll take [rsample](tidymodels.github.io/rsample) for a spin!
+
+```{r rsample}
+yca_split <- yca_filtered %>%
+  rsample::initial_split(prop = .75)
+
+yca_train <- analysis(yca_split)
+yca_test <- assessment(yca_split)
+
+
+mod_lm_train <- lm(formula = formula_0, data = yca_train)
+
+yca_augmented <- broom::augment(mod_lm_train, 
+                                newdata = yca_test) %>%
+  mutate(resid = year_end - .fitted)
+
+yca_augmented %>% 
+  ggplot(aes(x = year_end, y = .fitted)) +
+  geom_point(aes(color = cum_enrolled, size = -cum_enrolled)) +
+  geom_abline(aes(intercept = 0, slope = 1)) +
+  facet_grid(yearid~.) +
+  scale_color_kipp(discrete = FALSE)
+
+```
+```{r size by se}
+yca_augmented %>% 
+  ggplot(aes(x = year_end, y = .fitted)) +
+  geom_point(aes(color = cum_enrolled, size = .se.fit, shape = cum_absent>=16)) +
+  geom_abline(aes(intercept = 0, slope = 1)) +
+  facet_grid(yearid~.) +
+  scale_color_kipp(discrete = FALSE)
+```
+
+

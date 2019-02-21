@@ -1,0 +1,12 @@
+name: attendance_modeling
+title: Attendance Modeling
+username: chrishaid
+account: chrishaid
+server: idea2.kippchicago.org
+hostUrl: https://idea2.kippchicago.org/__api__
+appId: 27
+bundleId: 111
+url: https://idea2.kippchicago.org/content/27/
+when: 1550612930.23678
+asMultiple: FALSE
+asStatic: FALSE
