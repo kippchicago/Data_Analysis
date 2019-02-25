@@ -10,6 +10,7 @@ output:
     toc_float: true
     fig_width: 10
 ---
+## Motivation
 
 This is a first pass at modeling student-level attendence.  The primary use cases are:
 * to provide predictions of end-of-year average daily attendance (ADA) by for each student earlier in the year (say the middle of the 1st quarter).
@@ -133,7 +134,10 @@ student_att <- member_att %>%
 
 ```
 
-## Calculating quantities of interest
+
+
+
+## Quantities of interest
 Now we calculate some quantitities of interest: 
 
 * year_end ADA, 
@@ -177,6 +181,8 @@ yearly_cum_ada %>% filter(studentid == 14852)
 ```
 
 Now we begin doing some subsetting to build a basic model. We'll pull the data for each student over the last few years (excluding SY 18-19) for the last school day in December.  We'll build our model off of this "snapshot". The resulting table shows for each student their number of days enrolled (`cum_enrolled`), days absent (`cum_absent`), ADA through last school day in december (`running_ada`), and the given year's EOY ADA (`year_end`).
+
+### A snapshot in December
 ```{r dec_subset}
 dec_dates <- yearly_cum_ada %>% 
   group_by(yearid) %>% 
@@ -195,10 +201,17 @@ yca_filtered <- yearly_cum_ada %>%
          schoolid = as.factor(schoolid))
 
 
-yca_filtered
-  
+yca_filtered %>%
+  ggplot(aes(x = running_ada , y = year_end, color = schoolid)) +
+  geom_hline(aes(yintercept = .9)) +
+  geom_point(alpha = .7) +
+  geom_smooth(se = FALSE) +
+  scale_color_kipp() +
+  labs(y = "ADA (year end)",
+       x = "ADA (last school day in December)",
+       color = "School ID #")
 ```
-## Models 
+## Initial Models 
 
 ### Linear Mdoel
 Our first model (`mod_0`) models year end ADA as a function of cumulative days enrolled and cumulaitve days absent through the last day of December, using school year as a fixed effect:
@@ -312,8 +325,8 @@ mod_1 <- glm(formula = formula_0,
 
 summary(mod_1)
 
-plot_ranked_residuals(yca_filtered, mod_1)
-plot_actual_v_residuals(yca_filtered, mod_1)
+#plot_ranked_residuals(yca_filtered, mod_1)
+#plot_actual_v_residuals(yca_filtered, mod_1)
 
 ```
 ```{r}
@@ -322,7 +335,7 @@ yca_filtered %>%
   modelr::add_predictions(mod_1) %>%
   modelr::add_residuals(mod_1)
 ```
-## Model Evaulation via partioning
+## Model Evaulation 
 
 We need to partition in train and test to better evaluate our models.  
 
@@ -613,22 +626,27 @@ x_fit_summary %>%
   mutate(model = fct_inorder(model),
          model_type = fct_inorder(model_type)
          ) %>%
-  
+
   ggplot() +
-  geom_col(aes(x = model, y = mean_rmse, fill= model), show.legend = FALSE) +
+  geom_point(aes(x = model, y = mean_rmse, color= model_type), show.legend = FALSE) +
+  geom_segment(aes(x = model,xend = model, y = mean_rmse, yend=0, color= model_type), show.legend = FALSE) +
   facet_grid(model_type ~ .) +
   coord_flip() + 
-  scale_fill_kipp()
+  scale_color_kipp() +
+  labs(x = "Model",
+       y = "Root Mean Squared Error")
 ```
 ```{r}
 x_fit_summary %>%
-  mutate(model2 = model) %>%
-  #ungroup() %>%
-  #arrange(rmse) %>%
-  #mutate()
+  #group_by(model_type, model) %>%
+arrange(rmse) %>%
+  ungroup() %>%
+  mutate(model = fct_inorder(model),
+         model_type = fct_inorder(model_type)
+         ) %>%
 ggplot() +
   geom_violin(aes(y = rmse, 
-                  x = model2,
+                  x = model,
                   fill = model_type
                   ), show.legend = FALSE) +
   geom_point(data = x_fit_summary %>% 
@@ -645,6 +663,8 @@ ggplot() +
   facet_grid(model_type ~ .) +
   coord_flip() + 
   scale_fill_kipp()
+  labs(x = "Model",
+       y = "Root Mean Squared Error")
 
 ```
 
@@ -674,7 +694,9 @@ ggplot(aes(x=rmse)) +
   facet_grid(model ~ model_type, switch = "y") + 
   scale_fill_kipp() +
   theme(strip.text.y = element_text(angle = 180),
-        axis.text.x = element_text(angle = 45))
+        axis.text.x = element_text(angle = 45))  +
+  labs(y = "Model",
+       x = "Root Mean Squared Error")
   
 ```
 
