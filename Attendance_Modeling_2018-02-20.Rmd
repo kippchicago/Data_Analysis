@@ -6,7 +6,11 @@ resource_files:
 output:
   html_document:
     df_print: paged
+    toc: true
+    toc_float: true
+    fig_width: 10
 ---
+## Motivation
 
 This is a first pass at modeling student-level attendence.  The primary use cases are:
 * to provide predictions of end-of-year average daily attendance (ADA) by for each student earlier in the year (say the middle of the 1st quarter).
@@ -14,7 +18,11 @@ This is a first pass at modeling student-level attendence.  The primary use case
 * Prepare for the addition of an On-Track metric in SQRP. 
 
 Another goal is gain familiarity with the [tidymodels](https://github.com/tidymodels) suite of packages (e.g, `recipes`, `parsnip`, `resample`)
-```{r packages, }
+
+
+The details on pacakges and data we pull are left to the appendix. 
+
+```{r packages, include = FALSE}
 library(tidyverse)
 library(silounloadr)
 library(kippcolors)
@@ -24,7 +32,7 @@ library(caret)
 library(broom)
 library(modelr)
 library(tidymodels)
-library(prophet)
+#library(prophet)
 
 theme_set(theme_kipp_light())
 
@@ -33,17 +41,17 @@ bigrquery::set_service_token("kipp-chicago-silo-2-aa786970aefd.json")
 
 ```
 
-```{r knitr_options}
+```{r knitr_options, results='hide', echo=FALSE}
 knitr::opts_knit$set(comment = FALSE,
                      warning = FALSE, 
                      progress = FALSE, 
-                     verbose = FALSE, 
-                     width = "90%")
+                     verbose = FALSE#, 
+                     #width = "90%"
+                     )
 ```
 
 
-Here we grab basic attendances and enrollment data from Silo (our warehouse):
-```{r tables, cache=FALSE}
+```{r att_mem_tables, cache=TRUE, results='hide', echo=FALSE}
 membership <- get_powerschool("ps_membership_reg") %>% 
   select(studentid,
          schoolid,
@@ -66,8 +74,23 @@ attendance_code <- get_powerschool("attendance_code") %>%
   
   
 ```
-And now we do some pre-procecessing:
-```{r joining tables, cache=TRUE}
+
+
+```{r students, cache=TRUE, include=FALSE}
+students <- get_powerschool("students") %>% 
+  select(studentid = id, 
+         student_number,
+         gender,
+         entrydate,
+         schoolentrydate,
+         districtentrydate,
+         geocode) %>%
+  collect()
+  
+```
+
+
+```{r joining_tables, results='hide', echo=FALSE, cache=TRUE}
 member_att <- membership %>% 
   dplyr::left_join(attendance %>% 
               select(-schoolid,
@@ -79,8 +102,8 @@ member_att <- membership %>%
   collect()
 
 ```
-Recoding enrollmeent and attendance data:
-```{r recoding}
+
+```{r recoding, results='hide', echo=FALSE}
 member_att %>% 
   janitor::tabyl(att_code)
 
@@ -111,7 +134,15 @@ student_att <- member_att %>%
 
 ```
 
-Now we calculate some quantitities of interest: year_end ADA, cumulative ADA by date
+
+
+
+## Quantities of interest
+Now we calculate some quantitities of interest: 
+
+* year_end ADA, 
+* cumulative ADA by date
+
 ```{r cumulative quantities of interest}
 yearly_ada <- student_att %>% 
   filter(yearid < 28) %>%
@@ -150,6 +181,8 @@ yearly_cum_ada %>% filter(studentid == 14852)
 ```
 
 Now we begin doing some subsetting to build a basic model. We'll pull the data for each student over the last few years (excluding SY 18-19) for the last school day in December.  We'll build our model off of this "snapshot". The resulting table shows for each student their number of days enrolled (`cum_enrolled`), days absent (`cum_absent`), ADA through last school day in december (`running_ada`), and the given year's EOY ADA (`year_end`).
+
+### A snapshot in December
 ```{r dec_subset}
 dec_dates <- yearly_cum_ada %>% 
   group_by(yearid) %>% 
@@ -168,12 +201,20 @@ yca_filtered <- yearly_cum_ada %>%
          schoolid = as.factor(schoolid))
 
 
-yca_filtered
-  
+yca_filtered %>%
+  ggplot(aes(x = running_ada , y = year_end, color = schoolid)) +
+  geom_hline(aes(yintercept = .9)) +
+  geom_point(alpha = .7) +
+  geom_smooth(se = FALSE) +
+  scale_color_kipp() +
+  labs(y = "ADA (year end)",
+       x = "ADA (last school day in December)",
+       color = "School ID #")
 ```
-## Models 
+## Initial Models 
 
-our first model (`mod_0`) models year end ADA as a function of cumulative days enrolled and cumulaitve days absent through the last day of December, using school year as a fixed effect:
+### Linear Mdoel
+Our first model (`mod_0`) models year end ADA as a function of cumulative days enrolled and cumulaitve days absent through the last day of December, using school year as a fixed effect:
 
 $$ y_{i} = f(\alpha + \beta_{e}d_{e} + \beta_{a}d_{a} +\delta_{year} ) $$
 
@@ -274,6 +315,8 @@ plot_actual_v_predicted <- function(data, model){
 plot_actual_v_predicted(yca_filtered, mod_0)
 ```
 
+
+### Logit
 Let's fits these with a logit
 ```{r logit}
 mod_1 <- glm(formula = formula_0,
@@ -282,8 +325,8 @@ mod_1 <- glm(formula = formula_0,
 
 summary(mod_1)
 
-plot_ranked_residuals(yca_filtered, mod_1)
-plot_actual_v_residuals(yca_filtered, mod_1)
+#plot_ranked_residuals(yca_filtered, mod_1)
+#plot_actual_v_residuals(yca_filtered, mod_1)
 
 ```
 ```{r}
@@ -292,9 +335,9 @@ yca_filtered %>%
   modelr::add_predictions(mod_1) %>%
   modelr::add_residuals(mod_1)
 ```
-## Partitioning 
+## Model Evaulation 
 
-WE need to partition in train and test to better evaluate our models.  
+We need to partition in train and test to better evaluate our models.  
 
 We'll take [rsample](tidymodels.github.io/rsample) for a spin!
 
@@ -329,7 +372,6 @@ yca_augmented %>%
   scale_color_kipp(discrete = FALSE)
 ```
 
-To do: we should distance to school.  
 
 ```{r}
 formula_0 <- as.formula(year_end ~ cum_enrolled + cum_absent + yearid)
@@ -388,17 +430,19 @@ summarize_rmse <- calc_rmse %>%
   group_by(mod_id) %>% 
   summarize(avg_rmse = mean(rmse_0))
 
+
+summarize_rmse
 ```
 
 
-```{r}
+```{r holdout}
 
-holdout_model_spec <- function(splits, model_type, ...){
+holdout_model_spec <- function(splits, model_type, formula, ...){
   if(tolower(model_type) == "linear"){
     model_spec <- linear_reg() %>% 
       set_engine("lm")
     model <- model_spec %>% 
-      fit(..., 
+      fit(formula, 
           data = as.data.frame(splits)) #parsnip wants df
   
   } 
@@ -407,13 +451,13 @@ holdout_model_spec <- function(splits, model_type, ...){
     model_spec <- logistic_reg() %>%
       set_engine("glm")
     model <- model_spec %>% 
-      fit(...,
+      fit(formula,
           data = as.data.frame(splits))
 
   }
   
   ##Requires additional set of variables: mtry, ntrees
-  # if(tolower(model_type) = "random_forest"){
+  # if(tolower(model_type) == "random_forest"){
   #   model_spec <- rand_forest() %>% 
   #     set_engine("rand_forest")
   #   model <- model_spec %>% 
@@ -421,20 +465,273 @@ holdout_model_spec <- function(splits, model_type, ...){
   #         data = splits)
   # 
   # }
+  
+  if(tolower(model_type) == "knn") {
+    model_spec <- nearest_neighbor(mode = "regression", ...) %>%
+      set_engine("kknn")
+    
+    model <- model_spec %>%
+      fit(formula, data = as.data.frame(splits))
+  }
   holdout <- assessment(splits) 
   
-  res <- broom::augment(model$fit, newdata = holdout) #won't work with parsnip models
   
-  res
+  if(model_type == "knn") {
+    predictions <- predict(model, new_data = holdout) #won't work with parsnip models
+    res <- bind_cols(holdout, predictions) %>%
+      rename(.fitted = .pred) %>%
+      mutate(.se.fit = as.numeric(NA)) # can't seem to figure out this calcualtion KNN 
+    
+  args <- list(...)
+  model_type <- sprintf("%s %s", model_type, args$neighbors)
+  } else {
+    res <- broom::augment(model$fit, newdata = holdout) #won't work with parsnip models
+  }
+  
+  
+  
+  
+  # Convert log-odds to probability measure 
+  if(tolower(model_type) == "logistic") {
+    res <- res %>% mutate(.fitted = exp(.fitted)/(1+exp(.fitted)))
+  }
+  
+  res <- res %>% mutate(model = deparse(formula),
+                 model_type = model_type)
+  
+  splits$results <- res
   
 }
 
-models <- rep("linear", 3)
 
 holdout_model_spec(rs_data$splits[[1]], "linear", formula_0) #works!
-holdout_model_spec(rs_data$splits[[1]], "logistic", formula_0) %>%  #.fitted not adjusted
-mutate(.fitted = exp(.fitted)/(1+exp(.fitted)))
+holdout_model_spec(rs_data$splits[[1]], "logistic", formula_0) #%>%  #.fitted not adjusted
+#mutate(.fitted = exp(.fitted)/(1+exp(.fitted)))
+
+x<-holdout_model_spec(rs_data$splits[[1]], "knn", formula_0, neighbors = 5)
+
+x
 
 ```
 
+
+## Cross-validated models {.tabset}
+Let's do a bunch of paramaterizations though Steph's `holdout_model_spec` function.  To do this we need a function that can take a `rsample` splits object and then a a list of paramterizations. We'll do one model type (linear model, logistic, random forest, KNN) one at a time.
+
+The output should have the average RMSE for each model, as well as any other modeling output 
+
+```{r holdout_infrastructure, include = FALSE}
+
+holdout_model_splits <- function(data, type, formula, ...){
+  out <-data$splits %>% 
+    map(holdout_model_spec, type, formula, ...) 
+
+  out
+  }
+
+x<-holdout_model_splits(rs_data, "linear", formula_0)  
+
+x$`1`
+```
+Okay, let's do three things: LM, logistic, and then KNN (with 3, 5, and 10 nearest neighbors):
+
+### Linear Models
+```{r lms}
+x_lm <- formulas %>%
+  map(~{holdout_model_splits(rs_data, "linear", .)})
+
+x_lm_fit_summary <- x_lm %>% 
+  map_df( . %>%
+            map_df( . %>%  
+                      summarize(rmse = rmse_vec(truth = year_end, estimate = .fitted), 
+                                model =unique(model), 
+                                model_type = unique(model_type)))
+          ) 
+
+```
+### Logistic
+```{r logistic, warning = FALSE}
+x_logistic <- formulas %>%
+  map(~{holdout_model_splits(rs_data, "logistic", .)})
+
+x_logistic_fit_summary <- x_logistic %>% 
+  map_df( . %>%
+            map_df( . %>%  
+                      summarize(rmse = rmse_vec(truth = year_end, estimate = .fitted), 
+                                model =unique(model), 
+                                model_type = unique(model_type)))
+          ) 
+```
+
+### KNN
+
+```{r}
+
+# 3 neighbors
+x_knn_3 <- formulas %>%
+  map(~{holdout_model_splits(rs_data, "knn",  ., neighbors=3)})
+
+x_knn_3_fit_summary <- x_knn_3 %>% 
+  map_df( . %>%
+            map_df( . %>%  
+                      summarize(rmse = rmse_vec(truth = year_end, estimate = .fitted), 
+                                model =unique(model), 
+                                model_type = unique(model_type)))
+          ) 
+
+# 5 neighbors
+
+x_knn_5 <- formulas %>%
+  map(~{holdout_model_splits(rs_data, "knn",  ., neighbors=5)})
+
+x_knn_5_fit_summary <- x_knn_5 %>% 
+  map_df( . %>%
+            map_df( . %>%  
+                      summarize(rmse = rmse_vec(truth = year_end, estimate = .fitted), 
+                                model =unique(model), 
+                                model_type = unique(model_type)))
+  )
+
+# 10 neighbors
+x_knn_10 <- formulas %>%
+  map(~{holdout_model_splits(rs_data, "knn",  ., neighbors=10)})
+
+x_knn_10_fit_summary <- x_knn_10 %>% 
+  map_df( . %>%
+            map_df( . %>%  
+                      summarize(rmse = rmse_vec(truth = year_end, estimate = .fitted), 
+                                model =unique(model), 
+                                model_type = unique(model_type)))
+  )
+
+x_knn_fit_summary <- bind_rows(x_knn_3_fit_summary, x_knn_5_fit_summary, x_knn_10_fit_summary)
+```
+
+Now we bring all the `x_*_fit_summary` tables together and plot the results:
+
+```{r plot fits}
+x_fit_summary <- bind_rows(x_lm_fit_summary, 
+                           x_logistic_fit_summary, 
+                           x_knn_fit_summary)
+
+x_fit_summary
+```
+## Plotting RMSE
+```{r plot_avg_rmse}
+x_fit_summary %>%
+  group_by(model, model_type) %>%
+  summarize(mean_rmse = mean(rmse)) %>%
+  arrange(desc(mean_rmse)) %>%
+  ungroup() %>%
+  mutate(model = fct_inorder(model),
+         model_type = fct_inorder(model_type)
+         ) %>%
+
+  ggplot() +
+  geom_point(aes(x = model, y = mean_rmse, color= model_type), show.legend = FALSE) +
+  geom_segment(aes(x = model,xend = model, y = mean_rmse, yend=0, color= model_type), show.legend = FALSE) +
+  facet_grid(model_type ~ .) +
+  coord_flip() + 
+  scale_color_kipp() +
+  labs(x = "Model",
+       y = "Root Mean Squared Error")
+```
+```{r}
+x_fit_summary %>%
+  #group_by(model_type, model) %>%
+arrange(rmse) %>%
+  ungroup() %>%
+  mutate(model = fct_inorder(model),
+         model_type = fct_inorder(model_type)
+         ) %>%
+ggplot() +
+  geom_violin(aes(y = rmse, 
+                  x = model,
+                  fill = model_type
+                  ), show.legend = FALSE) +
+  geom_point(data = x_fit_summary %>% 
+               group_by(model, model_type) %>% 
+               summarize(rmse = mean(rmse)), 
+             aes(x = model, y = rmse), 
+             show.legend = FALSE) +
+  geom_linerange(data = x_fit_summary %>% 
+               group_by(model, model_type) %>% 
+               summarize(y_min = mean(rmse) - 1*sd(rmse), 
+                         y_max = mean(rmse) + 1*sd(rmse)), 
+             aes(x = model, ymin = y_min, ymax = y_max), 
+             show.legend = FALSE) +
+  facet_grid(model_type ~ .) +
+  coord_flip() + 
+  scale_fill_kipp()
+  labs(x = "Model",
+       y = "Root Mean Squared Error")
+
+```
+
+```{r}
+x_fit_summary %>%
+ggplot(aes(x=rmse)) +
+  geom_density(aes(fill = model_type), show.legend = FALSE) +
+  
+   geom_segment(data = x_fit_summary %>% 
+               group_by(model, model_type) %>% 
+               summarize(x_min = mean(rmse) - 1*sd(rmse), 
+                         x_max = mean(rmse) + 1*sd(rmse)), 
+             aes(y = 0, yend=0, x = x_min, xend = x_max),
+             size = 1.25,
+             color = kipp_colors$darkgray,
+             show.legend = FALSE) +
+  
+  geom_point(data = x_fit_summary %>% 
+               group_by(model, model_type) %>% 
+               summarize(rmse = mean(rmse)), 
+             aes(x = rmse, y = 0), 
+             show.legend = FALSE,
+             shape = 21, 
+             fill = "white",
+             color = kipp_colors$darkgray) +
+  
+  facet_grid(model ~ model_type, switch = "y") + 
+  scale_fill_kipp() +
+  theme(strip.text.y = element_text(angle = 180),
+        axis.text.x = element_text(angle = 45))  +
+  labs(y = "Model",
+       x = "Root Mean Squared Error")
+  
+```
+
+
+## Appendix 
+
+### Packages and settings
+```{r packages_append, ref.label='packages', echo=TRUE, results='markup'}
+
+```
+```{r knitr_append, ref.label='knitr_options', echo=TRUE, results='markup'}
+
+```
+
+### Getting data
+Here we grab basic attendances and enrollment data from Silo (our warehouse):
+
+
+
+
+```{r att_mem_tables_append, ref.label='att_mem_tables', echo=TRUE, results='markup'}
+
+```
+
+Now we join our daily membership and attendance tables and do some pre-processing. 
+```{r joining_append, ref.label='joining_tables', echo=TRUE, results='markup'}
+
+```
+
+Recoding enrollmeent and attendance data:
+```{r recoding_append, ref.label='recoding', echo=TRUE, results='markup'}
+```
+
+Getting student data:
+```{r student_append, ref.label="students"}
+
+```
 
