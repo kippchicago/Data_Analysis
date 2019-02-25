@@ -1,5 +1,5 @@
 ---
-title: "Attendance Analysis and Modelling"
+title: "Attendance Analysis and Modeling"
 author: "Steph Oliva and Chris Haid"
 resource_files:
 - kipp-chicago-silo-2-aa786970aefd.json
@@ -39,7 +39,7 @@ library(kknn)
 theme_set(theme_kipp_light())
 
 
-bigrquery::set_service_token("kipp-chicago-silo-2-aa786970aefd.json")
+#bigrquery::set_service_token("kipp-chicago-silo-2-aa786970aefd.json")
 
 ```
 
