@@ -3,12 +3,14 @@ title: "Attendance Analysis and Modeling"
 author: "Steph Oliva and Chris Haid"
 resource_files:
 - kipp-chicago-silo-2-aa786970aefd.json
+- kipp-chicago-silo-2-aa786970aefd.json
+- kipp-chicago-silo-2-aa786970aefd.json
 output:
   html_document:
     df_print: paged
-    toc: true
-    toc_float: true
     fig_width: 10
+    toc: yes
+    toc_float: yes
 ---
 ## Motivation
 
@@ -39,7 +41,7 @@ library(kknn)
 theme_set(theme_kipp_light())
 
 
-#bigrquery::set_service_token("kipp-chicago-silo-2-aa786970aefd.json")
+bigrquery::set_service_token("kipp-chicago-silo-2-aa786970aefd.json")
 
 ```
 
@@ -140,7 +142,7 @@ student_att <- member_att %>%
 
 
 ## Quantities of interest
-Now we calculate some quantitities of interest: 
+Now we calculate some quantities of interest: 
 
 * year_end ADA, 
 * cumulative ADA by date
@@ -182,7 +184,7 @@ yearly_cum_ada <- cum_ada %>%
 yearly_cum_ada %>% filter(studentid == 14852)
 ```
 
-Now we begin doing some subsetting to build a basic model. We'll pull the data for each student over the last few years (excluding SY 18-19) for the last school day in December.  We'll build our model off of this "snapshot". The resulting table shows for each student their number of days enrolled (`cum_enrolled`), days absent (`cum_absent`), ADA through last school day in december (`running_ada`), and the given year's EOY ADA (`year_end`).
+Now we begin doing some subsetting to build a basic model. We'll pull the data for each student over the last few years (excluding SY 18-19) for the last school day in December.  We'll build our model off of this "snapshot". The resulting table shows for each student their number of days enrolled (`cum_enrolled`), days absent (`cum_absent`), ADA through last school day in December (`running_ada`), and the given year's EOY ADA (`year_end`).
 
 ### A snapshot in December
 ```{r dec_subset}
@@ -232,7 +234,7 @@ summary(mod_0)
 
   
 ```
-Let's plot the ranked residulas of `mod_0`
+Let's plot the ranked residuals of `mod_0`
 ```{r plot_residuals_lm}
 # yca_filtered %>% 
 #   ungroup() %>% 
@@ -265,7 +267,7 @@ data %>%
 plot_ranked_residuals(yca_filtered, mod_0)
 
 ```
-And here are the residuals as a funtion of actuals. 
+And here are the residuals as a function of actuals. 
 ```{r}
 # yca_filtered %>% 
 #   ungroup() %>% 
@@ -280,7 +282,7 @@ And here are the residuals as a funtion of actuals.
 #   scale_color_kipp(discrete = FALSE) +
 #   facet_grid(yearid ~.)
 
-plot_actual_v_residuals <- function(data, model){
+plot_pred_v_residuals <- function(data, model){
   data %>% 
   ungroup() %>% 
   modelr::add_predictions(model) %>% 
@@ -288,7 +290,7 @@ plot_actual_v_residuals <- function(data, model){
   arrange(resid) %>% 
   group_by(yearid) %>% 
   mutate(rank = row_number(resid)) %>% 
-  ggplot(aes(x = year_end, y = resid)) +
+  ggplot(aes(x = pred, y = resid)) +
   geom_point(aes(color = cum_enrolled),
              size = .001) +
   scale_color_kipp(discrete = FALSE) +
@@ -296,7 +298,7 @@ plot_actual_v_residuals <- function(data, model){
 }
   
 
-plot_actual_v_residuals(yca_filtered, mod_0)
+plot_pred_v_residuals(yca_filtered, mod_0)
 ```
 ```{r predicted v actual}
 plot_actual_v_predicted <- function(data, model){
@@ -319,7 +321,7 @@ plot_actual_v_predicted(yca_filtered, mod_0)
 
 
 ### Logit
-Let's fits these with a logit
+Let's fit these with a logit
 ```{r logit}
 mod_1 <- glm(formula = formula_0,
              family = binomial(link = "logit"),
@@ -340,7 +342,7 @@ yca_filtered %>%
 ```
 ## Model Evaulation 
 
-We need to partition in train and test to better evaluate our models.  
+We need to partition into train and test to better evaluate our models.  
 
 We'll take [rsample](tidymodels.github.io/rsample) for a spin!
 
@@ -519,7 +521,7 @@ x
 
 
 ## Cross-validated models {.tabset}
-Let's do a bunch of paramaterizations though Steph's `holdout_model_spec` function.  To do this we need a function that can take a `rsample` splits object and then a list of paramterizations. We'll do one model type (linear model, logistic, KNN) one at a time.
+Let's do a bunch of parameterizations through Steph's `holdout_model_spec` function.  To do this we need a function that can take a `rsample` splits object and then a list of parameterizations. We'll do one model type (linear model, logistic, KNN) at a time.
 
 The output should have the average RMSE for each model, as well as any other modeling output. 
 
