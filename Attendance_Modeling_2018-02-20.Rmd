@@ -5,6 +5,7 @@ resource_files:
 - kipp-chicago-silo-2-aa786970aefd.json
 - kipp-chicago-silo-2-aa786970aefd.json
 - kipp-chicago-silo-2-aa786970aefd.json
+- kipp-chicago-silo-2-aa786970aefd.json
 output:
   html_document:
     df_print: paged
@@ -36,8 +37,9 @@ library(broom)
 library(modelr)
 library(tidymodels)
 library(kknn)
+library(VGAM)
 #library(prophet)
-
+library(greta)
 theme_set(theme_kipp_light())
 
 
@@ -340,6 +342,8 @@ yca_filtered %>%
   modelr::add_residuals(mod_1) %>% 
   mutate(pred = exp(pred)/(1+exp(pred)))
 ```
+
+
 ## Model Evaulation 
 
 We need to partition into train and test to better evaluate our models.  
@@ -439,6 +443,61 @@ summarize_rmse <- calc_rmse %>%
 summarize_rmse
 ```
 
+
+
+```{r tobit two-way censored}
+m_tobit <- vglm(year_end ~ cum_enrolled + cum_absent + yearid, tobit(Lower = 0, Upper = 1), data = yca_filtered)
+
+formula_t <- formula(year_end ~ cum_enrolled + cum_absent + yearid)
+
+summary(m_tobit)
+
+holdout_tobit <- function(splits, ...){
+  model_t <- vglm(..., 
+                  tobit(Lower = 0, Upper = 1), 
+                  data = splits)
+  
+  holdout <- assessment(splits)
+  
+  pred <- predict(object = model_t, newdata = holdout)
+  
+  holdout$.fitted <- pred[,1]
+  holdout$.se <- pred[,2]
+  
+  holdout
+}
+
+map_holdout_tobit <- function(data, formula){
+  data$results <- map(data$splits,
+                holdout_tobit,
+                formula)
+  
+  data$mod_id <- as.character(deparse(formula))
+  
+  data
+
+}
+
+run_models <- formulas %>% 
+  map(~{map_holdout_tobit(rs_data, .x) %>% 
+      as_tibble()})
+
+calc_rmse <- run_models %>% 
+map_df(~mutate(.x, 
+            rmse_0 = map2_dbl(results, 
+                              results, 
+                              ~rmse_vec(.x$year_end, 
+                                        .y$.fitted))))
+
+
+summarize_rmse <- calc_rmse %>% 
+  group_by(mod_id) %>% 
+  summarize(avg_rmse = mean(rmse_0))
+
+
+summarize_rmse
+
+```
 
 ```{r holdout}
 
@@ -704,6 +763,70 @@ ggplot(aes(x=rmse)) +
        x = "Root Mean Squared Error")
   
 ```
+
+## Bayesian Analysis
+$$ y_{i} = f(\alpha + \beta_{e}d_{e} + \beta_{a}d_{a} +
+\alpha_{s[i]} + \beta_{e,s[i]} + \beta_{a,s[i]}) $$
+
+```{r}
+yca_filtered_bayes <- yca_filtered %>% 
+  mutate(schoolid_idx = as.integer(as.factor(schoolid)))
+ 
+cum_enroll <- as_data(yca_filtered_bayes$cum_enrolled)
+cum_absent <- as_data(yca_filtered_bayes$cum_absent)
+school_id <- as_data(yca_filtered_bayes$schoolid_idx)
+
+int <- normal(0, 10)
+b_e <- normal(0, 10)
+b_a <- normal(0, 10)
+sd <- greta::cauchy(0, 3, truncation = c(0, Inf))
+
+
+
+# random intercepts
+school_int_sd <- greta::lognormal(0, 1)
+school_int <- normal(0, school_int_sd, dim = 6)
+school_int_eff <- rbind(0, school_int)
+
+# random slopes
+school_slope_sd_e <- greta::lognormal(0, 1)
+school_slope_sd_a <- greta::lognormal(0, 1)
+school_slope_e <- normal(0, school_slope_sd_e, dim = 6)
+school_slope_a <- normal(0, school_slope_sd_a, dim = 6)
+school_slope_eff_e <- rbind(0, school_slope_e)
+school_slope_eff_a <- rbind(0, school_slope_a)
+# model
+mu <- int + cum_enroll * b_e + cum_absent * b_a + school_int_eff[school_id] + cum_enroll * school_slope_eff_e[school_id] + cum_absent * school_slope_eff_a[school_id]
+
+y <- as_data(yca_filtered_bayes$running_ada)
+
+distribution(y) <- normal(mu, sd)
+
+```
+
+
+```{r}
+m <- model(int,
+           b_e,
+           b_a,
+           sd,
+          # school_id,
+         #  school_int,
+           school_int_eff,
+          # school_int_sd,
+           #school_slope_sd_e,
+           #school_slope_sd_a,
+           #school_slope_e,
+           #school_slope_a,
+           school_slope_eff_e,
+           school_slope_eff_a)
+
+plot(m)
+
+draws <- mcmc(m, n_samples = 100)
+```
+
+
 
 
 ## Appendix 
