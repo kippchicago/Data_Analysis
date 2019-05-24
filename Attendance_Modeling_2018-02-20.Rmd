@@ -40,6 +40,7 @@ library(kknn)
 library(VGAM)
 #library(prophet)
 library(greta)
+library(bayesplot)
 theme_set(theme_kipp_light())
 
 
@@ -766,9 +767,9 @@ ggplot(aes(x=rmse)) +
 
 ## Bayesian Analysis
 $$ y_{i} = f(\alpha + \beta_{e}d_{e} + \beta_{a}d_{a} +
-\alpha_{s[i]} + \beta_{e,s[i]} + \beta_{a,s[i]}) $$
+\alpha_{s[i]} + \beta_{e,s[i]}d_{e} + \beta_{a,s[i]}d_{a}) $$
 
-```{r}
+```{r bayes setup}
 yca_filtered_bayes <- yca_filtered %>% 
   mutate(schoolid_idx = as.integer(as.factor(schoolid)))
  
@@ -798,32 +799,50 @@ school_slope_eff_a <- rbind(0, school_slope_a)
 # model
 mu <- int + cum_enroll * b_e + cum_absent * b_a + school_int_eff[school_id] + cum_enroll * school_slope_eff_e[school_id] + cum_absent * school_slope_eff_a[school_id]
 
-y <- as_data(yca_filtered_bayes$running_ada)
+y <- as_data(yca_filtered_bayes$year_end)
 
 distribution(y) <- normal(mu, sd)
 
 ```
 
 
-```{r}
+```{r bayes model}
 m <- model(int,
            b_e,
            b_a,
            sd,
-          # school_id,
-         #  school_int,
            school_int_eff,
-          # school_int_sd,
-           #school_slope_sd_e,
-           #school_slope_sd_a,
-           #school_slope_e,
-           #school_slope_a,
            school_slope_eff_e,
            school_slope_eff_a)
 
 plot(m)
+```
 
-draws <- mcmc(m, n_samples = 100)
+```{r bayes mcmc draws}
+draws <- greta::mcmc(m, n_samples = 1000)
+```
+
+```{r mcmc plots}
+mcmc_trace(draws, facet_args = list(ncol = 3))
+mcmc_intervals(draws)
+mcmc_acf_bar(draws)
+mcmc_hist(draws, facet_args = list(ncol = 3), binwidth = 10)
+```
+
+```{r bayes predictions}
+posterior_school_effects <- greta::calculate(mu, draws)
+
+posterior_school_effects <- as.data.frame(as.matrix(posterior_school_effects))
+
+posterior_summaries <-
+  posterior_school_effects %>%
+  gather(key = school, value = value) %>% 
+  group_by(school) %>%
+  summarise_all(funs(mean, sd)) 
+
+#RMSE
+sqrt(mean((posterior_summaries$mean - yca_filtered_bayes$year_end)^2))
+
 ```
 
 
