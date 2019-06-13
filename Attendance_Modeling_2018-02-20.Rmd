@@ -185,7 +185,7 @@ yearly_cum_ada <- cum_ada %>%
             by = c("yearid",
                    "studentid"))
 
-yearly_cum_ada %>% filter(studentid == 14852)
+
 ```
 
 Now we begin doing some subsetting to build a basic model. We'll pull the data for each student over the last few years (excluding SY 18-19) for the last school day in December.  We'll build our model off of this "snapshot". The resulting table shows for each student their number of days enrolled (`cum_enrolled`), days absent (`cum_absent`), ADA through last school day in December (`running_ada`), and the given year's EOY ADA (`year_end`).
@@ -794,32 +794,207 @@ ggplot(aes(x=rmse)) +
 ```
 
 ## Bayesian Analysis
-$$ y_{i} = f(\alpha + \beta_{e}d_{e} + \beta_{a}d_{a} +
-\alpha_{s[i]} + \beta_{e,s[i]}d_{e} + \beta_{a,s[i]}d_{a}) $$
 
-```{r bayes setup varying slope and intercept}
+*Random Intercepts*
+
+```{r random intercept only}
 yca_filtered_bayes <- yca_filtered %>% 
   mutate(schoolid_idx = as.integer(as.factor(schoolid)))
  
+ri_cum_enroll <- as_data(yca_filtered_bayes$cum_enrolled)
+ri_cum_absent <- as_data(yca_filtered_bayes$cum_absent)
+ri_school_id <- as_data(yca_filtered_bayes$schoolid_idx)
+
+ri_int <- greta::normal(0, 10)
+ri_b_e <- greta::normal(0, 10)
+ri_b_a <- greta::normal(0, 10)
+ri_sd <- greta::cauchy(0, 3, truncation = c(0, Inf))
+
+# random intercepts
+ri_school_int_sd <- greta::lognormal(0, 1)
+ri_school_int <- greta::normal(0, ri_school_int_sd, dim = 6)
+ri_school_int_eff <- rbind(0, ri_school_int)
+
+
+# model
+ri_mu <- ri_int + ri_cum_enroll * ri_b_e + ri_cum_absent * ri_b_a + ri_school_int_eff[ri_school_id]
+
+ri_y <- as_data(yca_filtered_bayes$year_end)
+
+distribution(ri_y) <- greta::normal(ri_mu, ri_sd)
+
+ri_m <- model(ri_int,
+              ri_b_e,
+              ri_b_a,
+              ri_sd,
+              ri_school_int_eff
+  
+)
+
+plot(ri_m)
+
+draws_ri <- greta::mcmc(ri_m, n_samples = 2000, n_cores = 4, chains = 4)
+
+pred_test_ri <- greta::calculate(ri_mu, draws_ri)
+
+
+```
+
+```{r predicted year end random intercept model}
+pred_values_ri <- colMeans(rbind(pred_test_ri$`11`, pred_test_ri$`12`, pred_test_ri$`13`, pred_test_ri$`14`))
+
+sqrt(mean((pred_values_ri - yca_filtered_bayes$year_end)^2))
+
+sum(yca_filtered_bayes$year_end > .975)/ length(yca_filtered_bayes$year_end)
+
+sum(pred_values_ri > .975)/ length(pred_values_ri)
+```
+
+```{r comparing year end to predicted}
+ggplot() +
+  geom_point(data = yca_filtered_bayes %>% 
+               rowid_to_column("n"), aes(x = year_end, y = n)) +
+  coord_flip()
+
+pred_values_ri <- pred_values_ri %>% 
+  as_tibble() %>% 
+  rename(predicted = value)
+
+orig_year_end <- yca_filtered_bayes$year_end %>% 
+  as_tibble() %>% 
+  rename(year_end = value)
+
+bind_cols(orig_year_end, pred_values_ri) %>% 
+  ggplot() +
+  geom_point(aes(year_end, predicted)) +
+  geom_abline(slope = 1, intercept = 0)
+```
+
+**Predicting 18-19 Attendance**
+```{r, 18-19 new data}
+new_yearly_ada <- student_att %>% 
+  filter(yearid > 27) %>%
+  group_by(yearid,
+           studentid) %>% 
+  summarize(enrolled = sum(enrolled),
+            absent = sum(absent),
+            year_end = 1 - (absent/enrolled))
+ 
+new_cum_ada <- student_att %>% 
+  filter(yearid > 27) %>%
+  group_by(yearid,
+           studentid) %>% 
+  arrange(date) %>% 
+  mutate(cum_enrolled = cumsum(enrolled),
+         cum_absent = cumsum(absent),
+         running_ada = 1 - (cum_absent/cum_enrolled)) %>% 
+  filter(cum_enrolled > 0)
+
+new_yearly_cum_ada <- new_cum_ada %>% 
+  select(yearid,
+         schoolid,
+         grade_level,
+         studentid,
+         date,
+         cum_enrolled,
+         cum_absent,
+         running_ada) %>% 
+  dplyr::left_join(new_yearly_ada %>% 
+              rename(yr_end_enrolled = enrolled, 
+                     yr_end_absent = absent),
+            by = c("yearid",
+                   "studentid")) %>% 
+  filter(yr_end_enrolled < 200,
+         lubridate::month(date) == 12) %>% 
+  filter(date == max(date)) %>% 
+  mutate(cum_present = cum_enrolled - cum_absent) %>% 
+  ungroup() 
+
+new_data <-  new_yearly_cum_ada %>% 
+  filter(!schoolid == 4001632) %>% 
+  mutate(yr_end_present = 0,
+         school_id = factor(schoolid, levels = c(7810, 78102, 400146, 400163, 400180, 4001802)),
+         schoolid = factor(schoolid, levels = c(7810, 78102, 400146, 400163, 400180, 4001802))) %>%
+  select(school_id,
+         schoolid,
+         yr_end_present,
+         yr_end_enrolled,
+         cum_present,
+         cum_absent)
+```
+
+```{r}
+new_data <-  new_yearly_cum_ada %>% 
+  filter(!schoolid == 4001632) %>% 
+  mutate(school_id = as.integer(as.factor(schoolid))) %>% 
+  select(school_id,
+         cum_enroll = cum_enrolled,
+         cum_absent,
+         year_end)
+
+new_cum_enroll <- as_data(new_data$cum_enroll)
+new_cum_absent <- as_data(new_data$cum_absent)
+new_school_id <- as_data(new_data$school_id)
+
+new_mu_ri <- ri_int + new_cum_enroll * ri_b_e + new_cum_absent * ri_b_a + ri_school_int_eff[new_school_id]
+
+pred_new_data_ri <- greta::calculate(new_mu_ri, draws_ri)
+
+new_pred_values_ri <- colMeans(rbind(pred_new_data_ri$`11`, pred_new_data_ri$`12`, pred_new_data_ri$`13`, pred_new_data_ri$`14`))
+
+sqrt(mean((new_pred_values_ri - new_data$year_end)^2))
+
+sum(new_data$year_end > .975)/ length(new_data$year_end)
+
+sum(new_pred_values_ri > .975)/ length(new_pred_values_ri)
+```
+
+```{r}
+ggplot() +
+  geom_point(data = new_data %>% 
+               rowid_to_column("n"), aes(x = year_end, y = n))
+
+new_pred_values_ri <- new_pred_values_ri %>% 
+  as_tibble() %>% 
+  rename(predicted = value)
+
+new_year_end <- new_data$year_end %>% 
+  as_tibble() %>% 
+  rename(year_end = value)
+
+bind_cols(new_year_end, new_pred_values_ri) %>% 
+  ggplot() +
+  geom_point(aes(year_end, predicted)) +
+  geom_abline(slope = 1, intercept = 0)
+```
+
+$$ y_{i} = f(\alpha + \beta_{e}d_{e} + \beta_{a}d_{a} +
+\alpha_{s[i]} + \beta_{e,s[i]}d_{e} + \beta_{a,s[i]}d_{a}) $$
+
+A random slope model allows for each school line to have a different slope, meaning the predictors have a different effect for each school. 
+
+```{r bayes setup varying slope and intercept}
+rm(list=ls(pattern="ri_"))
+
 cum_enroll <- as_data(yca_filtered_bayes$cum_enrolled)
 cum_absent <- as_data(yca_filtered_bayes$cum_absent)
 school_id <- as_data(yca_filtered_bayes$schoolid_idx)
 
-int <- normal(0, 10)
-b_e <- normal(0, 10)
-b_a <- normal(0, 10)
+int <- greta::normal(0, 10)
+b_e <- greta::normal(0, 10)
+b_a <- greta::normal(0, 10)
 sd <- greta::cauchy(0, 3, truncation = c(0, Inf))
 
 # random intercepts
 school_int_sd <- greta::lognormal(0, 1)
-school_int <- normal(0, school_int_sd, dim = 6)
+school_int <- greta::normal(0, school_int_sd, dim = 6)
 school_int_eff <- rbind(0, school_int)
 
 # random slopes
 school_slope_sd_e <- greta::lognormal(0, 1)
 school_slope_sd_a <- greta::lognormal(0, 1)
-school_slope_e <- normal(0, school_slope_sd_e, dim = 6)
-school_slope_a <- normal(0, school_slope_sd_a, dim = 6)
+school_slope_e <- greta::normal(0, school_slope_sd_e, dim = 6)
+school_slope_a <- greta::normal(0, school_slope_sd_a, dim = 6)
 school_slope_eff_e <- rbind(0, school_slope_e)
 school_slope_eff_a <- rbind(0, school_slope_a)
 
@@ -828,10 +1003,9 @@ mu <- int + cum_enroll * b_e + cum_absent * b_a + school_int_eff[school_id] + cu
 
 y <- as_data(yca_filtered_bayes$year_end)
 
-distribution(y) <- normal(mu, sd)
+distribution(y) <- greta::normal(mu, sd)
 
 ```
-
 
 ```{r bayes model varying slope and intercept}
 m <- model(int,
@@ -845,9 +1019,96 @@ m <- model(int,
 plot(m)
 ```
 
+
+
 ```{r bayes mcmc draws varying slope and intercept}
-draws <- greta::mcmc(m, n_samples = 1000)
+draws <- greta::mcmc(m, n_samples = 2000, n_cores = 4, chains = 4)
+
+colMeans(rbind(draws$`11`, draws$`12`, draws$`13`, draws$`14`))
+
+pred_test <- greta::calculate(mu, draws)
+
+pred_values <- colMeans(rbind(pred_test$`11`, pred_test$`12`, pred_test$`13`, pred_test$`14`))
+
+sqrt(mean((pred_values - yca_filtered_bayes$year_end)^2))
+
+sum(yca_filtered_bayes$year_end > .975)/ length(yca_filtered_bayes$year_end)
+
+sum(pred_values > .975)/ length(pred_values)
+
 ```
+
+
+```{r}
+ggplot() +
+  geom_point(data = yca_filtered_bayes %>% 
+               rowid_to_column("n"), aes(x = year_end, y = n))
+
+pred_values <- pred_values %>% 
+  as_tibble() %>% 
+  rename(predicted = value)
+
+orig_year_end <- yca_filtered_bayes$year_end %>% 
+  as_tibble() %>% 
+  rename(year_end = value)
+
+bind_cols(orig_year_end, pred_values) %>% 
+  ggplot() +
+  geom_point(aes(year_end, predicted)) +
+  geom_abline(slope = 1, intercept = 0)
+  
+```
+
+
+
+```{r}
+new_cum_enroll <- as_data(new_data$cum_enroll)
+new_cum_absent <- as_data(new_data$cum_absent)
+new_school_id <- as_data(new_data$school_id)
+rm(list = c("new_mu_ri",
+                 "pred_new_data_ri",
+                 "new_pred_values_ri"))
+new_mu <- int + new_cum_enroll * b_e + new_cum_absent * b_a + school_int_eff[new_school_id] + new_cum_enroll * school_slope_eff_e[new_school_id] + new_cum_absent * school_slope_eff_a[new_school_id]
+
+pred_new_data <- greta::calculate(new_mu, draws)
+
+new_pred_values <- colMeans(rbind(pred_new_data$`11`, pred_new_data$`12`, pred_new_data$`13`, pred_new_data$`14`))
+
+sqrt(mean((new_pred_values - new_data$year_end)^2))
+
+sum(new_data$year_end > .975)/ length(new_data$year_end)
+
+sum(new_pred_values > .975)/ length(new_pred_values)
+```
+
+
+```{r}
+ggplot() +
+  geom_point(data = new_data %>% 
+               rowid_to_column("n"), aes(x = year_end, y = n))
+
+new_pred_values <- new_pred_values %>% 
+  as_tibble() %>% 
+  rename(predicted = value)
+
+new_year_end <- new_data$year_end %>% 
+  as_tibble() %>% 
+  rename(year_end = value)
+
+bind_cols(new_year_end, new_pred_values) %>% 
+  ggplot() +
+  geom_point(aes(year_end, predicted)) +
+  geom_abline(slope = 1, intercept = 0)
+```
+
+
+```{r}
+bayesplot::mcmc_trace(draws, pars = "int")
+bayesplot::mcmc_intervals(draws)
+mcmc_hist(draws, pars = "int")
+mcmc_parcoord(draws)
+```
+
 
 ```{r mcmc plots varying slope and intercept}
 mcmc_trace(draws, facet_args = list(ncol = 3))
@@ -856,70 +1117,253 @@ mcmc_acf_bar(draws)
 mcmc_hist(draws, facet_args = list(ncol = 3), binwidth = 10)
 ```
 
-```{r bayes predictions varying slope and intercept}
-posterior_school_effects <- greta::calculate(mu, draws)
-
-posterior_school_effects <- as.data.frame(as.matrix(posterior_school_effects))
-
-posterior_summaries <-
-  posterior_school_effects %>%
-  gather(key = school, value = value) %>% 
-  group_by(school) %>%
-  summarise_all(funs(mean, sd)) 
-
-#RMSE
-sqrt(mean((posterior_summaries$mean - yca_filtered_bayes$year_end)^2))
-
-```
-
 
 ```{r bayes setup rstan model}
 yca_filtered_bayes <- yca_filtered %>% 
   mutate(schoolid_idx = as.integer(as.factor(schoolid)),
          yr_end_present = as.integer(yr_end_present),
-         yr_end_absent = as.integer(yr_end_absent))
+         yr_end_absent = as.integer(yr_end_absent),
+         cum_present = as.integer(cum_present),
+         cum_absent = as.integer(cum_absent))
+
+yca_filtered_bayes_17_18 <-   yca_filtered_bayes %>% 
+  filter(yearid == 27)
  
-yr_end_present <- yca_filtered_bayes$yr_end_present
-yr_end_absent <- yca_filtered_bayes$yr_end_absent
-school_id <- yca_filtered_bayes$schoolid_idx
+# yr_end_present <- yca_filtered_bayes$yr_end_present
+# yr_end_absent <- yca_filtered_bayes$yr_end_absent
+# school_id <- yca_filtered_bayes$schoolid_idx
 
 SEED <- 1234
 wi_prior <- normal(-1, 1)  # weakly informative prior on log-odds
 # fit_pool <- stan_glmer(cbind(yr_end_present, yr_end_absent) ~ (1|school_id), data = yca_filtered_bayes, family = stats::binomial("logit"),
 #                      prior_intercept = wi_prior, seed = SEED, iter = 100)
 
-fit_pool <- stan_glmer(cbind(yr_end_present, yr_end_absent) ~ (1|school_id) + cum_present + cum_absent, data = yca_filtered_bayes, family = stats::binomial("logit"),
-                     prior_intercept = wi_prior, seed = SEED)
+fit_pool <- stan_glmer(cbind(yr_end_present, yr_end_enrolled - yr_end_present) ~ (1|school_id) + cum_present + cum_absent, data = yca_filtered_bayes_17_18, family = stats::binomial("logit"),
+                     prior = wi_prior,
+                     prior_intercept = wi_prior, 
+                     seed = SEED,
+                     cores = 4)
 
+fit_pool_all_years <- stan_glmer(cbind(yr_end_present, yr_end_enrolled - yr_end_present) ~ (1|schoolid) + cum_present + cum_absent, data = yca_filtered_bayes, family = stats::binomial("logit"),
+                     prior = wi_prior,
+                     prior_intercept = wi_prior, 
+                     seed = SEED,
+                     cores = 4)
 
+fit_pool_vary_slope <- stan_glmer(cbind(yr_end_present, yr_end_enrolled - yr_end_present) ~ cum_present + cum_absent + (1 + cum_present + cum_absent | schoolid), data = yca_filtered_bayes, family = stats::binomial("logit"),
+                     prior = wi_prior,
+                     prior_intercept = wi_prior, 
+                     seed = SEED,
+                     cores = 4,
+                     iter = 1000,
+                     chains = 4)
 
-invlogit <- plogis  # function(x) 1/(1 + exp(-x))
-summary_stats <- function(posterior) {
-  x <- invlogit(posterior)  # log-odds -> probabilities
-  t(apply(x, 2, quantile, probs = c(0.1, 0.5, 0.9))) 
-}
-
-pool <- summary_stats(as.matrix(fit_pool))  # as.matrix extracts the posterior draws
-pool <- matrix(pool,  # replicate to give each player the same estimates
-               nrow(yca_filtered_bayes), ncol(pool), byrow = TRUE, 
-               dimnames = list(yca_filtered_bayes$studentid, c("10%", "50%", "90%")))
-
-shift_draws <- function(draws) {
-  sweep(draws[, -1], MARGIN = 1, STATS = draws[, 1], FUN = "+")
-}
-
-alphas <- shift_draws(as.matrix(fit_pool))
-partialpool <- summary_stats(alphas)
-partialpool <- partialpool[-nrow(partialpool),]
-
-
-y <- posterior_predict(fit_pool)
-
-y[yca_filtered_bayes$yr_end_present, yca_filtered_bayes$schoolid_idx == 5]
-
+fit_pool$coefficients
+fit_pool_all_years$coefficients
+fit_pool_vary_slope$coefficients 
 
 ```
 
+
+
+
+```{r posterior predict}
+ppd_18_19_ada <- posterior_predict(fit_pool, new_data)
+ppd_18_19_ada_all <- posterior_predict(fit_pool_all_years, new_data)
+
+#averaging the 4,000 draws per student observation
+student_avg <- round(colMeans(ppd_18_19_ada))
+student_avg_all <- round(colMeans(ppd_18_19_ada_all))
+
+#actual year end days enrolled
+days_enrolled <- new_data$yr_end_enrolled 
+
+#actual year end days present
+actual_days_present <- new_yearly_cum_ada %>% 
+  filter(!schoolid == 4001632) %>% 
+  mutate(yr_end_present = yr_end_enrolled - yr_end_absent) %>% 
+  select(yr_end_present)
+
+#posterior predicted days present/ days enrolled for ADA
+student_ada <-  student_avg/ days_enrolled
+student_ada_all <-  student_avg_all/ days_enrolled
+
+#% students with predicted ADA > 97.5
+sum(student_ada >= .975) / length(student_ada)
+sum(student_ada_all >= .975) / length(student_ada_all)
+
+#actual year end ADA
+real_ada <- actual_days_present/days_enrolled
+
+#% students with actual year end ADA > 97.5
+sum(real_ada > .975) / nrow(real_ada)
+
+
+#predicted and y[i] are pretty off, attempting to calc ADA % via coefficients
+calc_ada <- function(data){
+  data %>% 
+    mutate(school_idx = as.numeric(as.factor(school_id)) + 3) %>% 
+    mutate(ada = invlogit(fit_pool$coefficients["(Intercept)"] + (fit_pool$coefficients["cum_present"] * cum_present) + (fit_pool$coefficients["cum_absent"] * cum_absent) + fit_pool$coefficients[school_idx]))
+}
+
+calc_ada_all <- function(data){
+  data %>% 
+    mutate(school_idx = as.numeric(as.factor(school_id)) + 3) %>% 
+    mutate(ada = invlogit(fit_pool_all_years$coefficients["(Intercept)"] + (fit_pool_all_years$coefficients["cum_present"] * cum_present) + (fit_pool_all_years$coefficients["cum_absent"] * cum_absent) + fit_pool_all_years$coefficients[school_idx]))
+}
+
+#higher % of students with predicted ADA >= 97.5, but it's just KOP and KOA students
+new_data %>% 
+  calc_ada() %>% 
+  filter(ada > .975) #468/2288 JUST KOP AND KOA
+#875/2288
+new_data %>% 
+  calc_ada() %>% 
+  filter(ada > .95) #2000/2288
+
+new_data %>% 
+  calc_ada_all() %>% 
+  filter(ada > .975) #468/2288 JUST KOP AND KOA
+#875/2288
+new_data %>% 
+  calc_ada_all() %>% 
+  filter(ada > .95) #2000/2288
+
+#individual student ADA calculation for each of 4000 draws
+ada_student_matrix <- matrix(nrow = 4000, ncol = 2288)
+for(i in 1 : ncol(ppd_18_19_ada)){ 
+     ada_student_matrix[,i] <- ppd_18_19_ada[, i] / days_enrolled[i]
+}
+
+#% of draws predicting >= 97.5 ADA
+student_prop_97_5 <-NULL
+for(i in 1 : ncol(ada_student_matrix)){ 
+     student_prop_97_5[i] <- sum(ada_student_matrix[, i] >= .975)/ 4000
+} 
+
+#% of students with .5 prob of getting over 97.5 ADA
+sum(student_prop_97_5 > .5) / length(student_prop_97_5)
+
+```
+
+
+**RSTAN Model Varying Intercept ~ Binomial**
+
+```{r}
+models <- "partial pooling"
+estimates <- partialpool
+colnames(estimates) <- c("lb", "median", "ub")
+mean_ada <- yca_filtered_bayes %>% 
+  group_by(schoolid_idx) %>% 
+  summarize(sum_cum_present = sum(cum_present),
+            sum_cum_enrolled = sum(cum_enrolled),
+            mean_cum_ada = sum_cum_present/sum_cum_enrolled,
+            sum_yr_present = sum(yr_end_present),
+            sum_yr_enrolled = sum(yr_end_enrolled),
+            mean_yr_ada = sum_yr_present/sum_yr_enrolled)
+
+```
+
+
+```{r}
+print(fit_pool, digits = 3)
+prior_summary(fit_pool)
+summary(fit_pool, 
+        pars = c("(Intercept)", "cum_present", "cum_absent", "b[(Intercept) school_id:1]","b[(Intercept) school_id:2]", "b[(Intercept) school_id:3]", "b[(Intercept) school_id:4]", "b[(Intercept) school_id:5]", "b[(Intercept) school_id:6]", "Sigma[school_id:(Intercept),(Intercept)]"),
+        probs = c(0.025, 0.975),
+        digits = 2)
+
+
+sims <- as.matrix(fit_pool)
+dim(sims)
+para_name <- colnames(sims)
+
+# Obtain school-level varying intercept a_j
+# draws for overall mean
+mu_a_sims <- as.matrix(fit_pool, 
+                       pars = "(Intercept)")
+# draws for 73 schools' school-level error
+u_sims <- as.matrix(fit_pool, 
+                    regex_pars = "b\\[\\(Intercept\\) school_id\\:")
+# draws for 73 schools' varying intercepts               
+a_sims <- as.numeric(mu_a_sims) + u_sims          
+
+# Obtain sigma_y and sigma_alpha^2
+# draws for sigma_y
+s_pred_sims <- as.matrix(fit_pool, 
+                       regex_pars = "cum_")
+# draws for sigma_alpha^2
+s_alpha_sims <- as.matrix(fit_pool, 
+                       pars = "Sigma[school_id:(Intercept),(Intercept)]")
+
+
+a_mean <- apply(X = a_sims,     # posterior mean
+                MARGIN = 2,
+                FUN = mean)
+a_sd <- apply(X = a_sims,       # posterior SD
+              MARGIN = 2,
+              FUN = sd)
+
+# Posterior median and 95% credible interval
+a_quant <- apply(X = a_sims, 
+                 MARGIN = 2, 
+                 FUN = quantile, 
+                 probs = c(0.025, 0.50, 0.975))
+a_quant <- data.frame(t(a_quant))
+names(a_quant) <- c("Q2.5", "Q50", "Q97.5")
+
+# Combine summary statistics of posterior simulation draws
+a_df <- data.frame(a_mean, a_sd, a_quant)
+round(head(a_df), 2)
+
+
+# Sort dataframe containing an estimated alpha's mean and sd for every school
+a_df <- a_df[order(a_df$a_mean), ]
+a_df$a_rank <- c(1 : dim(a_df)[1])  # a vector of school rank 
+
+schoolid_no <- tribble(~"school", ~ "schoolid_no",
+                       "KAMS", "school_id:1",
+                       "KAP", "school_id:2",
+                       "KAC", "school_id:3",
+                       "KBCP", "school_id:4",
+                       "KOA", "school_id:5",
+                       "KOP", "school_id:6")
+a_df <- a_df %>% 
+  mutate(schoolid = rownames(a_df),
+         schoolid_1 = str_extract(schoolid, "school_id:\\d")) %>% 
+  left_join(schoolid_no,
+            by = c("schoolid_1" = "schoolid_no"))
+# Plot school-level alphas's posterior mean and 95% credible interval
+ggplot(data = a_df, 
+       aes(x = a_rank, 
+           y = a_mean)) +
+  geom_pointrange(aes(ymin = Q2.5, 
+                      ymax = Q97.5),
+                  position = position_jitter(width = 0.1, 
+                                             height = 0)) + 
+  geom_hline(yintercept = mean(a_df$a_mean), 
+             size = 0.5, 
+             col = "red") + 
+  geom_text(aes(label = school)) +
+  scale_x_continuous("Rank") + 
+  scale_y_continuous(expression(paste("varying intercept, ", alpha[j]))) + 
+  theme_bw( base_family = "serif")
+```
+
+```{r}
+plot(fit_pool, prob = .95, prob_outer = 1) + geom_vline(xintercept = 0)
+
+coef(fit_pool)
+round(posterior_interval(fit_pool, prob = 0.9), 2)
+```
+
+
+```{r}
+library(loo)
+loo1 <- loo(fit_pool, save_psis = TRUE,
+            cores = 4)
+
+```
 
 
 ## Appendix 
