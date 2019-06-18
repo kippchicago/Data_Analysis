@@ -795,59 +795,59 @@ ggplot(aes(x=rmse)) +
 
 ## Bayesian Analysis
 
-*Random Intercepts*
+###Varying Intercepts: Greta
 
-```{r random intercept only}
+```{r varying intercept only}
 yca_filtered_bayes <- yca_filtered %>% 
   mutate(schoolid_idx = as.integer(as.factor(schoolid)))
  
-ri_cum_enroll <- as_data(yca_filtered_bayes$cum_enrolled)
-ri_cum_absent <- as_data(yca_filtered_bayes$cum_absent)
-ri_school_id <- as_data(yca_filtered_bayes$schoolid_idx)
+vi_cum_enroll <- as_data(yca_filtered_bayes$cum_enrolled)
+vi_cum_absent <- as_data(yca_filtered_bayes$cum_absent)
+vi_school_id <- as_data(yca_filtered_bayes$schoolid_idx)
 
-ri_int <- greta::normal(0, 10)
-ri_b_e <- greta::normal(0, 10)
-ri_b_a <- greta::normal(0, 10)
-ri_sd <- greta::cauchy(0, 3, truncation = c(0, Inf))
+vi_int <- greta::normal(0, 10)
+vi_b_e <- greta::normal(0, 10)
+vi_b_a <- greta::normal(0, 10)
+vi_sd <- greta::cauchy(0, 3, truncation = c(0, Inf))
 
 # random intercepts
-ri_school_int_sd <- greta::lognormal(0, 1)
-ri_school_int <- greta::normal(0, ri_school_int_sd, dim = 6)
-ri_school_int_eff <- rbind(0, ri_school_int)
+vi_school_int_sd <- greta::lognormal(0, 1)
+vi_school_int <- greta::normal(0, vi_school_int_sd, dim = 6)
+vi_school_int_eff <- rbind(0, vi_school_int)
 
 
 # model
-ri_mu <- ri_int + ri_cum_enroll * ri_b_e + ri_cum_absent * ri_b_a + ri_school_int_eff[ri_school_id]
+vi_mu <- vi_int + vi_cum_enroll * vi_b_e + vi_cum_absent * vi_b_a + vi_school_int_eff[vi_school_id]
 
-ri_y <- as_data(yca_filtered_bayes$year_end)
+vi_y <- as_data(yca_filtered_bayes$year_end)
 
-distribution(ri_y) <- greta::normal(ri_mu, ri_sd)
+distribution(vi_y) <- greta::normal(vi_mu, vi_sd)
 
-ri_m <- model(ri_int,
-              ri_b_e,
-              ri_b_a,
-              ri_sd,
-              ri_school_int_eff
+vi_m <- model(vi_int,
+              vi_b_e,
+              vi_b_a,
+              vi_sd,
+              vi_school_int_eff
   
 )
 
-plot(ri_m)
+plot(vi_m)
 
-draws_ri <- greta::mcmc(ri_m, n_samples = 2000, n_cores = 4, chains = 4)
+draws_vi <- greta::mcmc(vi_m, n_samples = 2000, n_cores = 4, chains = 4)
 
-pred_test_ri <- greta::calculate(ri_mu, draws_ri)
+pred_test_vi <- greta::calculate(vi_mu, draws_vi)
 
 
 ```
 
-```{r predicted year end random intercept model}
-pred_values_ri <- colMeans(rbind(pred_test_ri$`11`, pred_test_ri$`12`, pred_test_ri$`13`, pred_test_ri$`14`))
+```{r predicted year end varying intercept model}
+pred_values_vi <- colMeans(rbind(pred_test_vi$`11`, pred_test_vi$`12`, pred_test_vi$`13`, pred_test_vi$`14`))
 
-sqrt(mean((pred_values_ri - yca_filtered_bayes$year_end)^2))
+sqrt(mean((pred_values_vi - yca_filtered_bayes$year_end)^2))
 
 sum(yca_filtered_bayes$year_end > .975)/ length(yca_filtered_bayes$year_end)
 
-sum(pred_values_ri > .975)/ length(pred_values_ri)
+sum(pred_values_vi > .975)/ length(pred_values_vi)
 ```
 
 ```{r comparing year end to predicted}
@@ -856,7 +856,7 @@ ggplot() +
                rowid_to_column("n"), aes(x = year_end, y = n)) +
   coord_flip()
 
-pred_values_ri <- pred_values_ri %>% 
+pred_values_vi <- pred_values_vi %>% 
   as_tibble() %>% 
   rename(predicted = value)
 
@@ -864,7 +864,7 @@ orig_year_end <- yca_filtered_bayes$year_end %>%
   as_tibble() %>% 
   rename(year_end = value)
 
-bind_cols(orig_year_end, pred_values_ri) %>% 
+bind_cols(orig_year_end, pred_values_vi) %>% 
   ggplot() +
   geom_point(aes(year_end, predicted)) +
   geom_abline(slope = 1, intercept = 0)
@@ -921,6 +921,8 @@ new_data <-  new_yearly_cum_ada %>%
          yr_end_enrolled,
          cum_present,
          cum_absent)
+
+  
 ```
 
 ```{r}
@@ -936,18 +938,60 @@ new_cum_enroll <- as_data(new_data$cum_enroll)
 new_cum_absent <- as_data(new_data$cum_absent)
 new_school_id <- as_data(new_data$school_id)
 
-new_mu_ri <- ri_int + new_cum_enroll * ri_b_e + new_cum_absent * ri_b_a + ri_school_int_eff[new_school_id]
+new_mu_vi <- vi_int + new_cum_enroll * vi_b_e + new_cum_absent * vi_b_a + vi_school_int_eff[new_school_id]
 
-pred_new_data_ri <- greta::calculate(new_mu_ri, draws_ri)
+pred_new_data_vi <- greta::calculate(new_mu_vi, draws_vi)
 
-new_pred_values_ri <- colMeans(rbind(pred_new_data_ri$`11`, pred_new_data_ri$`12`, pred_new_data_ri$`13`, pred_new_data_ri$`14`))
+vi_new_pred_values <- colMeans(rbind(pred_new_data_vi$`11`, pred_new_data_vi$`12`, pred_new_data_vi$`13`, pred_new_data_vi$`14`))
 
-sqrt(mean((new_pred_values_ri - new_data$year_end)^2))
+sqrt(mean((vi_new_pred_values - new_data$year_end)^2))
 
 sum(new_data$year_end > .975)/ length(new_data$year_end)
 
-sum(new_pred_values_ri > .975)/ length(new_pred_values_ri)
+sum(vi_new_pred_values > .975)/ length(vi_new_pred_values)
 ```
+
+
+```{r}
+vi_draws_coef <- colMeans(rbind(draws_vi$`11`, draws_vi$`12`, draws_vi$`13`, draws_vi$`14`))
+
+#new_pred_values_vi[1976]
+
+pred_student_ex <- new_data[1976,] %>% 
+  mutate(predicted_yr_end = vi_new_pred_values[1976],
+         sd_plus = predicted_yr_end + draws_vi_coef[4],
+         sd_minus = predicted_yr_end - draws_vi_coef[4],
+         dec_ada = 1 - (cum_absent/cum_enroll),
+         month = "Jun")
+
+```
+
+```{r}
+pred_student <- pred_student_ex %>% 
+  tidyr::gather(key, value, -c(school_id:cum_absent, month)) %>% 
+  mutate(month = if_else(grepl("dec", key), "Dec", month),
+         month = factor(month, levels = c("Aug",
+                                          "Sep",
+                                          "Oct",
+                                          "Nov",
+                                          "Dec",
+                                          "Jan",
+                                          "Feb",
+                                          "Mar",
+                                          "Apr",
+                                          "May",
+                                          "Jun")),
+         group_no = c("group_4", "group_3", "group_2", "group_1", "group_2")) 
+
+pred_student %>%
+  bind_rows(pred_student[5,] %>% 
+            mutate(group_no = "group_1")) %>% 
+ggplot() +
+geom_point(aes(x = month, y = value)) +
+geom_path(aes(y = value, x = month, group = group_no),) +
+theme_kipp_light()
+```
+
 
 ```{r}
 ggplot() +
@@ -968,13 +1012,14 @@ bind_cols(new_year_end, new_pred_values_ri) %>%
   geom_abline(slope = 1, intercept = 0)
 ```
 
+### Varying Slope and Intercept: Greta
 $$ y_{i} = f(\alpha + \beta_{e}d_{e} + \beta_{a}d_{a} +
 \alpha_{s[i]} + \beta_{e,s[i]}d_{e} + \beta_{a,s[i]}d_{a}) $$
 
 A random slope model allows for each school line to have a different slope, meaning the predictors have a different effect for each school. 
 
 ```{r bayes setup varying slope and intercept}
-rm(list=ls(pattern="ri_"))
+rm(list=ls(pattern="vi_"))
 
 cum_enroll <- as_data(yca_filtered_bayes$cum_enrolled)
 cum_absent <- as_data(yca_filtered_bayes$cum_absent)
@@ -1024,7 +1069,7 @@ plot(m)
 ```{r bayes mcmc draws varying slope and intercept}
 draws <- greta::mcmc(m, n_samples = 2000, n_cores = 4, chains = 4)
 
-colMeans(rbind(draws$`11`, draws$`12`, draws$`13`, draws$`14`))
+draws_coef <- colMeans(rbind(draws$`11`, draws$`12`, draws$`13`, draws$`14`))
 
 pred_test <- greta::calculate(mu, draws)
 
@@ -1062,12 +1107,13 @@ bind_cols(orig_year_end, pred_values) %>%
 
 
 ```{r}
+rm(list = c("new_mu_vi",
+            "pred_new_data_vi"))
+
 new_cum_enroll <- as_data(new_data$cum_enroll)
 new_cum_absent <- as_data(new_data$cum_absent)
 new_school_id <- as_data(new_data$school_id)
-rm(list = c("new_mu_ri",
-                 "pred_new_data_ri",
-                 "new_pred_values_ri"))
+
 new_mu <- int + new_cum_enroll * b_e + new_cum_absent * b_a + school_int_eff[new_school_id] + new_cum_enroll * school_slope_eff_e[new_school_id] + new_cum_absent * school_slope_eff_a[new_school_id]
 
 pred_new_data <- greta::calculate(new_mu, draws)
@@ -1081,6 +1127,58 @@ sum(new_data$year_end > .975)/ length(new_data$year_end)
 sum(new_pred_values > .975)/ length(new_pred_values)
 ```
 
+
+```{r}
+pred_student_vsi_ex <- new_data[1976,] %>% 
+  mutate(predicted_yr_end = new_pred_values[1976],
+         sd_plus = predicted_yr_end + draws_coef[4],
+         sd_minus = predicted_yr_end - draws_coef[4],
+         dec_ada = 1 - (cum_absent/cum_enroll),
+         month = "Jun")
+
+```
+
+```{r}
+pred_student_vsi <- pred_student_vsi_ex %>% 
+  tidyr::gather(key, value, -c(school_id:cum_absent, month, sd_plus, sd_minus)) %>% 
+  mutate(month = if_else(grepl("dec", key), "Dec", month),
+         month = factor(month, levels = c("Aug",
+                                          "Sep",
+                                          "Oct",
+                                          "Nov",
+                                          "Dec",
+                                          "Jan",
+                                          "Feb",
+                                          "Mar",
+                                          "Apr",
+                                          "May",
+                                          "Jun"))) %>% 
+  #filter(!grepl("year_end", key)) %>% 
+  mutate(sd_minus = if_else(grepl("dec", key), value, sd_minus),
+         sd_plus = if_else(grepl("dec", key), value, sd_plus))
+
+pred_student_vsi %>%
+filter(!grepl("year_end", key)) %>% 
+  mutate(month = as.integer(month)) %>% 
+ggplot(aes(x = month)) +
+geom_ribbon(aes(ymin = sd_minus, ymax = sd_plus), color = "gray", alpha = .25, lty = 2)+
+geom_line(aes(y = value, group = 1)) +
+geom_point(data = pred_student_vsi %>% 
+             mutate(month = as.integer(month)), 
+           aes(y = value, x = month, color = key)) +
+ggrepel::geom_text_repel(data = pred_student_vsi %>% 
+          mutate(month = as.integer(month)),
+          aes(y = value, x = month), 
+          label = c("Actual",
+                    "Prediction",
+                    "Dec ADA"),
+          ) +
+scale_x_discrete(limits = c(5, 11),
+                 labels = c("Dec", "Jun")) +
+scale_color_manual(values = kipp_palettes$kipp_div) +
+theme_kipp_light() +
+theme(legend.position = "none")
+```
 
 ```{r}
 ggplot() +
@@ -1100,6 +1198,12 @@ bind_cols(new_year_end, new_pred_values) %>%
   geom_point(aes(year_end, predicted)) +
   geom_abline(slope = 1, intercept = 0)
 ```
+
+### Varying Intercept - Binomial Model
+```{r}
+
+```
+
 
 
 ```{r}
@@ -1150,12 +1254,12 @@ fit_pool_all_years <- stan_glmer(cbind(yr_end_present, yr_end_enrolled - yr_end_
                      seed = SEED,
                      cores = 4)
 
-fit_pool_vary_slope <- stan_glmer(cbind(yr_end_present, yr_end_enrolled - yr_end_present) ~ cum_present + cum_absent + (1 + cum_present + cum_absent | schoolid), data = yca_filtered_bayes, family = stats::binomial("logit"),
+fit_pool_vary_slope_2 <- stan_glmer(cbind(yr_end_present, yr_end_enrolled - yr_end_present) ~ cum_present + cum_absent + (1 + cum_present + cum_absent | schoolid), data = yca_filtered_bayes, family = stats::binomial("logit"),
                      prior = wi_prior,
                      prior_intercept = wi_prior, 
                      seed = SEED,
                      cores = 4,
-                     iter = 1000,
+                     iter = 100,
                      chains = 4)
 
 fit_pool$coefficients
