@@ -1033,18 +1033,18 @@ sd <- greta::cauchy(0, 3, truncation = c(0, Inf))
 # random intercepts
 school_int_sd <- greta::lognormal(0, 1)
 school_int <- greta::normal(0, school_int_sd, dim = 6)
-school_int_eff <- rbind(0, school_int)
+#school_int_eff <- rbind(0, school_int)
 
 # random slopes
 school_slope_sd_e <- greta::lognormal(0, 1)
 school_slope_sd_a <- greta::lognormal(0, 1)
 school_slope_e <- greta::normal(0, school_slope_sd_e, dim = 6)
 school_slope_a <- greta::normal(0, school_slope_sd_a, dim = 6)
-school_slope_eff_e <- rbind(0, school_slope_e)
-school_slope_eff_a <- rbind(0, school_slope_a)
+#school_slope_eff_e <- rbind(0, school_slope_e)
+#school_slope_eff_a <- rbind(0, school_slope_a)
 
 # model
-mu <- int + cum_enroll * b_e + cum_absent * b_a + school_int_eff[school_id] + cum_enroll * school_slope_eff_e[school_id] + cum_absent * school_slope_eff_a[school_id]
+mu <- int + cum_enroll * b_e + cum_absent * b_a + school_int[school_id] + cum_enroll * school_slope_e[school_id] + cum_absent * school_slope_a[school_id]
 
 y <- as_data(yca_filtered_bayes$year_end)
 
@@ -1057,9 +1057,9 @@ m <- model(int,
            b_e,
            b_a,
            sd,
-           school_int_eff,
-           school_slope_eff_e,
-           school_slope_eff_a)
+           school_int,
+           school_slope_e,
+           school_slope_a)
 
 plot(m)
 ```
@@ -1075,16 +1075,16 @@ pred_test <- greta::calculate(mu, draws)
 
 pred_values <- colMeans(rbind(pred_test$`11`, pred_test$`12`, pred_test$`13`, pred_test$`14`))
 
-sqrt(mean((pred_values - yca_filtered_bayes$year_end)^2))
-
-sum(yca_filtered_bayes$year_end > .975)/ length(yca_filtered_bayes$year_end)
-
-sum(pred_values > .975)/ length(pred_values)
+# sqrt(mean((pred_values - yca_filtered_bayes$year_end)^2))
+# 
+# sum(yca_filtered_bayes$year_end > .975)/ length(yca_filtered_bayes$year_end)
+# 
+# sum(pred_values > .975)/ length(pred_values)
 
 ```
 
 
-```{r}
+```{r checking training data against predictions}
 ggplot() +
   geom_point(data = yca_filtered_bayes %>% 
                rowid_to_column("n"), aes(x = year_end, y = n))
@@ -1106,7 +1106,7 @@ bind_cols(orig_year_end, pred_values) %>%
 
 
 
-```{r}
+```{r new predictions}
 rm(list = c("new_mu_vi",
             "pred_new_data_vi"))
 
@@ -1120,25 +1120,26 @@ pred_new_data <- greta::calculate(new_mu, draws)
 
 new_pred_values <- colMeans(rbind(pred_new_data$`11`, pred_new_data$`12`, pred_new_data$`13`, pred_new_data$`14`))
 
-sqrt(mean((new_pred_values - new_data$year_end)^2))
-
-sum(new_data$year_end > .975)/ length(new_data$year_end)
-
-sum(new_pred_values > .975)/ length(new_pred_values)
+all_pred_draws <- rbind(pred_new_data$`11`, pred_new_data$`12`, pred_new_data$`13`, pred_new_data$`14`)
+# sqrt(mean((new_pred_values - new_data$year_end)^2))
+# 
+# sum(new_data$year_end > .975)/ length(new_data$year_end)
+# 
+# sum(new_pred_values > .975)/ length(new_pred_values)
 ```
 
 
-```{r}
+```{r individual student example varying slope and int}
 pred_student_vsi_ex <- new_data[1976,] %>% 
   mutate(predicted_yr_end = new_pred_values[1976],
-         sd_plus = predicted_yr_end + draws_coef[4],
-         sd_minus = predicted_yr_end - draws_coef[4],
+         sd_plus = predicted_yr_end + sd(all_pred_draws[,1976]),
+         sd_minus = predicted_yr_end - sd(all_pred_draws[,1976]),
          dec_ada = 1 - (cum_absent/cum_enroll),
          month = "Jun")
 
 ```
 
-```{r}
+```{r initial graphs for student example}
 pred_student_vsi <- pred_student_vsi_ex %>% 
   tidyr::gather(key, value, -c(school_id:cum_absent, month, sd_plus, sd_minus)) %>% 
   mutate(month = if_else(grepl("dec", key), "Dec", month),
@@ -1155,7 +1156,20 @@ pred_student_vsi <- pred_student_vsi_ex %>%
                                           "Jun"))) %>% 
   #filter(!grepl("year_end", key)) %>% 
   mutate(sd_minus = if_else(grepl("dec", key), value, sd_minus),
-         sd_plus = if_else(grepl("dec", key), value, sd_plus))
+         sd_plus = if_else(grepl("dec", key), value, sd_plus),
+         sd_minus = round(sd_minus*100),
+         sd_plus = round(sd_plus*100),
+         value = round(value * 100))
+
+pred_student_vsi %>% 
+  mutate(value = if_else(!grepl("dec", key), NA_real_, value)) %>% 
+  ggplot(aes(x = month, y = value)) +
+  geom_point() +
+  scale_y_continuous(breaks = c(84, 88, 92, 96),
+                     limits = c(82, 96),
+                     name = "Average Daily Attendance (%)") +
+  ggrepel::geom_text_repel(label = "Dec ADA") +
+  scale_x_discrete(name = "")
 
 pred_student_vsi %>%
 filter(!grepl("year_end", key)) %>% 
@@ -1174,13 +1188,122 @@ ggrepel::geom_text_repel(data = pred_student_vsi %>%
                     "Dec ADA"),
           ) +
 scale_x_discrete(limits = c(5, 11),
-                 labels = c("Dec", "Jun")) +
+                 labels = c("Dec", "Jun"),
+                 name = "") +
+  scale_y_continuous(name = "Average Daily Attendance (%)") +
 scale_color_manual(values = kipp_palettes$kipp_div) +
 theme_kipp_light() +
 theme(legend.position = "none")
 ```
 
-```{r}
+```{r greta calculate for new school level predictions}
+# school_level_preds <- pred_student_vsi %>% 
+#   filter(grepl("dec", key))
+# 
+# school_no <- c(1:6)
+# 
+# school_no %>% 
+#   map(~draws_coef["int"] + draws_coef["b_e"] * school_level_preds$cum_enroll + draws_coef["b_a"] * school_level_preds$cum_absent + draws_coef[sprintf("school_int[%s,1]", .x)] + draws_coef[sprintf("school_slope_e[%s,1]", .x)] * school_level_preds$cum_enroll + draws_coef[sprintf("school_slope_a[%s,1]", .x)] * school_level_preds$cum_absent)
+
+school_level_preds_new <- bind_rows(school_level_preds,
+                                    school_level_preds,
+                                    school_level_preds,
+                                    school_level_preds,
+                                    school_level_preds,
+                                    school_level_preds) %>% 
+  mutate(school_id = c(1:6),
+         month = "Jun") %>% 
+  select(-c(sd_plus:sd_minus),
+         -c(key:value))
+
+school_pred_cum_enroll <- as_data(school_level_preds_new$cum_enroll)
+school_pred_cum_absent <- as_data(school_level_preds_new$cum_absent)
+school_pred_school_id <- as_data(school_level_preds_new$school_id)
+
+school_pred_mu <- int + school_pred_cum_enroll * b_e + school_pred_cum_absent * b_a + school_int[school_pred_school_id] + school_pred_cum_enroll * school_slope_e[school_pred_school_id] + school_pred_cum_absent * school_slope_a[school_pred_school_id]
+
+school_pred_new_data <- greta::calculate(school_pred_mu, draws)
+
+school_new_pred_values <- colMeans(rbind(school_pred_new_data$`11`, school_pred_new_data$`12`, school_pred_new_data$`13`, school_pred_new_data$`14`))
+```
+
+
+```{r graphs school level predictions}
+school_new_all_draws <- rbind(school_pred_new_data$`11`, school_pred_new_data$`12`, school_pred_new_data$`13`, school_pred_new_data$`14`)
+
+school_num <- c(1:6)
+
+pred_sd <- school_num %>% 
+  map(~sd(school_new_all_draws[,.x])) %>% 
+  unlist()
+
+plot_school_level <- school_level_preds_new %>% 
+  mutate(predicted_values = school_new_pred_values,
+         dec_value = school_level_preds$value,
+         sd = pred_sd,
+         sd_minus = round((predicted_values - sd) *100,2),
+         sd_plus = round((predicted_values + sd) * 100,2),
+         predicted_values = round(predicted_values*100, 2),
+         ) %>% 
+  tidyr::gather(key, value, -c(school_id:month, sd:sd_plus)) %>% 
+  mutate(month = if_else(grepl("dec", key), "Dec", month),
+         month = factor(month, levels = c("Aug",
+                                          "Sep",
+                                          "Oct",
+                                          "Nov",
+                                          "Dec",
+                                          "Jan",
+                                          "Feb",
+                                          "Mar",
+                                          "Apr",
+                                          "May",
+                                          "Jun")))
+
+plot_school_level %>% 
+  mutate(school_id = as.character(school_id),
+         school_name = c("KAMS", "KAP", "KAC", "KBCP", "KOA", "KOP", rep("", 6))) %>% 
+  ggplot(aes(x = month, y = value)) +
+  geom_path(aes(group= school_id, color = school_id)) +
+  geom_point(aes(color = school_id)) +
+  ggrepel::geom_text_repel(aes(label = school_name),force = 1, nudge_x = .0625 ) +
+  scale_y_continuous(breaks = c(84, 88, 92, 96),
+                     limits = c(82, 96),
+                     name = "Average Daily Attendance (%)") +
+  scale_x_discrete(name = "") +
+  scale_color_manual(values = kipp_palettes$kipp_qual) +
+  theme_kipp_light() +
+  theme(legend.position = "none")
+
+
+
+```
+
+
+```{r graph sd school level predictions}
+plot_school_level %>%
+  mutate(month = as.integer(month),
+         sd_minus = if_else(grepl("dec", key), 84, sd_minus),
+         sd_plus = if_else(grepl("dec", key), 84, sd_plus),
+         school_id = as.character(school_id),
+         school_name = c("KAMS", "KAP", "KAC", "KBCP", "KOA", "KOP", 
+                         "KAMS", "KAP", "KAC", "KBCP", "KOA", "KOP"),
+         actual = if_else(month == 5, NA_real_, 90)) %>% 
+  ggplot(aes(x = month, y = value)) +
+  geom_path(aes(group= school_id, color = school_id)) + 
+  geom_point(aes(color = school_id)) +
+  geom_point(aes(x = month, y = actual), color = "hotpink") +
+  geom_ribbon(aes(ymin = sd_minus, ymax = sd_plus, group = school_id), color = "gray", alpha = .25, lty = 2) +
+  facet_wrap("school_name") +
+  scale_x_discrete(limits = c(5, 11),
+                 labels = c("Dec", "Jun"),
+                 name = "") +
+  scale_y_continuous(name = "Average Daily Attendance (%)") +
+  scale_color_manual(values = kipp_palettes$kipp_div) +
+  theme_kipp_light() +
+  theme(legend.position = "none")
+```
+
+```{r checking new data predictions vs actual}
 ggplot() +
   geom_point(data = new_data %>% 
                rowid_to_column("n"), aes(x = year_end, y = n))
@@ -1200,10 +1323,6 @@ bind_cols(new_year_end, new_pred_values) %>%
 ```
 
 ### Varying Intercept - Binomial Model
-```{r}
-
-```
-
 
 
 ```{r}
