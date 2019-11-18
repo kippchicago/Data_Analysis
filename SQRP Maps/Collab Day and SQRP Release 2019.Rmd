@@ -96,7 +96,7 @@ ggmap(chi_basemap) +
           color = "red", 
           fill= NA, 
           inherit.aes = FALSE) +
-  geom_sf(data = cps_sf, 
+  geom_sf(data = cps_sf %>% filter(network == "Charter" ), 
           aes(color = sy_2019_2020_sqrp_rating,
               fill = sy_2019_2020_sqrp_rating), 
           inherit.aes = FALSE) +
@@ -840,4 +840,29 @@ plot_sqpr_map_kipp_only("Austin")
 dev.off()
 ```
 
+
+```{r}
+
+charter_neihgbs <- cps_sf %>% filter(network == "Charter" ) %>%
+  as_tibble() %>% 
+  
+  select(pri_neigh) %>%
+  distinct()
+
+cps_sf %>% 
+  inner_join(charter_neihgbs) %>%
+  mutate(management = if_else(str_detect(network, "Network"), "CPS", network)) %>%
+  group_by(pri_neigh) %>%
+  arrange(sqrp_total_points_earned, desc(management)) %>%
+  top_n(1) %>%
+  select(pri_neigh, sqrp_total_points_earned, school_nm, management) %>%
+  ungroup() %>% View()
+  count(management) %>% 
+  mutate(pct_of_neighborhoods = n/nrow(charter_neihgbs),
+         n_neighbs = nrow(charter_neihgbs))
+```
+
+```{r}
+cps_sf %>% group_by(pri_neigh) %>% count()
+```
 
