@@ -1,0 +1,13 @@
+name: attendance_modeling_2018-02-20
+title: Attendance_Modeling_2018-02-20
+username: chrishaid
+account: chrishaid
+server: idea2.kippchicago.org
+hostUrl: https://idea2.kippchicago.org/__api__
+appId: 32
+bundleId: 123
+url: https://idea2.kippchicago.org/content/32/
+when: 1551119469.64413
+asMultiple: TRUE
+asStatic: FALSE
+ignoredFiles: Attendance_Modeling_2018-02-19.Rmd
