@@ -1,0 +1,186 @@
+---
+title: "18-19 Supsensions (for Opening Day)"
+author: "Chris Haid"
+date: "8/1/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(silounloadr)
+library(kippcolors)
+
+theme_kipp_min <- theme_kipp_light() + 
+ theme(
+          axis.line = element_line(color = NA),
+          panel.grid  = element_blank(),
+          panel.background = element_rect(fill = kipp_colors$lightgray),
+          panel.border = element_rect(color = NA))
+```
+
+## Enrollment
+Let's get 17-18 and 18-19 average daily enrollment for the region
+```{r get_enrollment}
+
+year_id <- calc_ps_termid(2017)/100
+
+daily_membership <- get_powerschool("ps_membership_reg") %>%
+  select(studentid,
+         calendardate,
+         studentmembership,
+         yearid) %>%
+  filter(yearid >= year_id) %>%
+  group_by(yearid, calendardate) %>%
+  summarize(membership_sum = sum(studentmembership),
+            n_students = n())
+
+daily_membership
+
+avg_daily_membership <- daily_membership %>%
+  group_by(yearid) %>%
+  summarize(adm = round(mean(n_students)),
+            n_days = n()) %>%
+  collect()
+
+avg_daily_membership
+  
+```
+
+
+susp rate = susps/student
+susp_per day = susps/day
+adm = students/day
+```{r}
+susps <- tribble(
+  ~yearid, ~n_susps,
+  27,      481,
+  28,      358
+)
+
+
+susp_rates <- avg_daily_membership %>%
+  inner_join(susps, by = "yearid") %>%
+  mutate(susp_rate = n_susps/adm*100,
+         susp_per_day = n_susps/n_days,
+         adj_susp_per_day =susp_per_day*2385/adm,
+         SY = if_else(yearid == 28, "SY 18-19", "SY 17-18")
+         )
+
+susp_rates
+```
+
+Let's make a pretty picture
+```{r}
+susp_rates %>%
+  ggplot(aes(x = SY, y = susp_rate))+
+  geom_col(aes(fill = susp_rate), show.legend = FALSE) +
+  geom_text(aes(label = round(susp_rate)), color = kipp_colors$lightgray, 
+            vjust = 1.2, size = 16) +
+  scale_fill_kipp(discrete = FALSE) +
+  theme_kipp_min +
+  labs(x = "", y="Suspension Rate (per 100 students)")
+  
+```
+
+## KTC Chart
+
+```{r}
+ktc_data <- tribble(
+  ~SY,       ~level,        ~n_alumni,
+  "SY19-20", "8th",         360,
+  "SY19-20", "9th - 11th",  669,
+  "SY19-20", "12th",        138,
+  "SY19-20", "College+",    432,
+  
+  "SY20-21", "8th",         360,
+  "SY20-21", "9th - 11th",  846,
+  "SY20-21", "12th",        183,
+  "SY20-21", "College+",    615,
+  
+  "SY21-22", "8th",         360,
+  "SY21-22", "9th - 11th",  978,
+  "SY21-22", "12th",        228,
+  "SY21-22", "College+",    843,
+  
+  "SY22-23", "8th",         360,
+  "SY22-23", "9th - 11th",  1080,
+  "SY22-23", "12th",        258,
+  "SY22-23", "College+",    1101,
+  
+  "SY23-24", "8th",         360,
+  "SY23-24", "9th - 11th",  1080,
+  "SY23-24", "12th",        360,
+  "SY23-24", "College+",    1461
+  
+  
+) %>%
+mutate(level = fct_rev(fct_inorder(level)),
+       n_alumni2= scales::comma(n_alumni))
+
+
+ktc_data %>%
+  ggplot(aes(x = SY, y=n_alumni, fill=level)) +
+  geom_col() +
+  geom_text(aes(label = n_alumni2),
+            position = position_stack(vjust = 0.5),
+            color = kipp_colors$lightgray,
+            fontface = "bold") +
+  scale_y_continuous(labels = scales::comma) +
+  scale_fill_kipp(palette = "kipp_div", reverse = FALSE) +
+  theme_kipp_min +
+  labs (y = "Number of Alumni",
+        x = "",
+        fill = "")
+
+```
+## Talent
+```{r}
+talent <- tribble(
+  ~SY,       ~pct, ~type,
+  "SY17-18", .83, "% Teacher Retention",
+  "SY18-19", .81, "% Teacher Retention",
+  
+  "SY17-18", .53, "% People of Color",
+  "SY18-19", .65, "% People of Color",
+  "SY19-20", .60, "% People of Color"
+  
+)
+
+talent %>%
+  filter(type == "% Teacher Retention") %>%
+  ggplot(aes(x= SY, y=pct)) +
+  geom_col(aes(fill = SY), show.legend = FALSE, width=.5) + 
+  geom_hline(aes(yintercept = 0.8), color = kipp_colors$blue) +
+  facet_grid(.~type) +
+  scale_fill_kipp(palette = "kipp_greenbrown") +
+  scale_y_continuous(labels = scales::percent) +
+  theme_kipp_min + 
+  coord_cartesian(ylim=c(0.5, 1)) +
+  labs(x = "",
+       y = "Percent of teachers retained")
+  
+```
+
+```{r}
+
+students <- get_powerschool("students") %>% 
+  filter(classof==2023) %>% 
+  collect
+
+student_contact_KAMS_2023<-students %>%
+filter(exitcomment == "Graduated",
+       graduated_schoolid == 7810) %>%
+  select(student_number, last_name, first_name, 
+         parent_1 = mother,
+         parent_2 = father, contains("email"), contains("phone")) %>%
+  select(-doctor_phone, -phone_id)
+
+contact_sg <- googlesheets::gs_new("Class of 2023 Contact Info")
+
+contact_sg %>%
+  googlesheets::gs_ws_new(ws_title = "Contacts", 
+                          input = student_contact_KAMS_2023, trim=TRUE )
+```
+

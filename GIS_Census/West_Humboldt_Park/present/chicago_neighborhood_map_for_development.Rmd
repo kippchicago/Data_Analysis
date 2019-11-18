@@ -1,0 +1,55 @@
+---
+title: "Chicago map for Dev Team"
+output: html_notebook
+---
+
+```{r setup}
+
+library(ggplot2)
+library(dplyr)
+library(sf)
+library(kippcolors)
+library(ggmap)
+library(ggrepel)
+
+schools <- tribble(
+  ~School, ~full_name, ~address,
+  "KAP",  "KIPP Ascend Primary School", "1440 S. Christiana Ave., Chicago, IL 60623",
+  "KAMS", "KIPP Ascend Middle School", "1616 S. Avers Ave., Chicago, IL 60623",
+  "KACP",  "KIPP Academy Chicago Primary","116 N. Leclaire Ave., Chicago, IL 60644",
+  "KAC",  "KIPP Academy Chicago", "4818 W. Ohio St., Chicago, IL 60644",
+  "KBP", "KIPP Bloom Primary", "5515 S. Lowe Ave., Chicago, IL 60621",
+  "KBCP", "KIPP Bloom College Prep", "5515 S. Lowe Ave., Chicago, IL 60621",
+  "KOP", "KIPP One Primary", "730 N. Pulaski Rd., Chicago, IL 60624",
+  "KOA", "KIPP One Academy", "730 N. Pulaski Rd., Chicago, IL 60624"
+)
+
+
+schoools_geocoded <- ggmap::geocode(schools$address)
+
+schools$lat <- schoools_geocoded$lat
+schools$lon <- schoools_geocoded$lon
+
+neighborhoods_sf <- sf::read_sf("../gather/Boundaries - Neighborhoods.geojson")
+```
+
+```{r}
+neighborhoods_sf %>% 
+  select(name = pri_neigh, geometry) %>% 
+  ggplot() + 
+  geom_sf(color = kipp_colors$lightgray, fill = kipp_colors$lightblue ) +  
+    geom_text_repel(data = schools,  aes(y=lat, x=lon, label = full_name),
+                  color = kipp_colors$green,
+                  segment.size = 0.4,
+                  hjust = 1,
+                  direction = "y",
+                  xlim = c(NA, -88),
+                  force = 10
+                  ) +
+  geom_point(data = schools, aes(y=lat, x=lon), color = "white", size = 3) +
+  xlim(-88.095, -87.55) +
+
+  theme_void() + 
+  theme(panel.grid.major = element_line(color = NA))
+```
+

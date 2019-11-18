@@ -1,0 +1,127 @@
+---
+title: "ED Successions"
+output: revealjs::revealjs_presentation
+---
+
+```{r packages, include=FALSE}
+library(pacman)
+p_load(readxl)
+p_load(ggplot2)
+p_load(dplyr)
+p_load(janitor)
+p_load(viridis)
+
+```
+
+
+Let's read in the Foundation's data
+```{r include=FALSE}
+map_found <- read_excel("../data/excel_files/KIPP Network data 20161018.xlsx", sheet =1)
+
+map_found %>%
+  filter(grepl("Minnesota", Name))
+```
+
+Let's aggreatet by reagion, year, subject
+
+```{r aggregate, include=FALSE}
+map_regions <- map_found %>%
+  clean_names() %>%
+  mutate(n_at_above_50 = spring_at_above_50*n_students,
+         n_at_above_75 = spring_at_above_75*n_students) %>%
+  group_by(name, region_id, sub_test_name, academic_year, growth_season_short_label) %>%
+  summarize(
+    mean_start_rit = weighted.mean(mean_start_rit, n_students),
+    mean_end_rit = weighted.mean(mean_end_rit, n_students),
+    avg_med_start_rit = weighted.mean(med_start_rit, n_students),
+    avg_med_end_rit = weighted.mean(med_end_rit, n_students),
+    n_students = sum(n_students),
+    n_typical = sum(n_met_exceed_typical),
+    n_tiered = sum(n_met_exceed_typical),
+    n_50 = sum(n_at_above_50),
+    n_75 = sum(n_at_above_75)
+    ) %>%
+  mutate(
+    pct_typical = n_typical/n_students,
+    pct_tiered = n_tiered/n_students,
+    pct_50 = n_50/n_students,
+    pct_75 = n_75/n_students
+  )
+map_regions
+    
+```
+
+```{r}
+theme_set(theme_linedraw())
+
+plot_ts <- function(growth_window = "S2S", metric = "pct_typical"){
+  
+  growth_window_name <- switch(growth_window,
+                               S2S = "Spring-to-Spring",
+                               F2S = "Fall-to-Spring")
+  
+  col_location <-switch(growth_window,
+                        S2S = c(.7, .9),
+                        F2S = c(.2, .4))
+  
+  metric_name <- switch(metric,
+                        pct_typical = "% M/E Typical",
+                        pct_tiered = "% M/E College Ready",
+                        pct_50 = "% at or above 50th percentile",
+                        pct_75= "% at or above 50th percentile")
+  
+  map_regions %>%
+    filter(growth_season_short_label == growth_window,
+           sub_test_name %in% c("Mathematics", "Reading")) %>%
+    ggplot(aes_(x=~academic_year, y = as.name(metric))) +
+    geom_line(aes(group = sub_test_name, color = sub_test_name)) +
+    geom_point(aes(color =sub_test_name)) +
+    facet_wrap(~name) +
+    scale_color_viridis(discrete = TRUE, begin = col_location[1], end = col_location[2]) +
+    theme(legend.position = c(.5, .05)) +
+    labs(title = sprintf("%s  by year | %s", metric_name, growth_window_name),
+        y = metric_name,
+        x = "",
+        color = "Subject")
+}
+```
+
+# Typical Growth
+
+## F2S
+
+```{r}
+plot_ts(growth_window = "F2S", metric = "pct_typical")
+```
+
+## S2S 
+```{r}
+plot_ts(growth_window = "S2S", metric = "pct_typical")
+```
+
+# Tiered (Collge Ready) Growth
+## F2S
+
+```{r}
+plot_ts(growth_window = "F2S", metric = "pct_typical")
+```
+
+## S2S 
+```{r}
+plot_ts(growth_window = "S2S", metric = "pct_typical")
+```
+
+
+# Attainnment
+
+## At or Above 50th %ile 
+```{r}
+plot_ts(growth_window = "F2S", metric = "pct_50")
+```
+
+## At or Above 75th %ile 
+```{r}
+plot_ts(growth_window = "F2S", metric = "pct_75")
+```
+
+

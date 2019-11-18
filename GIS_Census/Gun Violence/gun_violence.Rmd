@@ -1,0 +1,104 @@
+---
+title: "Neighborhood violence"
+output: html_notebook
+---
+
+
+```{r packages}
+library(tidyverse)
+library(sf)
+library(janitor)
+library(ggmap)
+```
+
+```{r get_datea}
+crimes <- read_csv("Crimes_2017.csv")
+crimes <- clean_names(crimes)
+
+neighborhoods_sf <- sf::read_sf("Boundaries - Neighborhoods.geojson")
+
+
+schools <- tribble(
+  ~School, ~full_name, ~address,
+  "KAP",  "KIPP Ascend Primary School", "1440 S. Christiana Ave., Chicago, IL 60623",
+  "KAMS", "KIPP Ascend Middle School", "1616 S. Avers Ave., Chicago, IL 60623",
+  "KACP",  "KIPP Academy Chicago Primary","116 N. Leclaire Ave., Chicago, IL 60644",
+  "KAC",  "KIPP Academy Chicago", "4818 W. Ohio St., Chicago, IL 60644",
+  "KBP", "KIPP Bloom Primary", "5515 S. Lowe Ave., Chicago, IL 60621",
+  "KBCP", "KIPP Bloom College Prep", "5515 S. Lowe Ave., Chicago, IL 60621",
+  "KOP", "KIPP One Primary", "730 N. Pulaski Rd., Chicago, IL 60624",
+  "KOA", "KIPP One Academy", "730 N. Pulaski Rd., Chicago, IL 60624"
+)
+
+
+schools_geocoded <- geocode(schools$address)
+
+schools$lat <- schools_geocoded$lat
+schools$lon <- schools_geocoded$lon
+
+crimes
+```
+```{r munge_crimes}
+crimes %>% tabyl(fbi_code)
+
+violent_crimes_fbi <- c(
+ "01A", # Homicide 1st & 2nd Degree (01A) (Index)
+ "02", # Criminal Sexual Assault (02) (Index)
+# "03", #Robbery (03) (Index)
+ "04A", # Aggravated Assault (04A) (Index)
+ "04B", #  Aggravated Battery (04B) (Index)
+ #"05", # Burglary (05) (Index)
+ #"06", #Larceny (06) (Index)
+ #"07", # Motor Vehicle Theft (07) (Index)
+ "09" #Arson (09) (Index)
+)
+
+crimes_violent <- crimes %>%
+  filter(fbi_code %in% violent_crimes_fbi)
+
+crimes_violent %>%  tabyl(fbi_code)
+crimes$primary_type %>% tabyl()
+#crimes %>% filter(fbi_code == "13")
+```
+```{r}
+
+schools_color <- kippcolors::kipp_palettes$kipp_blueorange[[1]]  
+
+ggplot() + 
+  geom_density2d(data=crimes_violent,aes(x=longitude, y=latitude), 
+                 bins=5, 
+                 color = "white", 
+                 show.legend = FALSE) +
+  stat_density2d(data=crimes_violent,
+                 aes(x=longitude, 
+                     y=latitude,
+                     fill=..level.., 
+                     alpha=..level..), 
+                 geom='polygon', 
+                 show.legend = FALSE) +
+  geom_sf(data = neighborhoods_sf, 
+          fill = NA,
+          color = "#8D8685") +
+  geom_point(data = schools, aes(x=lon, y=lat), 
+             size = 3, 
+             color=schools_color) +
+  #geom_density_2d(data = crimes_violent, aes(x=longitude, y=latitude), color="hotpink") +
+  ggrepel::geom_text_repel(data = schools, aes(x=lon, y=lat, label = School), 
+                           #xlim = c(-88.0, -87.8),
+                           color = schools_color,
+                           segment.size = 0.4,
+                           hjust = 1,
+                           direction = "y",
+                           xlim = c(NA, -88),
+                           force = 10) +
+  scale_fill_viridis_c(option = "plasma") + 
+  theme_void() + 
+  xlim(-88.095, -87.55) +
+  #theme(panel.grid = element_line(color = "#CFCCC1")) +
+  labs(caption = "Violent crime density estimatd by KIPP Chicago with data from\n http://gis.chicagopolice.org/clearmap_crime_sums/crime_types.html"#,
+       #title = "Violent Crimes denisty is highest on the South and West Sides."
+       )
+  
+
+```
+

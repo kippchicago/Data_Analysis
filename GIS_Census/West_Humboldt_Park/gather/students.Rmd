@@ -1,0 +1,49 @@
+---
+title: "students"
+params: 
+  inputDir: "gather/"
+  thisDir:  "gather/"
+  outputDir: "gathered/"
+  fileStem: "students"
+---
+
+```{r KnitrOpts, echo=FALSE}
+knitr::opts_knit$set(root.dir = normalizePath('../'))
+knitr::opts_chunk$set(echo=TRUE, message=TRUE, warning=TRUE, error=TRUE)
+```
+
+```{r setup}
+library(tidyverse)
+library(silounloadr)
+```
+
+```{r get_students}
+students <- get_powerschool("students",collect = FALSE)
+
+students <- students %>% filter(enroll_status == 0,
+                    schoolid %in% c(400180, 4001802)) %>%
+  select(schoolid, 
+         grade_level, 
+         student_number, 
+         first_name, 
+         last_name, 
+         geocode, 
+         mailing_geocode, 
+         street, 
+         zip,
+         ethnicity) %>%
+  collect()
+
+
+```
+
+
+```{r ListObjects}
+lstObjects <- represtools::ListObjects(patterns = "students")
+represtools::DescribeObjects(represtools::NamesToObjects(lstObjects))
+```
+
+```{r Save}
+save(file = represtools::OutputFile(params)
+     , list = lstObjects)
+```

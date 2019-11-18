@@ -69,7 +69,7 @@ tntp_schools <- tntp_schools %>%
 
 # combine schools and foundation data into one data frame
 
-tntp_S16 <- bind_rows(tntp_schools, tntp_foundation)
+tntp_s16 <- bind_rows(tntp_schools, tntp_foundation)
 
 
 

@@ -1,0 +1,354 @@
+---
+title: "SL Progress Monitoring: MAP and STEP Results"
+output:
+  html_notebook:
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: '3'
+---
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, 
+                      results = FALSE,
+                      warning=FALSE,
+                      message=FALSE, 
+                      include=FALSE)
+```
+```{r setup, include=FALSE}
+
+library(mapvizieR)
+library(tidyverse)
+library(silounloadr)
+library(formattable)
+library(kippcolors)
+
+
+separate_cdf <- function(combinded_cdf, district_name = "Not provided"){
+  ar_names <- names(ex_CombinedAssessmentResults) %>% tolower()
+  stu_names <- names(ex_CombinedStudentsBySchool) %>% tolower()
+
+  if (!"districtname" %in% tolower(names(combinded_cdf))) {
+    combinded_cdf <- combinded_cdf %>% mutate_(districtname = ~district_name)
+  }
+
+  roster<-combinded_cdf %>%
+    select_(.dots = stu_names) %>%
+    unique
+
+  cdf<-combinded_cdf %>% select(-studentlastname:-studentfirstname,
+                                -studentmi:-studentgender,
+                                -grade) %>%
+    mutate(testid=as.character(testid))
+
+  out <- list(cdf = cdf,
+              roster = roster)
+
+}
+```
+```{r get_data}
+nwea <- get_nwea_map("cdf_combined_kipp_cps")
+
+
+pull_terms <- list("Spring 2017-2018", "Fall 2018-2019", "Spring 2018-2019")
+
+nwea_2 <-pull_terms %>%
+  map_df(~ {
+    nwea %>% 
+  filter(term_name == .x) %>%
+  collect(allowLargeResults = TRUE)
+  }
+  )
+
+#glimpse(nwea_2)
+```
+
+```{r munging}
+old_names <- names(nwea_2)
+new_names <- old_names %>% stringr::str_replace_all("_", "")
+names(nwea_2) <- new_names
+
+nwea<-nwea_2 %>% 
+  select(-ClassName, -TeacherName) %>% 
+   mutate(teststartdate = lubridate::ymd(teststartdate), 
+          teststarttime = lubridate::hms(teststarttime)) %>%
+  mutate(teststarttime = as.character(teststarttime) %>% stringr::str_replace_all('[HM]\\W', ":") %>% stringr::str_replace("S", ""),
+         teststartdate = as.character(teststartdate)) %>% 
+  distinct() %>%
+  filter(testtype == "Survey With Goals") %>%
+  mutate(grade=as.integer(ifelse(grade=="K", 0, grade)),
+         measurementscale=ifelse(measurementscale=="Science - General Science",
+                                 "General Science",
+                                 measurementscale)
+  )
+```
+```{r impute_missing}
+
+sy = calc_academic_year("2019-06-01", format = "second_year")
+this_spring <- sprintf("Spring %s-%s", sy-1, sy)
+last_spring <- sprintf("Spring %s-%s", sy-2, sy-1)
+this_fall <- sprintf("Fall %s-%s", sy-1, sy)
+#this_winter <- sprintf("Winter %s-%s", sy-1, sy)
+
+# ID students without prior spring scores by using this spring's
+# rosters and antijoining on last spring's, by subject
+
+
+
+
+
+subjs <- c("Mathematics", "Reading")
+
+map_last_spring <- nwea %>%
+  filter(termname==last_spring,
+         measurementscale %in% subjs) %>%
+  mutate(
+    Orignal_Score=testritscore,
+    Original_Percentile=testpercentile,
+    Original_Term = sprintf("Spring %s", sy-1),
+    Fall_as_Spring = FALSE)
+
+stus_this_spring <- nwea %>%
+  filter(termname == this_spring,
+         measurementscale %in% subjs) %>%
+  select(studentid, measurementscale)
+
+
+current_stus_no_spring <- stus_this_spring %>% #students with spring 16 scores
+  select(studentid, measurementscale) %>%
+  anti_join(map_last_spring , by=c("studentid", "measurementscale")) %>% 
+    #mutate(measurementscale = unique(measurementscale)) %>%
+#    select(studentid, measurementscale) %>%
+    unique
+
+map_fall <- nwea %>%
+  filter(termname==this_fall,
+         grade != 0,
+         measurementscale %in% subjs) %>%
+  inner_join(current_stus_no_spring,
+             by = c("studentid", "measurementscale")) %>%
+  mutate(Current_Grade=grade,
+         Orignal_Score=testritscore,
+         Original_Percentile=testpercentile,
+         Original_Term = sprintf("Fall %s", sy-1),
+         Fall_as_Spring = TRUE,
+         termname = last_spring)
+
+
+map_fall_reading <-  map_fall %>%
+  filter(measurementscale == "Reading") %>%
+  mutate(testritscore = as.integer(sqrpr::cps_equate(testritscore, measurementscale, grade)),
+         CPS_Imputed = TRUE,
+         grade = grade -1)
+
+map_fall_math <-  map_fall %>%
+  filter(measurementscale == "Mathematics") %>%
+  mutate(testritscore = as.integer(sqrpr::cps_equate(testritscore, measurementscale, grade)),
+         CPS_Imputed = TRUE,
+         grade = grade -1)
+
+# map_joined <- dplyr::bind_rows(map_spring %>%
+#                                   mutate(CPS_Imputed = FALSE),
+#                                 map_fall_reading,
+#                                 map_fall_math
+#                                ) %>%
+#   group_by(studentid, termname) %>%
+#   filter(grade == min(grade)) %>% #need to remove retained students
+#   ungroup
+
+cdf <- separate_cdf(nwea, "KIPP Chicago")
+
+# add missing columns 
+cdf$cdf <- cdf$cdf %>% 
+  mutate(goal7name = NA, 
+         goal7ritscore = NA, 
+         goal7stderr = NA, 
+         goal7range = NA, 
+         goal7adjective = NA, 
+         goal8name = NA, 
+         goal8ritscore = NA, 
+         goal8stderr = NA, 
+         goal8range = NA, 
+         goal8adjective = NA, 
+         projectedproficiencystudy3 = NA, 
+         projectedproficiencylevel3 = NA)
+
+
+map_mv<-mapvizieR(cdf = cdf$cdf, roster = cdf$roster)
+```
+```{r summarize}
+map_mv_sum <- summary(map_mv)
+
+map_mv_sum
+```
+
+## School-wide Growth
+```{r growth}
+f2s_grades <- c(0:2)
+
+growth_f2s_grades <- map_mv_sum$growth_summary %>%
+  filter(growth_window == "Fall to Spring",
+         end_map_year_academic == 2018,
+         end_grade %in% f2s_grades)
+
+growth_s2s_grades <- map_mv_sum$growth_summary %>%
+  filter(growth_window == "Spring to Spring",
+         end_map_year_academic == 2018,
+         !end_grade %in% f2s_grades)
+
+map_growth <- bind_rows(growth_f2s_grades, growth_s2s_grades)
+
+schools <- c("KAP", "KBP", "KOP", "KAC", "KAMS", "KBCP", "KOA")
+
+growth_tbl <- map_growth %>%  
+  select(subject = measurementscale, 
+         grade = end_grade,
+         school = end_schoolname,
+         n_students,
+         n_typical,
+         year = end_map_year_academic) %>%
+  group_by(subject,  school, year) %>% 
+  summarize(n_students = sum(n_students, na.rm=TRUE),
+            n_typical = sum(n_typical)) %>%
+  ungroup() %>%
+  mutate(pct_typical =  round(100*n_typical/n_students, 2),
+         school = abbrev(school, exceptions = list(old = c("KAPS"), new = c("KAP"))),
+         school = factor(school, levels =  schools)) %>%
+  arrange(subject, school) 
+```
+```{r include = TRUE}
+growth_tbl %>%
+  rename(Subject = subject,
+         School = school,
+         "% Typical" = pct_typical) %>%
+  select(-year,
+         -n_students,
+         -n_typical) %>%
+  formattable::formattable(
+    align = c("llr"),
+    list(
+      "% Typical" = formatter("span",
+                              style = x ~ style(color = ifelse(x < 60, 
+                                                               kipp_colors$orange,
+                                                               ifelse(x >=70, 
+                                                                      kipp_colors$green, 
+                                                                      kipp_colors$lightblue)
+                                                               )
+                                                )
+                              )
+    )
+  ) %>%
+  formattable::as.datatable(filter = "top", rownames = FALSE,# style = 'bootstrap', 
+                  class = 'cell-border stripe compact', 
+                  options = dt_options
+                  )
+```
+
+
+## School-wide Attainment
+```{r attain}
+
+dt_options <- list(dom = "t", 
+                   pageLength = 100,
+                   columnDefs = list(list(className = 'dt-right', targets=2),
+                                     list(className = 'dt-left', targets=c(0,1))
+                                     )
+                   )
+
+map_attain <- map_mv$cdf %>% 
+  filter(map_year_academic == 2018,
+         fallwinterspring == "Spring")
+  
+
+attain_tbl <- map_attain %>%  
+  as.data.frame() %>%
+  ungroup() %>%
+  select(Subject = measurementscale, 
+         Grade=grade,
+         School = schoolname,
+         year = map_year_academic,
+         percentile = consistent_percentile) %>%
+  group_by(Subject,  School, year) %>% 
+  summarize(n_students = n(),
+            n_50th = sum(percentile>=50)) %>%
+  ungroup() %>%
+  mutate(pct_50th =  round(100*n_50th/n_students, 2),
+         School = abbrev(School, exceptions = list(old = c("KAPS"), new = c("KAP"))),
+         School = factor(School, levels =  schools)) %>%
+  arrange(Subject, School) 
+```
+```{r include = TRUE}
+attain_tbl %>%
+  rename("% >= 50th pctl" = pct_50th) %>%
+  select(-year,
+         -n_students,
+         -n_50th) %>%
+  formattable::formattable(
+    align = c("llr"),
+    list(
+      "% >= 50th pctl" = formatter("span",
+                              style = x ~ style(color = ifelse(x < 60, 
+                                                               kipp_colors$orange,
+                                                               ifelse(x >=70, 
+                                                                      kipp_colors$green, 
+                                                                      kipp_colors$lightblue)
+                                                               )
+                                                )
+                              )
+    )
+  ) %>%
+  formattable::as.datatable(filter = "top", rownames = FALSE,# style = 'bootstrap', 
+                  class = 'cell-border stripe compact', 
+                  options = dt_options
+                  )
+```
+
+## STEP Results
+Data as of the last STEP round for SY18-19
+
+The *Percent* column indicate the percent of KIPPsters on target or exceeding target
+```{r include = TRUE}
+
+step <- tribble(
+  ~School, ~Grade, ~Percent,
+  "KAP",   "K",     69,
+  "KAP",   "1",     24,
+  "KAP",   "2",     24,
+  "KAP",   "3",     44,
+  "KAP",   "Overall", 40,
+  "KOP",   "K",     57,
+  "KOP",   "1",     36,
+  "KOP",   "2",     61,
+  "KOP",   "Overall", 51,
+  "KBP",   "K",     83,
+  "KBP",   "Overall", 83
+) %>%
+  mutate(Grade = fct_inorder(Grade),
+         School = fct_inorder(School)) %>%
+  spread(Grade, Percent) %>%
+  mutate_if(is.numeric, funs(ifelse(is.na(.), "",.)))
+
+step %>%
+formattable::formattable(
+    align = c("l", "r", "r", "r", "r", "r"),
+    list(
+      area(col = K:Overall) ~ formatter("span",
+                              style = x ~ style(color = ifelse(x < 60, 
+                                                               kipp_colors$orange,
+                                                               ifelse(x >=70, 
+                                                                      kipp_colors$green, 
+                                                                      kipp_colors$lightblue)
+                                                               )
+                                                )
+                              )
+    )
+  ) #%>%
+  #formattable::as.datatable(filter = "top", rownames = FALSE,# style = 'bootstrap', 
+  #                class = 'cell-border stripe compact', 
+  #                options = dt_options
+  #                )
+
+```
+

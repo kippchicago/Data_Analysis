@@ -1,0 +1,450 @@
+---
+title: "18-19 Compensation Analysis"
+output:
+  html_notebook:
+    toc: yes
+    toc_depth: 3
+    toc_float: yes
+  html_document:
+    df_print: paged
+    toc: yes
+    toc_depth: '3'
+---
+
+```{r global_options, include=FALSE}
+knitr::opts_chunk$set(echo=FALSE, 
+                      results = FALSE,
+                      warning=FALSE,
+                      message=FALSE, 
+                      include=FALSE,
+                      cache=TRUE)
+```
+
+
+```{r libraries}
+library(tidyverse)
+library(googlesheets)
+library(janitor)
+library(kippcolors)
+library(ggforce)
+library(plotly)
+
+theme_set(theme_kipp_light())
+```
+
+```{r get_models}
+
+gs_salary <- gs_title(x="Salary Parameters & Staffing Models")
+
+gs_models <- gs_salary %>% 
+  gs_read(ws = "Model Comparison", 
+          col_types = "icnnnnnnnnnnnnnnnnnnnnnn",
+          na = "---")
+
+gs_models <- gs_models %>% 
+  clean_names() %>%
+    rename_at(vars(contains("_1")),
+            funs(sub("_1", "_cps", .))
+            ) %>%
+  rename_at(vars(contains("_2")),
+            funs(sub("_2", "_noble", .))
+            )
+
+gs_models
+```
+```{r get_comarison}
+gs_comps_19 <- gs_salary %>%
+  gs_read(ws = "FY19 Salaries v. Model",
+          col_types= "cccccnncncncnccciciiic",
+          na = c("", "NA")) %>%
+  clean_names() %>%
+  mutate(new_hire = is.na(new_hire),
+         peer_leader = is.na(peer_leader),
+         variance_amount = kipp_model - variance_amount
+         )
+
+
+gs_comps <- gs_salary %>%
+  gs_read(ws = "FY20 Salaries v. Model",
+          col_types= "cccccnncncncnccciciiic",
+          na = c("", "NA")) %>%
+  clean_names() %>%
+  mutate(new_hire = if_else(new_hire == "Y", TRUE, FALSE, missing = FALSE),
+         peer_leader = if_else(peer_leader == "Y", TRUE, FALSE, missing = FALSE),
+         masters_degree = if_else(masters_degree == "Y", TRUE, FALSE, missing = FALSE),
+         variance_amount =  x19_20_salary - kipp_model
+         )
+
+gs_comps_19
+
+gs_comps
+```
+
+PL salary bump rules
+1) if salary is <= 60,000 bump to 65
+2) if salary is > 60,000 get salary + 5,000
+
+```{r total_comps}
+gs_comps <- gs_comps %>%
+  mutate(total_comp =  x19_20_salary) 
+
+gs_comps %>%
+  select(peer_leader, x19_20_salary, total_comp) %>%
+  filter(peer_leader)
+```
+
+
+```{r salary schedules}
+salary <- gs_models %>%
+  filter(!is.na(year_teaching)) %>%
+  select(year_teaching, educ, contains("salary")) %>%
+  gather("org", "dollars", contains("salary")) %>%
+  mutate(org = str_remove(org, "_salary"),
+         org = toupper(org),
+         type = "Salary")
+
+total_comp <- gs_models %>%
+  filter(!is.na(year_teaching)) %>%
+  select(year_teaching, educ, contains("comp")) %>%
+  gather("org", "dollars", contains("comp")) %>%
+  mutate(org = str_remove(org, "_total_comp"),
+         org = toupper(org),
+         type = "Total Compensation")
+
+salary_total_comp <- bind_rows(salary, total_comp) %>%
+  mutate(org = fct_inorder(org))
+```
+
+
+```{r include=FALSE}
+
+
+salary_total_comp %>%
+  ggplot(aes(x=year_teaching, y=dollars)) +
+  geom_line(aes(color = org, group=org)) +
+  facet_grid(educ ~ type) +
+  scale_color_kipp("kipp_blueorange")
+
+
+
+```
+
+
+# Salary Schedule Comparison
+```{r zoomed_schedule, include=TRUE}
+
+
+salary_total_comp %>%
+  filter(type=="Salary", educ == "BA") %>%
+  ggplot(aes(x=year_teaching, y=dollars)) +
+  geom_line(aes(color = org, group=org)) +
+  geom_point(aes(color = org)) +
+  scale_color_kipp("kipp_blueorange") +
+  facet_zoom(x = year_teaching %in% c(0:5), y = dollars<60000, horizontal = F) +
+  scale_y_continuous(labels = scales::dollar) +
+
+  labs(title = "Our salaries lag CPS in early and later years\nand lag Noble after year 4",
+       subtitle = "Salary by year for certified teachers holding only a BA",
+       x = "Years of Teaching",
+       y = "Salary",
+       color = "Model")
+```
+## EStimated KIPP Actual Scale 
+```{r include=FALSE}
+kipp_adj_salary <- gs_comps %>%
+  select(year_teaching = yrs_experience,
+         dollars = total_comp,
+         peer_leader) %>%
+  mutate(educ = "BA", 
+         org = "KIPP",
+         type = "Salary",
+         years_teaching = factor(year_teaching)) %>%
+  filter(year_teaching <=15)
+
+
+kipp_adj_salary_means <- kipp_adj_salary %>%
+  group_by(year_teaching,years_teaching, educ, org, type) %>%
+  summarize(dollars_mean =  mean(dollars, na.rm=T),
+            dollars_median = median(dollars), 
+            )
+
+
+pay_scales <- c(
+  "KIPP" = kipp_colors$darkblue,
+  "KIPP (est. actual)" = "hotpink",
+  "NOBLE" = kipp_colors$darkorange,
+  "CPS" = kipp_colors$lightorange
+)
+
+p<-salary_total_comp %>% 
+  filter(educ == "BA",
+         type == "Salary",
+         year_teaching <=12) %>%
+  mutate(years_teaching = factor(year_teaching)) %>%
+  ggplot(aes(x=years_teaching, y=dollars)) +
+  geom_line(aes(color = org, group=org)) +
+  geom_dotplot(data = kipp_adj_salary, 
+               aes(x=years_teaching,
+                   y=dollars,
+                   fill = "KIPP Actual Salary"),
+               binaxis = "y",
+             #fill = kipp_colors$skyblue,
+             color = NA,
+             dotsize = .45,
+             stackdir = "center",
+             #alpha = .4,
+             inherit.aes = FALSE
+             ) + 
+  #geom_smooth(data = kipp_adj_salary, color = "black" 
+  #           ) + 
+  geom_line(data = kipp_adj_salary_means, 
+             aes(x = years_teaching, y = dollars_mean),
+             color = "hotpink") +
+    geom_smooth(data = kipp_adj_salary, 
+             aes(x = year_teaching, y = dollars, color = "KIPP (est. actual)"),
+             #color = "lightpink", 
+             se = FALSE
+              ) +
+   geom_point(data = kipp_adj_salary_means, 
+             aes(x = years_teaching, y = dollars_mean, fill="Mean KIPP Salary"),
+             shape = 21,
+             size = 3,
+             stroke = 0
+             ) +
+  #facet_grid(educ ~ type) +
+  #scale_color_kipp("kipp_blueorange") +
+  scale_color_manual(values = pay_scales) +
+  scale_fill_manual(values = c(kipp_colors$gray, "hotpink", "lightpink")) +
+  scale_y_continuous(labels = scales::dollar) +
+  labs(x = "Years Teaching",
+       y = "Salary",
+       color = "Pay Scale\nModels:",
+       fill = "KIPP 18-19 Salaries")
+
+p
+
+```
+
+```{r with peer leaders}
+salary_total_comp %>% 
+  filter(educ == "BA",
+         type == "Salary",
+         year_teaching <=12) %>%
+  mutate(years_teaching = factor(year_teaching)) %>%
+  ggplot(aes(x=years_teaching, y=dollars)) +
+  geom_line(aes(color = org, group=org)) +
+  geom_dotplot(data = kipp_adj_salary, 
+               aes(x=years_teaching,
+                   y=dollars,
+                   fill = peer_leader),
+               binaxis = "y",
+             #fill = kipp_colors$skyblue,
+             color = NA,
+             dotsize = .45,
+             stackdir = "center",
+             #alpha = .4,
+             inherit.aes = FALSE
+             ) + 
+  #geom_smooth(data = kipp_adj_salary, color = "black" 
+  #           ) + 
+  geom_line(data = kipp_adj_salary_means, 
+             aes(x = years_teaching, y = dollars_mean),
+             color = "hotpink") +
+    geom_smooth(data = kipp_adj_salary, 
+             aes(x = year_teaching, y = dollars, color = "KIPP (est. actual)"),
+             #color = "lightpink", 
+             se = FALSE
+              ) +
+   # geom_point(data = kipp_adj_salary_means, 
+   #           aes(x = years_teaching, y = dollars_mean, fill="Mean KIPP Salary"),
+   #           shape = 21,
+   #           size = 3,
+   #           stroke = 0
+   #           ) +
+  #facet_grid(educ ~ type) +
+  #scale_color_kipp("kipp_blueorange") +
+  scale_color_manual(values = pay_scales) +
+  scale_fill_manual(values = c(kipp_colors$gray, "lightpink"), labels = c("Teacher", "Peer Leader")) +
+  scale_y_continuous(labels = scales::dollar) +
+  labs(x = "Years Teaching",
+       y = "Salary",
+       color = "Pay Scale\nModels:",
+       fill = "KIPP 18-19 Salaries")
+```
+
+
+# Deviation from Models
+## Actual vs CPS
+```{r include=TRUE, fig.height=10, fig.width = 10}
+
+gs_comps %>%
+  rename(actual_salary = x19_20_salary) %>%
+  arrange(actual_salary) %>%
+  mutate(name = fct_inorder(name),
+         cps_variance = fct_relevel(cps_variance, "Below", after = 3)
+         ) %>%
+  ggplot() +
+  geom_segment(aes(y=name, yend =name, xend = actual_salary, x = cps_model, color = cps_variance), 
+               #arrow = arrow(type = "closed", length = unit(0.05, "npc"))
+                ) +
+  geom_point(aes(y = name, x=cps_model, color = cps_variance)) +
+  geom_point(aes(y = name, x=actual_salary), color = "gray60") +
+  facet_wrap(~ school, scales = 'free_y') +
+  scale_color_kipp(palette = "kipp_div", reverse = FALSE) +
+  scale_x_continuous(labels = scales::dollar) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+
+  labs(title = "Actual (gray dots) versus CPS Scale (colored bars)",
+       y = "",
+       x = "Salary",
+       color = "Variance is ...")
+
+  
+```
+
+## CPS vs Actual
+```{r include=TRUE, fig.height=10, fig.width = 10}
+gs_comps %>%
+  rename(actual_salary = x19_20_salary) %>%
+  arrange(cps_model) %>%
+  mutate(name = fct_inorder(name),
+         cps_variance = fct_relevel(cps_variance, "Below", after = 3)
+         ) %>%
+  ggplot() +
+  geom_segment(aes(y=name, yend =name, xend = actual_salary, x = cps_model, color = cps_variance), 
+               #arrow = arrow(type = "closed", length = unit(0.05, "npc"))
+                ) +
+  geom_point(aes(y = name, x=actual_salary, color = cps_variance)) +
+  geom_point(aes(y = name, x=cps_model), color = "gray60") +
+  facet_wrap(~ school, scales = 'free_y') +
+  scale_color_kipp(palette = "kipp_div", reverse = FALSE) +
+  scale_x_continuous(labels = scales::dollar) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Actual Deviations (colored bars) from CPS scale (gray dot)",
+       x = "Salary deviation from model",
+       y = "",
+       color = "Variance is ...")
+  
+```
+## Deviations from CPS by School
+```{r include=TRUE, fig.height=10, fig.width = 10}
+gs_comps %>%
+  rename(actual_salary = x19_20_salary) %>%
+  mutate(deviation = actual_salary - cps_model) %>%
+  arrange(deviation) %>%
+  mutate(name = fct_inorder(name),
+         cps_variance = fct_relevel(cps_variance, "Below", after = 3)
+         ) %>%
+  ggplot() +
+  geom_segment(aes(y=name, yend =name, xend = deviation, x = 0, color = cps_variance), 
+               #arrow = arrow(type = "closed", length = unit(0.05, "npc"))
+                ) +
+  geom_point(aes(y = name, x=deviation, color = cps_variance)) +
+  #geom_point(aes(y = name, x=cps_model), color = "gray60") +
+  facet_wrap(~ school, scales = 'free_y') +
+  scale_color_kipp(palette = "kipp_div", reverse = FALSE) +
+  scale_x_continuous(labels = scales::dollar) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Deviations from CPS scale", 
+       subtitle = "by School",
+        x = "Salary deviation from model",
+       y = "",
+       color = "Variance is ...")
+
+```
+
+## Deviations from CPS by Race
+```{r include=TRUE, fig.height=10, fig.width = 10}
+gs_comps %>%
+  rename(actual_salary = x19_20_salary) %>%
+  mutate(deviation = actual_salary - cps_model) %>%
+  arrange(deviation) %>%
+  mutate(name = fct_inorder(name),
+         cps_variance = fct_relevel(cps_variance, "Below", after = 3)
+         ) %>%
+  ggplot() +
+  geom_segment(aes(y=name, yend =name, xend = deviation, x = 0, color = cps_variance), 
+               #arrow = arrow(type = "closed", length = unit(0.05, "npc"))
+                ) +
+  geom_point(aes(y = name, x=deviation, color = cps_variance)) +
+  #geom_point(aes(y = name, x=cps_model), color = "gray60") +
+  facet_wrap(~race, scales = 'free_y') +
+  scale_color_kipp(palette = "kipp_div", reverse = FALSE) +
+  scale_x_continuous(labels = scales::dollar) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Deviations from  scale",
+       subtitle = "by Race",
+        x = "Salary deviation from model",
+       y = "",
+       color = "Variance is ...")
+```
+## Deviations from KIPP Model by School
+```{r include=TRUE, fig.height=10, fig.width = 6}
+gs_comps %>%
+  rename(actual_salary = x19_20_salary) %>%
+  mutate(deviation = actual_salary - kipp_model) %>%
+  arrange(deviation) %>%
+  mutate(name = fct_inorder(name),
+         model_variance = fct_relevel(model_variance, "Below", after = 3)
+         ) %>%
+  ggplot() +
+  geom_segment(aes(y=name, yend =name, xend = deviation, x = 0, color = model_variance), 
+               #arrow = arrow(type = "closed", length = unit(0.05, "npc"))
+                ) +
+  geom_point(aes(y = name, x=deviation, color = model_variance)) +
+  #geom_point(aes(y = name, x=cps_model), color = "gray60") +
+  facet_wrap(~school, scales = 'free_y') +
+  scale_color_kipp(palette = "kipp_div", reverse = FALSE) +
+  scale_x_continuous(labels = scales::dollar) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Deviations from  KIPP scale",
+       subtitle = "by School",
+        x = "Salary deviation from model",
+       y = "",
+       color = "Variance is ...")
+```
+## Deviations from KIPP Model by Race
+```{r include=TRUE, fig.height=20, fig.width = 10}
+gs_comps %>%
+  rename(actual_salary = x19_20_salary) %>%
+  mutate(deviation = actual_salary - kipp_model) %>%
+  arrange(deviation) %>%
+  mutate(name = fct_inorder(name),
+         model_variance = fct_relevel(model_variance, "Below", after = 3)
+         ) %>%
+  ggplot() +
+  geom_segment(aes(y=name, yend =name, xend = deviation, x = 0, color = model_variance), 
+               #arrow = arrow(type = "closed", length = unit(0.05, "npc"))
+                ) +
+  geom_point(aes(y = name, x=deviation, color = model_variance)) +
+  #geom_point(aes(y = name, x=cps_model), color = "gray60") +
+  facet_wrap(~race, scales = 'free_y', ncol = 2) +
+  scale_color_kipp(palette = "kipp_div", reverse = FALSE) +
+  scale_x_continuous(labels = scales::dollar) +
+  theme(axis.text = element_text(size = 8),
+        axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Deviations from  KIPP scale",
+       subtitle = "by Race", 
+        x = "Salary deviation from model",
+       y = "",
+       color = "Variance is ...") 
+```
+
+
+```{r}
+gs_comps %>%
+  summarize(tot_salary = sum(x19_20_salary, na.rm=T),
+            tot_kipp_model = sum(kipp_model, na.rm = TRUE),
+            tot_cps_model = sum(cps_model),
+            tot_noble_model = sum(noble_model, na.rm=TRUE),
+            count = n()) %>%
+  mutate(diff = tot_salary - tot_kipp_model,
+         proportion = round(tot_salary/tot_kipp_model*100,2),
+         variable_mult = diff/tot_kipp_model)
+```
+```{r}
+gs_comps %>%
+  
+
+```
+

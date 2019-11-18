@@ -1,0 +1,843 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+
+```{r setup}
+library(tidyverse)
+library(tidycensus)
+library(kippcolors)
+library(viridis)
+library(sf)
+library(mapview)
+library(ggmap)
+library(emojifont)
+
+load.fontawesome()
+
+```
+
+```{r}
+neighborhoods_sf <- read_sf("data/Boundaries - Neighborhoods.geojson")
+
+
+kipp_neighbs <- c("North Lawndale",
+                  "Austin",
+                  "Humboldt Park", 
+                  "Englewood"
+                  )
+
+kipp_neighbs_sf <- neighborhoods_sf %>%
+  filter(pri_neigh %in% kipp_neighbs)
+
+
+municipalities <- st_read("data/Municipality/Municipality.shp")
+
+municipalities <-  municipalities %>%
+  filter(AGENCY_DES != "CITY OF CHICAGO")
+
+```
+
+```{r sqrp_data}
+sqrp <- readxl::read_excel("data/Accountability_SQRPratings_2019-2020_SchoolLevel.xls", sheet = 2) %>%
+  janitor::clean_names()
+
+
+sqrp_order <- c("Level 1+",
+                "Level 1",
+                "Level 2+",
+                "Level 2",
+                "Level 3")
+
+cps_sf <- read_sf("data/Chicago Public Schools - School Locations SY1819.geojson") %>%
+  mutate(school_id = as.integer(school_id)) %>%
+  filter(grade_cat == "ES") %>%
+  left_join(sqrp, by = "school_id") %>%
+  filter(!is.na(sy_2019_2020_sqrp_rating),
+         sy_2019_2020_sqrp_rating != "Inability to Rate") %>%
+  mutate(sy_2019_2020_sqrp_rating = factor(sy_2019_2020_sqrp_rating, 
+                                           levels = sqrp_order),
+         kipp = str_detect(school_name, "KIPP")) %>%
+  st_join(neighborhoods_sf %>% select(pri_neigh, geometry), 
+          join = st_within)
+
+cps_kipp_neihgs_only_sf <-cps_sf %>% filter(pri_neigh %in% kipp_neighbs)
+            
+chi_map <- ggplot(neighborhoods_sf) +
+  geom_sf() +
+  geom_sf(data = kipp_neighbs_sf, color = "red")  
+
+chi_map + 
+  geom_sf(data = cps_sf %>% filter(pri_neigh %in% kipp_neighbs), 
+          aes(color = sy_2019_2020_sqrp_rating,
+              fill = sy_2019_2020_sqrp_rating)) +
+  geom_sf(data = cps_sf %>% filter(kipp),
+          color = "hotpink", size = .5) +
+  
+  scale_color_kipp(palette = "kipp_greengray") + 
+  scale_fill_kipp(palette = "kipp_greengray", reverse = FALSE) + 
+  theme_void()
+
+```
+```{r}
+chi_basemap <- get_map(location="Chicago", zoom=11, maptype = 'terrain', source = 'stamen')
+```
+
+```{r}
+
+
+ggmap(chi_basemap) +
+  geom_sf(data=neighborhoods_sf,  
+          inherit.aes = FALSE, 
+          fill = NA) +
+  geom_sf(data = kipp_neighbs_sf, 
+          color = "red", 
+          fill= NA, 
+          inherit.aes = FALSE) +
+  geom_sf(data = cps_sf, 
+          aes(color = sy_2019_2020_sqrp_rating,
+              fill = sy_2019_2020_sqrp_rating), 
+          inherit.aes = FALSE) +
+  geom_sf(data = cps_sf %>% filter(kipp),
+          color = "hotpink", 
+          size = .5, 
+          inherit.aes = FALSE) +
+  scale_color_kipp(palette = "kipp_greengray") + 
+  scale_fill_kipp(palette = "kipp_greengray", reverse = FALSE) + 
+  theme_void()
+
+```
+```{r austin}
+austin_basemap <- get_map(location="1616 S Avers Ave, Chicago, IL", zoom=14, maptype = 'toner-lite', source = 'stamen')
+
+ggmap(austin_basemap,
+      base_layer=ggplot(data=neighborhoods_sf,
+                              aes()),
+                             extent="panel",
+                             maprange=FALSE
+      ) +
+  geom_sf(data=neighborhoods_sf %>%
+            filter(pri_neigh != "North Lawndale"),  
+          inherit.aes = FALSE, 
+          fill = "grey") +
+  geom_sf(data = municipalities, 
+          inherit.aes = FALSE, 
+          fill = "grey"
+          )+ 
+  geom_sf(data=neighborhoods_sf,  
+          inherit.aes = FALSE, 
+          fill = NA) +
+  # geom_sf(data = kipp_neighbs_sf, 
+  #         color = "red", 
+  #         fill= NA, 
+  #         inherit.aes = FALSE) +
+  geom_sf(data = cps_sf, 
+          aes(color = sy_2019_2020_sqrp_rating,
+              fill = sy_2019_2020_sqrp_rating), 
+          inherit.aes = FALSE) +
+  geom_sf(data = cps_sf %>% filter(kipp),
+          color = "hotpink", 
+          size = .5, 
+          inherit.aes = FALSE) +
+  geom_sf_text(data = cps_sf, 
+               aes(label = sqrp_total_points_earned), hjust=1) +
+  geom_sf_text(data = cps_sf, 
+               aes(label = school_nm), hjust=0, size =1) +
+  scale_color_kipp(palette = "kipp_greengray") + 
+  scale_fill_kipp(palette = "kipp_greengray", reverse = FALSE) + 
+  theme_void()
+```
+
+
+```{r}
+
+
+neigh_bbox <- neighborhoods_sf %>%
+  filter(pri_neigh == "Englewood") %>%
+  st_coordinates() %>% 
+  as_tibble() %>%
+  make_bbox(lon = X, lat = Y, data = .)
+
+
+englewood_basemap <- get_stamenmap(bbox = neigh_bbox, 
+                             zoom = 14,
+                             maptype = 'watercolor')
+```
+
+```{r englewood}
+
+
+ggmap(englewood_basemap,
+      base_layer=ggplot(data=neighborhoods_sf %>% 
+                          filter(pri_neigh == "Englewood"),
+                              aes()),
+                             extent="panel",
+                             maprange=TRUE
+      ) +
+  geom_sf(data=neighborhoods_sf %>%
+            filter(pri_neigh != "Englewood"),  
+          inherit.aes = FALSE, 
+          fill = "grey",
+          color = NA,
+          alpha = .5) +
+  
+  geom_sf(data=neighborhoods_sf %>% 
+                          filter(pri_neigh == "Englewood"),  
+          inherit.aes = FALSE, 
+          fill = NA) +
+  
+  # geom_sf(data = kipp_neighbs_sf, 
+  #         color = "red", 
+  #         fill= NA, 
+  #         inherit.aes = FALSE) +
+  geom_sf(data = cps_kipp_neihgs_only_sf %>%
+            filter(str_detect(sy_2019_2020_sqrp_rating, "1")), 
+          aes(color = sy_2019_2020_sqrp_rating,
+              fill = sy_2019_2020_sqrp_rating#,
+              #size = sqrp_total_points_earned
+              ), 
+          size = 16,
+          inherit.aes = FALSE,
+          show.legend = FALSE) +
+    geom_sf(data = cps_kipp_neihgs_only_sf %>%
+            filter(!str_detect(sy_2019_2020_sqrp_rating, "1")), 
+          color = "black", 
+          size = 13,
+          shape = 21,
+          inherit.aes = FALSE) +
+  geom_sf(data = cps_kipp_neihgs_only_sf %>% filter(kipp),
+          color = "white", 
+          size = .5, 
+          inherit.aes = FALSE) +
+  geom_sf_text(data = cps_kipp_neihgs_only_sf %>% filter(kipp),
+               aes(label = school_nm),
+          color = kipp_colors$darkblue, 
+          inherit.aes = FALSE,
+          size = 7,
+          hjust = -.2) +
+  #geom_sf_text(data = cps_sf, 
+  #             aes(label = sqrp_total_points_earned), hjust=1) +
+  #geom_sf_text(data = cps_sf, 
+  #             aes(label = school_nm), hjust=0, size =1) +
+  scale_color_kipp(palette = "kipp_bluegray") + 
+  scale_fill_kipp(palette = "kipp_bluegray", reverse = FALSE) + 
+  theme_void() +
+  labs(title = "Englewood")
+
+
+
+```
+```{r the_map_function}
+plot_sqpr_map <- function(neighb = "Englewood", 
+                          map_type = "watercolor", 
+                          zoom_level = 14,
+                          hjust_name = -0.2,
+                          vjust_name= 0.5){
+  
+neigh_bbox <- neighborhoods_sf %>%
+  filter(pri_neigh == neighb) %>%
+  st_coordinates() %>% 
+  as_tibble() %>%
+  make_bbox(lon = X, lat = Y, data = .)
+
+if(neighb == "Austin"){
+  extra_school <-geocode("116 N Leclaire St, Chicago")
+  
+  extra_school<-extra_school %>% 
+    mutate(school_nm = "KIPP Academy Chicago Primary",
+           sy_2019_2020_sqrp_rating = "Level 1+", 
+           sqrp_total_points_earned = 4.4,
+           pri_neigh = neighb,
+           kipp = TRUE) %>%
+    sf::st_as_sf( coords = c('lon', 'lat'))
+  
+  st_crs(extra_school) <- st_crs(cps_kipp_neihgs_only_sf)
+  
+cps_kipp_neihgs_only_sf_2 <- bind_rows(data.frame(cps_kipp_neihgs_only_sf),
+                                   data.frame(extra_school))
+  
+cps_kipp_neihgs_only_sf_2$geometry <- c(cps_kipp_neihgs_only_sf$geometry, 
+                                 extra_school$geometry)
+  
+cps_kipp_neihgs_only_sf  <-st_as_sf(cps_kipp_neihgs_only_sf_2) %>%
+  mutate(sy_2019_2020_sqrp_rating = factor(sy_2019_2020_sqrp_rating, 
+                                           levels = sqrp_order))
+}
+
+
+if(neighb == "North Lawndale"){
+  extra_school <-geocode("1414 S Christiana Ave, Chicago")
+  
+  extra_school<-extra_school %>% 
+    mutate(school_nm = "KIPP Ascend Primary",
+           sy_2019_2020_sqrp_rating = "Level 1", 
+           sqrp_total_points_earned = 3.9,
+           pri_neigh = neighb,
+           kipp = TRUE) %>%
+    sf::st_as_sf( coords = c('lon', 'lat'))
+  
+  st_crs(extra_school) <- st_crs(cps_kipp_neihgs_only_sf)
+  
+cps_kipp_neihgs_only_sf_2 <- bind_rows(data.frame(cps_kipp_neihgs_only_sf),
+                                   data.frame(extra_school))
+  
+cps_kipp_neihgs_only_sf_2$geometry <- c(cps_kipp_neihgs_only_sf$geometry, 
+                                 extra_school$geometry)
+  
+cps_kipp_neihgs_only_sf  <-st_as_sf(cps_kipp_neihgs_only_sf_2) %>%
+  mutate(sy_2019_2020_sqrp_rating = factor(sy_2019_2020_sqrp_rating, 
+                                           levels = sqrp_order))
+  
+  
+}
+
+
+
+
+basemap <- get_stamenmap(bbox = neigh_bbox, 
+                             zoom = zoom_level,
+                             maptype = map_type)
+  
+  
+  
+  
+  ggmap(basemap,
+      base_layer=ggplot(data=neighborhoods_sf %>% 
+                          filter(pri_neigh == neighb),
+                              aes()),
+                             extent="panel",
+                             maprange=TRUE
+      ) +
+  geom_sf(data=neighborhoods_sf %>%
+            filter(pri_neigh != neighb),  
+          inherit.aes = FALSE, 
+          fill = "grey",
+          color = NA,
+          alpha = .5) +
+  geom_sf(data = municipalities, 
+          inherit.aes = FALSE, 
+          fill = "grey",
+          color = NA,
+          alpha = .5) + 
+
+  
+  geom_sf(data=neighborhoods_sf %>% 
+                          filter(pri_neigh == neighb),  
+          inherit.aes = FALSE, 
+          fill = NA) +
+  
+  # geom_sf(data = kipp_neighbs_sf, 
+  #         color = "red", 
+  #         fill= NA, 
+  #         inherit.aes = FALSE) +
+  geom_sf(data = cps_kipp_neihgs_only_sf %>%
+            filter(str_detect(sy_2019_2020_sqrp_rating, "1")), 
+          aes(color = sy_2019_2020_sqrp_rating,
+              fill = sy_2019_2020_sqrp_rating#,
+              #size = sqrp_total_points_earned
+              ), 
+          size = 16,
+          inherit.aes = FALSE,
+          show.legend = FALSE) +
+    geom_sf(data = cps_kipp_neihgs_only_sf %>%
+            filter(!str_detect(sy_2019_2020_sqrp_rating, "1")), 
+          color = "black", 
+          size = 13,
+          shape = 21,
+          inherit.aes = FALSE) +
+  geom_sf(data = cps_kipp_neihgs_only_sf %>% filter(kipp),
+          color = "white", 
+          size = .5, 
+          inherit.aes = FALSE) +
+  # geom_sf_text(data = cps_kipp_neihgs_only_sf %>% filter(kipp),
+  #              aes(label = school_nm),
+  #         color = kipp_colors$darkblue, 
+  #         inherit.aes = FALSE,
+  #         size = 7,
+  #         hjust = hjust_name,
+  #         vjust = vjust_name) +
+  # #geom_sf_text(data = cps_sf, 
+  #             aes(label = sqrp_total_points_earned), hjust=1) +
+  #geom_sf_text(data = cps_sf, 
+  #             aes(label = school_nm), hjust=0, size =1) +
+  scale_color_kipp(palette = "kipp_bluegray", reverse = FALSE) + 
+  scale_fill_kipp(palette = "kipp_bluegray", reverse = TRUE, ) + 
+  theme_void() +
+  labs(title = neighb)
+}
+
+
+plot_sqpr_map("Austin")
+```
+
+
+```{r the_map_function_gradient}
+plot_sqpr_map_gradient <- function(neighb = "Englewood", 
+                          map_type = "watercolor", 
+                          zoom_level = 14,
+                          hjust_name = -0.2,
+                          vjust_name= 0.5,
+                          color_column = sqrp_total_points_earned,
+                          discrete = FALSE){
+  
+neigh_bbox <- neighborhoods_sf %>%
+  filter(pri_neigh == neighb) %>%
+  st_coordinates() %>% 
+  as_tibble() %>%
+  make_bbox(lon = X, lat = Y, data = .)
+
+if(neighb == "Austin"){
+  extra_school <-geocode("116 N Leclaire St, Chicago")
+  
+  extra_school<-extra_school %>% 
+    mutate(school_nm = "KIPP Academy Chicago Primary",
+           sy_2019_2020_sqrp_rating = "Level 1+", 
+           sqrp_total_points_earned = 4.4,
+           pri_neigh = neighb,
+           kipp = TRUE) %>%
+    sf::st_as_sf( coords = c('lon', 'lat'))
+  
+  st_crs(extra_school) <- st_crs(cps_kipp_neihgs_only_sf)
+  
+cps_kipp_neihgs_only_sf_2 <- bind_rows(data.frame(cps_kipp_neihgs_only_sf),
+                                   data.frame(extra_school))
+  
+cps_kipp_neihgs_only_sf_2$geometry <- c(cps_kipp_neihgs_only_sf$geometry, 
+                                 extra_school$geometry)
+  
+cps_kipp_neihgs_only_sf  <-st_as_sf(cps_kipp_neihgs_only_sf_2) %>%
+  mutate(sy_2019_2020_sqrp_rating = factor(sy_2019_2020_sqrp_rating, 
+                                           levels = sqrp_order))
+}
+
+
+if(neighb == "North Lawndale"){
+  extra_school <-geocode("1414 S Christiana Ave, Chicago")
+  
+  extra_school<-extra_school %>% 
+    mutate(school_nm = "KIPP Ascend Primary",
+           sy_2019_2020_sqrp_rating = "Level 1", 
+           sqrp_total_points_earned = 3.9,
+           pri_neigh = neighb,
+           kipp = TRUE) %>%
+    sf::st_as_sf( coords = c('lon', 'lat'))
+  
+  st_crs(extra_school) <- st_crs(cps_kipp_neihgs_only_sf)
+  
+cps_kipp_neihgs_only_sf_2 <- bind_rows(data.frame(cps_kipp_neihgs_only_sf),
+                                   data.frame(extra_school))
+  
+cps_kipp_neihgs_only_sf_2$geometry <- c(cps_kipp_neihgs_only_sf$geometry, 
+                                 extra_school$geometry)
+  
+cps_kipp_neihgs_only_sf  <-st_as_sf(cps_kipp_neihgs_only_sf_2) %>%
+  mutate(sy_2019_2020_sqrp_rating = factor(sy_2019_2020_sqrp_rating, 
+                                           levels = sqrp_order))
+}
+
+
+point_range <- cps_kipp_neihgs_only_sf %>%
+            filter(str_detect(sy_2019_2020_sqrp_rating, "1"),
+                   pri_neigh == neighb) %>%
+  as.data.frame %>%
+                     #"neighb"Engle) %>%
+  summarize(max_points = max(sqrp_total_points_earned),
+            min_points = min(sqrp_total_points_earned))
+
+
+
+basemap <- get_stamenmap(bbox = neigh_bbox, 
+                             zoom = zoom_level,
+                             maptype = map_type)
+  
+  
+  
+  
+  ggmap(basemap,
+      base_layer=ggplot(data=neighborhoods_sf %>% 
+                          filter(pri_neigh == neighb),
+                              aes()),
+                             extent="panel",
+                             maprange=TRUE
+      ) +
+  geom_sf(data=neighborhoods_sf %>%
+            filter(pri_neigh != neighb),  
+          inherit.aes = FALSE, 
+          fill = "grey",
+          color = NA,
+          alpha = .5) +
+  geom_sf(data = municipalities, 
+          inherit.aes = FALSE, 
+          fill = "grey",
+          color = NA,
+          alpha = .5) + 
+
+  
+  geom_sf(data=neighborhoods_sf %>% 
+                          filter(pri_neigh == neighb),  
+          inherit.aes = FALSE, 
+          fill = NA) +
+  
+  # geom_sf(data = kipp_neighbs_sf, 
+  #         color = "red", 
+  #         fill= NA, 
+  #         inherit.aes = FALSE) +
+  geom_sf(data = cps_kipp_neihgs_only_sf %>%
+            filter(str_detect(sy_2019_2020_sqrp_rating, "1")), 
+          aes(#color = {{color_column}},
+              fill = {{color_column}}#,
+              #size = sqrp_total_points_earned
+              ),
+          color = NA,
+          shape = 21, 
+          size = 16,
+          inherit.aes = FALSE,
+          show.legend = FALSE) +
+    geom_sf(data = cps_kipp_neihgs_only_sf %>%
+            filter(!str_detect(sy_2019_2020_sqrp_rating, "1")), 
+          color = "black", 
+          size = 13,
+          shape = 21,
+          inherit.aes = FALSE) +
+  geom_sf(data = cps_kipp_neihgs_only_sf %>% filter(kipp),
+          color = "white", 
+          size = .5, 
+          inherit.aes = FALSE) +
+  # geom_sf_text(data = cps_kipp_neihgs_only_sf %>% filter(kipp),
+  #              aes(label = school_nm),
+  #         color = kipp_colors$darkblue, 
+  #         inherit.aes = FALSE,
+  #         size = 7,
+  #         hjust = hjust_name,
+  #         vjust = vjust_name) +
+  # #geom_sf_text(data = cps_sf, 
+  #             aes(label = sqrp_total_points_earned), hjust=1) +
+  #geom_sf_text(data = cps_sf, 
+  #             aes(label = school_nm), hjust=0, size =1) +
+  #scale_color_kipp(palette = "kipp_bluegray", 
+  #                 reverse = TRUE, 
+  #                 discrete = discrete,
+  #                 limits = c(point_range$min_points,
+  #                                                 point_range$max_points)) + 
+  scale_fill_kipp(palette = "kipp_bluegray", reverse = TRUE, 
+                  discrete = discrete,
+                  limits = c(point_range$min_points,
+                             point_range$max_points)) + 
+  theme_void() +
+  labs(title = sprintf("%s - GRADIENT for Level 1/1+", neighb))
+}
+
+
+plot_sqpr_map_gradient("Englewood")
+```
+
+```{r Austin}
+plot_sqpr_map("Austin", hjust_name = 0.5, vjust_name = -1.2)
+```
+
+```{r humboldt_park}
+plot_sqpr_map("Humboldt Park", hjust_name = 0.5, vjust_name = -1.2)
+```
+```{r north_lawndale}
+plot_sqpr_map("North Lawndale", hjust_name = 0.5, vjust_name = -1.2)
+
+```
+
+```{r pdf_these}
+cairo_pdf("graphs/sqrp_2019_maps.pdf", onefile = TRUE)
+
+
+plot_sqpr_map("Austin", hjust_name = 0.5, vjust_name = -1.2)
+plot_sqpr_map("Humboldt Park", hjust_name = 0.5, vjust_name = -1.2)
+plot_sqpr_map("North Lawndale", hjust_name = 0.5, vjust_name = -1.2)
+plot_sqpr_map("Englewood")
+
+
+#toner-lines
+plot_sqpr_map("Austin", hjust_name = 0.5, vjust_name = -1.2, map_type = 'toner-lines')
+plot_sqpr_map("Humboldt Park", hjust_name = 0.5, vjust_name = -1.2, map_type = 'toner-lines')
+plot_sqpr_map("North Lawndale", hjust_name = 0.5, vjust_name = -1.2, map_type = 'toner-lines')
+plot_sqpr_map("Englewood", map_type = 'toner-lines')
+
+
+#terrain
+plot_sqpr_map("Austin", hjust_name = 0.5, vjust_name = -1.2, map_type = 'terrain')
+plot_sqpr_map("Humboldt Park", hjust_name = 0.5, vjust_name = -1.2, map_type = 'terrain')
+plot_sqpr_map("North Lawndale", hjust_name = 0.5, vjust_name = -1.2, map_type = 'terrain')
+plot_sqpr_map("Englewood", map_type = 'terrain')
+
+
+
+
+# GRADIENTS 
+# Watercolor
+plot_sqpr_map_gradient("Austin", hjust_name = 0.5, vjust_name = -1.2)
+plot_sqpr_map_gradient("Humboldt Park", hjust_name = 0.5, vjust_name = -1.2)
+plot_sqpr_map_gradient("North Lawndale", hjust_name = 0.5, vjust_name = -1.2)
+plot_sqpr_map_gradient("Englewood")
+
+
+#toner-lines
+plot_sqpr_map_gradient("Austin", hjust_name = 0.5, vjust_name = -1.2, map_type = 'toner-lines')
+plot_sqpr_map_gradient("Humboldt Park", hjust_name = 0.5, vjust_name = -1.2, map_type = 'toner-lines')
+plot_sqpr_map_gradient("North Lawndale", hjust_name = 0.5, vjust_name = -1.2, map_type = 'toner-lines')
+plot_sqpr_map_gradient("Englewood", map_type = 'toner-lines')
+
+
+#terrain
+plot_sqpr_map_gradient("Austin", hjust_name = 0.5, vjust_name = -1.2, map_type = 'terrain')
+plot_sqpr_map_gradient("Humboldt Park", hjust_name = 0.5, vjust_name = -1.2, map_type = 'terrain')
+plot_sqpr_map_gradient("North Lawndale", hjust_name = 0.5, vjust_name = -1.2, map_type = 'terrain')
+plot_sqpr_map("Englewood", map_type = 'terrain')
+
+dev.off()
+
+```
+
+```{r}
+cps_kipp_neihgs_only_sf %>%
+  as_tibble() %>%
+  filter(pri_neigh == "North Lawndale") %>%
+  arrange(desc(sqrp_total_points_earned)) %>%
+  select(School = school_nm, 
+         `SQRP Points` = sqrp_total_points_earned,
+         `SQRP Level` = sy_2019_2020_sqrp_rating) %>%
+  mutate(School = tools::toTitleCase(tolower(School)))
+  
+  
+```
+
+```{r}
+cps_kipp_neihgs_only_sf %>%
+  as_tibble() %>%
+  filter(pri_neigh == "Austin") %>%
+  arrange(desc(sqrp_total_points_earned)) %>%
+  select(School = school_nm, 
+         `SQRP Points` = sqrp_total_points_earned,
+         `SQRP Level` = sy_2019_2020_sqrp_rating) %>%
+  mutate(School = tools::toTitleCase(tolower(School)))
+```
+```{r}
+cps_kipp_neihgs_only_sf %>%
+  as_tibble() %>%
+  filter(pri_neigh == "Humboldt Park") %>%
+  arrange(desc(sqrp_total_points_earned)) %>%
+  select(School = school_nm, 
+         `SQRP Points` = sqrp_total_points_earned,
+         `SQRP Level` = sy_2019_2020_sqrp_rating) %>%
+  mutate(School = tools::toTitleCase(tolower(School)))
+```
+```{r}
+cps_kipp_neihgs_only_sf %>%
+  as_tibble() %>%
+  filter(pri_neigh == "Englewood") %>%
+  arrange(desc(sqrp_total_points_earned)) %>%
+  select(School = school_nm, 
+         `SQRP Points` = sqrp_total_points_earned,
+         `SQRP Level` = sy_2019_2020_sqrp_rating) %>%
+  mutate(School = tools::toTitleCase(tolower(School)))
+```
+```{r ranked_pin}
+ranked_cps <- cps_sf %>% 
+  mutate(type = if_else(kipp, "KIPP Chicago", network),
+         management = if_else(str_detect(type, "Network"), "CPS", type),
+         management = factor(management),
+         management = fct_relevel(management, "KIPP")) %>%
+  arrange(sqrp_total_points_earned, management) %>%
+  mutate(rank = row_number(sqrp_total_points_earned)) 
+
+
+ranked_cps_kipp <- ranked_cps %>% 
+  filter(kipp) %>%
+  mutate(name = case_when(
+    str_detect(school_nm, "ASCEND") ~ "KIPP Ascend",
+    str_detect(school_nm, "ACADEMY") ~ "KIPP Academy",
+    str_detect(school_nm, "BLOOM") ~ "KIPP Bloom",
+    str_detect(school_nm, "ONE") ~ "KIPP One",
+  ))
+
+ranked_cps %>%
+    arrange(sqrp_total_points_earned, management) %>%
+    mutate(rank = row_number(sqrp_total_points_earned)) %>%
+    ggplot(aes(x = rank, y = sqrp_total_points_earned)) +
+    geom_col(aes(fill = management), width = .5) +
+    geom_col(data = ranked_cps_kipp, 
+             aes(fill = management), width = 2) +
+    ggrepel::geom_text_repel(data = ranked_cps_kipp,
+                             aes(label = name, color = management),
+                             ylim = c(5.5), show.legend = FALSE,
+                             direction = "y") +
+    theme_kipp_min() +
+    theme(legend.position = "bottom") +
+    scale_fill_kipp(palette = "kipp_qual") +
+    scale_color_kipp(palette = "kipp_qual") +
+    ylim(0,6.2) +
+    coord_flip() +
+    labs(x = "Rank in District",
+         y = "SQRP Points",
+         fill = "Management Structure")
+
+
+```
+```{r the_map_function_gradient_kipp}
+plot_sqpr_map_kipp_only <- function(neighb = "Englewood", 
+                          map_type = "watercolor", 
+                          zoom_level = 14,
+                          hjust_name = -0.2,
+                          vjust_name= 0.5,
+                          color_column = sqrp_total_points_earned,
+                          discrete = TRUE){
+  
+neigh_bbox <- neighborhoods_sf %>%
+  filter(pri_neigh == neighb) %>%
+  st_coordinates() %>% 
+  as_tibble() %>%
+  make_bbox(lon = X, lat = Y, data = .)
+
+if(neighb == "Austin"){
+  extra_school <-geocode("116 N Leclaire St, Chicago")
+  
+  extra_school<-extra_school %>% 
+    mutate(school_nm = "KIPP Academy Chicago Primary",
+           sy_2019_2020_sqrp_rating = "Level 1+", 
+           sqrp_total_points_earned = 4.4,
+           pri_neigh = neighb,
+           kipp = TRUE) %>%
+    sf::st_as_sf( coords = c('lon', 'lat'))
+  
+  st_crs(extra_school) <- st_crs(cps_kipp_neihgs_only_sf)
+  
+cps_kipp_neihgs_only_sf_2 <- bind_rows(data.frame(cps_kipp_neihgs_only_sf),
+                                   data.frame(extra_school))
+  
+cps_kipp_neihgs_only_sf_2$geometry <- c(cps_kipp_neihgs_only_sf$geometry, 
+                                 extra_school$geometry)
+  
+cps_kipp_neihgs_only_sf  <-st_as_sf(cps_kipp_neihgs_only_sf_2) %>%
+  mutate(sy_2019_2020_sqrp_rating = factor(sy_2019_2020_sqrp_rating, 
+                                           levels = sqrp_order))
+}
+
+
+if(neighb == "North Lawndale"){
+  extra_school <-geocode("1414 S Christiana Ave, Chicago")
+  
+  extra_school<-extra_school %>% 
+    mutate(school_nm = "KIPP Ascend Primary",
+           sy_2019_2020_sqrp_rating = "Level 1", 
+           sqrp_total_points_earned = 3.9,
+           pri_neigh = neighb,
+           kipp = TRUE) %>%
+    sf::st_as_sf( coords = c('lon', 'lat'))
+  
+  st_crs(extra_school) <- st_crs(cps_kipp_neihgs_only_sf)
+  
+cps_kipp_neihgs_only_sf_2 <- bind_rows(data.frame(cps_kipp_neihgs_only_sf),
+                                   data.frame(extra_school))
+  
+cps_kipp_neihgs_only_sf_2$geometry <- c(cps_kipp_neihgs_only_sf$geometry, 
+                                 extra_school$geometry)
+  
+cps_kipp_neihgs_only_sf  <-st_as_sf(cps_kipp_neihgs_only_sf_2) %>%
+  mutate(sy_2019_2020_sqrp_rating = factor(sy_2019_2020_sqrp_rating, 
+                                           levels = sqrp_order))
+}
+
+
+point_range <- cps_kipp_neihgs_only_sf %>%
+            filter(str_detect(sy_2019_2020_sqrp_rating, "1"),
+                   pri_neigh == neighb) %>%
+  as.data.frame %>%
+                     #"neighb"Engle) %>%
+  summarize(max_points = max(sqrp_total_points_earned),
+            min_points = min(sqrp_total_points_earned))
+
+
+
+basemap <- get_stamenmap(bbox = neigh_bbox, 
+                             zoom = zoom_level,
+                             maptype = map_type)
+  
+  
+  
+  
+  ggmap(basemap,
+      base_layer=ggplot(data=neighborhoods_sf %>% 
+                          filter(pri_neigh == neighb),
+                              aes()),
+                             extent="panel",
+                             maprange=TRUE
+      ) +
+  geom_sf(data=neighborhoods_sf %>%
+            filter(pri_neigh != neighb),  
+          inherit.aes = FALSE, 
+          fill = "grey",
+          color = NA,
+          alpha = .5) +
+  geom_sf(data = municipalities, 
+          inherit.aes = FALSE, 
+          fill = "grey",
+          color = NA,
+          alpha = .5) + 
+
+  
+  geom_sf(data=neighborhoods_sf %>% 
+                          filter(pri_neigh == neighb),  
+          inherit.aes = FALSE, 
+          fill = NA) +
+
+  geom_sf(data = cps_kipp_neihgs_only_sf %>%
+            filter(str_detect(sy_2019_2020_sqrp_rating, "1"),
+                   kipp), 
+          aes(#color = {{color_column}},
+              #size = sqrp_total_points_earned
+              ),
+          fill = kipp_colors$darkblue,
+          color = NA,
+          shape = 21, 
+          size = 16,
+          inherit.aes = FALSE,
+          show.legend = FALSE) +
+  geom_sf_text(data = cps_kipp_neihgs_only_sf %>%
+            filter(str_detect(sy_2019_2020_sqrp_rating, "1"),
+                   kipp),
+            # aes(label = fontawesome('fa-building-o')),
+            # family='fontawesome-webfont',
+            aes(label = emoji('school')),
+            family='EmojiOne',
+            color = kipp_colors$lightgray, 
+            size = 9, vjust = .25) +
+  scale_fill_kipp(palette = "kipp_bluegray", reverse = FALSE, 
+                  discrete = discrete) + 
+  theme_void() +
+  labs(title = sprintf("%s - KIPP ONLY", neighb))
+}
+
+
+plot_sqpr_map_kipp_only("Englewood", discrete = TRUE, color_column = sy_2019_2020_sqrp_rating)
+
+```
+```{r}
+cairo_pdf("graphs/sqrp_2019_maps_kipp_only.pdf", onefile = TRUE)
+
+
+plot_sqpr_map_kipp_only("Austin")
+plot_sqpr_map_kipp_only("Humboldt Park")
+plot_sqpr_map_kipp_only("North Lawndale")
+plot_sqpr_map_kipp_only("Englewood")
+
+dev.off()
+```
+
+```{r}
+svglite::svglite("graphs/sqrp_2019_maps_kipp_only_2.svg")
+
+
+plot_sqpr_map_kipp_only("Austin")
+
+dev.off()
+```
+
+

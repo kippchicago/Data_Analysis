@@ -1,0 +1,111 @@
+---
+title: "Census_Demographics"
+params:
+  fileStem: Census_Demographics
+  inputDir: gather/
+  outputDir: gathered/
+  thisDir: gather/
+---
+
+```{r KnitrOpts, echo=FALSE}
+knitr::opts_knit$set(root.dir = normalizePath('../'))
+knitr::opts_chunk$set(echo=TRUE, message=TRUE, warning=TRUE, error=TRUE)
+```
+
+
+First we seet options for caching TIGRIS data, load up packages, and pass our API key for census data.
+```{r set_up}
+options(tigris_use_cache = TRUE)
+options(tigris_class = "sf")
+
+
+library(tidycensus)
+library(tidyverse)
+library(sf)
+require(silounloadr)
+
+api_key <- Sys.getenv("CENSUS_API_KEY")
+census_api_key(api_key)
+
+```
+
+```{r pull_census}
+
+cook <- get_acs(geography = "tract",
+                variables = c(total_hisp    = "B03002_012",
+                              total_white   = "B03002_003",
+                              total_aa      = "B03002_004"),
+                state = "IL",
+                county = "Cook",
+                year = 2016,
+                geometry = TRUE,
+                summary_var = "B03002_001", 
+                cache_table = TRUE)
+
+
+
+
+
+```
+
+Let's graph these map
+```{r}
+cook %>%
+  mutate(pct = estimate/summary_est) %>%
+  ggplot(aes(fill = pct, color =pct)) +
+  geom_sf() +
+  facet_wrap(~variable) +
+  scale_color_viridis_c() +
+  scale_fill_viridis_c()
+  #coord_sf(crs = 26911)
+```
+```{r get_chicago}
+il_places <- tigris::places(state = "IL", cb = TRUE, year = 2016)
+
+chi <-  il_places %>% filter(NAME == "Chicago")
+
+
+ggplot(chi) + geom_sf()
+```
+
+
+Need to reduce Cook County census tracts to those that are within Chicago proper
+```{r reduce_cook_to_chicaog}
+chicago<-cook[chi,]
+
+chi2 <- st_within(cook, chi)
+chi3 <- map_lgl(chi2, function(x){
+  if (length(x) == 1) {
+    TRUE
+  } else {
+    FALSE
+  }
+})
+
+chicago_tracts <- cook[chi3,]
+
+
+ggplot() +
+  geom_sf(data = chicago_tracts) +
+  geom_sf(data = chi, fill = NA, color = "red")
+```
+
+```{r neighborhoods}
+neighborhoods_sf <- sf::read_sf("gather/Boundaries - Neighborhoods.geojson")
+
+ggplot() + 
+  geom_sf(data = chicago_tracts) +
+  geom_sf(data = neighborhoods_sf, fill = NA, color = "red") 
+  
+```
+
+
+```{r ListObjects}
+lstObjects <- represtools::ListObjects(patterns = c("tracts$", "sf$", "chi"))
+represtools::DescribeObjects(represtools::NamesToObjects(lstObjects))
+```
+
+```{r Save}
+save(file = represtools::OutputFile(params)
+     , list = lstObjects)
+```

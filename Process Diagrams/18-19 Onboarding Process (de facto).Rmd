@@ -1,0 +1,232 @@
+---
+title: "18-19 Onboarding Process"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r packages}
+library(DiagrammeR)
+```
+
+From Quelisha:
+1. Jonathon let's Quelisha know about potentional higher
+2. Quelisha sends offer letter via Offer Letter
+3. Informal offer letter acceptance?
+4. Offer Letter signed
+5. Add person to zenefits. 
+
+```{r diagram}
+(x<-mermaid(
+"
+graph LR
+  subgraph HR 
+    DS --> Zen[Add to Zenefits]
+  end
+  subgraph Ops
+    DS[Receive DosuSign]--> uid[Create UID/PWD]
+    uid --> GA[Create Google Acct]
+    GA-->SD[Add to Staff Directory]
+    Zen --> Impact[Create IMPACT Acct]
+    SD --> Impact
+    Impact --> email1(Email creds: DOOs, Tech, Data)
+    email1 --> groups(Add to Google Groups)
+  end
+  
+  
+  
+  subgraph Tech 
+    email1 --> new_mbp{Need new MBP?}
+    new_mbp --yes--> new[Order new MBP] 
+    new_mbp --no--> old[Reimage MBP] 
+    new  --> f5[Install F5]
+    old  --> f5
+    subgraph Set-up MBP
+      f5 -.- securly[Install securly cert]
+      f5 -.- addigy[Install Addigy agent]
+      f5 -.- pdrivers[Install printer drivers]
+    end
+    
+    addigy --> copiers[Add to copiers] 
+    pdrivers --> copiers
+    securly --> copiers
+    copiers --> need_phone{Need extension?}
+    need_phone --yes--> jive[Set-up Jive] 
+    jive --> phone[Set-up phone]
+    need_phone --no--> teacher{Is teacher?}
+    phone --> teacher
+    teacher --yes--> class_tech[Set-up classroom tech]
+    teacher --no--> zendesk[Create Zendesk acct]
+    class_tech --> zendesk
+    zendesk --> assets[Add assets to inventory]
+  end  
+  
+  subgraph Data
+    email1 --> sup(Nec. Systems from manager)
+    sup --> teacher_data{Is teacher?}
+    teacher_data --yes--> leadco(Lead or co) 
+    subgraph Teacher Systems
+      leadco --> ps[Add to powerschool]
+      ps -->  courses(update course)
+      ps --> dl[Add to DeansList]
+      ps --> ill[Add to Illuminate]
+      ps --> edtech[Add to edTech]
+      ill --> takeover{Taking over class?}
+      takeover --yes--> trgb[Transfer Grade Books]
+      takeover --no--> gb[Set-up gradebooks]
+      end
+    teacher_data --no, School Admin--> sadmin(Admin systems)
+    sadmin --> ill
+    sadmin --> dl
+    sadmin --> edtech
+    sadmin --> idea(Add to IDEA)
+    teacher_data --no, Para--> para(Para systems)
+    para --> dl
+    teacher_data --no, Pilsen--> region(Regional Admin)
+    region --> idea
+    region --> ill
+    dl --> gather_creds[Gather credentials]
+    edtech --> gather_creds 
+    trgb --> gather_creds
+    gb --> gather_creds
+    idea --> gather_creds
+  end
+  
+  groups --> creds[share credentials]
+  gather_creds --> creds
+  assets --> deliver(Deliver MBP)
+  groups --> deliver
+  deliver --> creds
+
+  
+  creds --> onboard[Schedule New to KIPP/Tech training]
+  
+  
+               
+               
+               
+"))
+
+```
+
+```{r}
+(x<-mermaid(
+"
+graph TD
+  subgraph HR 
+    DS --> Zen[Add to Zenefits]
+  end
+  
+  subgraph Ops
+    DS[Receive DosuSign]--> uid[Create UID/PWD]
+    uid --> GA[Create Google Acct]
+    GA-->SD[Add to Staff Directory]
+    Zen --> Impact[Create IMPACT Acct]
+    SD --> Impact
+    Impact --> email1(Email creds: DOOs, Tech, Data)
+    email1 --> groups(Add to Google Groups)
+  end
+  
+  
+  
+  subgraph Tech 
+    email1 --> new_mbp{Need new MBP?}
+    new_mbp --yes--> new[Order new MBP] 
+    new_mbp --no--> old[Reimage MBP] 
+    new  --> f5[Install F5]
+    old  --> f5
+    subgraph Set-up MBP
+      f5 -.- securly[Install securly cert]
+      f5 -.- addigy[Install Addigy agent]
+      f5 -.- pdrivers[Install printer drivers]
+    end
+    
+    addigy --> copiers[Add to copiers] 
+    pdrivers --> copiers
+    securly --> copiers
+    copiers --> need_phone{Need extension?}
+    need_phone --yes--> jive[Set-up Jive] 
+    jive --> phone[Set-up phone]
+    need_phone --no--> teacher{Is teacher?}
+    phone --> teacher
+    teacher --yes--> class_tech[Set-up classroom tech]
+    teacher --no--> zendesk[Create Zendesk acct]
+    class_tech --> zendesk
+    zendesk --> assets[Add assets to inventory]
+  end  
+  
+  subgraph Data
+    email1 --> sup(Nec. Systems from manager)
+    sup --> teacher_data{Is teacher?}
+    teacher_data --yes--> leadco(Lead or co) 
+    subgraph Teacher Systems
+      leadco --> ps[Add to powerschool]
+      ps -->  courses(update course)
+      ps --> dl[Add to DeansList]
+      ps --> ill[Add to Illuminate]
+      ps --> edtech[Add to edTech]
+      ill --> takeover{Taking over class?}
+      takeover --yes--> trgb[Transfer Grade Books]
+      takeover --no--> gb[Set-up gradebooks]
+      end
+    teacher_data --no, School Admin--> sadmin(Admin systems)
+    sadmin --> ill
+    sadmin --> dl
+    sadmin --> edtech
+    sadmin --> idea(Add to IDEA)
+    teacher_data --no, Para--> para(Para systems)
+    para --> dl
+    teacher_data --no, Pilsen--> region(Regional Admin)
+    region --> idea
+    region --> ill
+    dl --> gather_creds[Gather credentials]
+    edtech --> gather_creds 
+    trgb --> gather_creds
+    gb --> gather_creds
+    idea --> gather_creds
+  end
+  
+  groups --> creds[share credentials]
+  gather_creds --> creds
+  assets --> deliver(Deliver MBP)
+  groups --> deliver
+  deliver --> creds
+
+  
+  creds --> onboard[Schedule New to KIPP/Tech training]
+  
+  
+               
+               
+               
+"))
+```
+
+```{r sequence}
+mermaid("
+  sequenceDiagram
+    participant talent as Talent
+    participant hr as hr
+    participant o as Ops
+    participant t as Tech
+    participant d as Data
+    participant s as School
+    
+    
+    talent->>hr: Notify Potential hire
+    Note right of hr: Add to Zenefits
+    hr ->>+ o: Email ops
+    
+    Note right of o: Create UID/PWD
+    Note right of o: Create Google Acct
+    Note right of o: Add to staff directory
+    
+    
+    
+    
+        
+")
+```
+

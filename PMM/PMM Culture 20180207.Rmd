@@ -1,0 +1,314 @@
+---
+title: "2018-02-07 PMM Culture"
+output: html_notebook
+---
+
+## Package set-up
+
+We are pulling and visualizing DeansList Data, so we need `silounloadr` and `tidyverse` packages
+```{r set-up}
+library(silounloadr)
+library(tidyverse)
+library(lubridate)
+library(kippcolors)
+```
+
+## Getting DL Data
+
+This should be a straightforward pull from BW:
+
+```{r get_dl_data}
+dl_incidents <-get_deanslist(table_name = "incidents")
+dl_behaviors <-get_deanslist("behaviors")
+
+glimpse(dl_behaviors)
+
+```
+
+We'll need PS data to match students to grade and homeroom
+```{r}
+ps_students <- get_powerschool("students")
+
+glimpse(ps_students)
+
+students <- ps_students %>%
+  select(studentid = student_number, home_phone, grade_level, schoolid) %>%
+  collect()
+
+```
+
+
+
+Let's focus on behaviors for now, since we don't normally for PMM.
+```{r}
+behaviors<-dl_behaviors %>%  
+  select(studentid = studentschoolid,
+         schoolname,
+         behaviordate, 
+         behavior,
+         behaviorcategory,
+         pointvalue,
+         stafffirstname,
+         stafflastname, 
+         ) %>%
+  filter(behaviordate >= '2017-08-15 00:00') %>%
+  collect()
+
+```
+```{r}
+
+behaviors_stus <- students %>%
+  inner_join(behaviors, by = 'studentid')
+
+behav_summary <- behaviors_stus %>%
+  mutate(weekdate = floor_date(behaviordate, unit = 'week')) %>%
+  filter(behaviorcategory != "Character Strengths") %>%
+  group_by(schoolname, grade_level, weekdate) %>%
+  summarize(count = n(),
+            total_deductions = -1*sum(pointvalue),
+            avg_deductions = mean(-1*pointvalue)) %>%
+  filter(count >= 5) %>%
+  mutate(school = abbreviate(schoolname, minlength = 3L)
+         )
+```
+
+
+```{r}
+
+symbol_size = 1
+behav_summary %>%
+  filter(grade_level > 4) %>%
+ggplot(aes(x=weekdate, y = total_deductions)) +
+  geom_point(aes(color = total_deductions), size = symbol_size) +
+  geom_segment(aes(xend = weekdate, yend=0, color = total_deductions), size = symbol_size) +
+  facet_wrap(~ school  + grade_level) +
+  theme_kipp_light() +
+  scale_color_kipp(discrete = FALSE) +
+  labs(x = "Week",
+       y = "Total Deductions",
+       color = "Total Deductions")
+```
+
+```{r}
+symbol_size = 1
+behav_summary %>%
+  filter(grade_level > 4) %>%
+ggplot(aes(x=weekdate, y = count)) +
+  geom_point(aes(color = count), size = symbol_size) +
+  geom_segment(aes(xend = weekdate, yend=0, color = count), size = symbol_size) +
+  facet_wrap(~ school  + grade_level) +
+  theme_kipp_light() +
+  scale_color_kipp(discrete = FALSE) +
+  labs(x = "Week",
+       y = "Count of Deductions",
+       color = "Count of Deductions")
+```
+
+```{r}
+symbol_size = 1
+behav_summary %>%
+  filter(grade_level > 4) %>%
+ggplot(aes(x=weekdate, y = avg_deductions)) +
+  geom_point(aes(color = avg_deductions), size = symbol_size) +
+  geom_segment(aes(xend = weekdate, yend=0, color = avg_deductions), size = symbol_size) +
+  facet_wrap(~ school  + grade_level) +
+  theme_kipp_light() +
+  scale_color_kipp(discrete = FALSE) +
+  labs(x = "Week",
+       y = "Avg Deduction",
+       color = "Avg Deduction")
+```
+
+# Transfers
+
+Let's start rethinking visuals and tables for this (pulling this code from IDEA)
+```{r transfer_helper_functions}
+
+force_weekday <- function(date, offset = 0) {
+
+  date <- lubridate::ymd(date)
+
+  if(lubridate::wday(date) == 1) date <- date + lubridate::days(1 + offset) # Sunday
+  if(lubridate::wday(date) == 7)  date <- date + lubridate::days(2 + offset) # Saturday
+
+  # return
+  date
+
+}
+
+# Get membership on a given date
+
+get_membership_on_date <- function(con, date, offset = 0) {
+
+  # Ensure date is a weekday and then format
+  date <- force_weekday(date, offset)
+
+  #format date to YYYY-MM-DD
+  date <- lubridate::parse_date_time(date, "ymd")
+  date_formatted <- format(date, "%Y-%m-%d")
+
+  qry <- sprintf(
+          "SELECT * FROM membership WHERE CALENDARDATE = '%s'",
+          date_formatted
+         )
+
+  # return
+  tbl(con, sql(qry))
+
+
+
+
+
+}
+
+
+
+# add schools' names
+school_names <- function(school_number, as_factor = TRUE){
+
+  names_lookup <- function(x) {
+    switch(as.character(x),
+           "78102" = "KAP",
+           "7810" = "KAMS",
+           "400146" = "KCCP",
+           "400163" = "KBCP",
+           "4001802" = "KOP",
+           "400180" = "KOA")
+  }
+  out <- vapply(school_number, FUN = names_lookup, "character")
+  if(as_factor) out <- factor(out, levels = c("KAP", "KAMS", "KCCP", "KBCP", "KOP", "KOA"))
+
+  out
+
+}
+
+```
+
+```{r get_transfers}
+
+
+
+
+students <-get_ps("students")
+
+hsr_dates <- c(ymd("171002"), ymd("161004"), ymd("151001"))
+
+
+membs_list <- hsr_dates %>%
+  map(~get_membership_on_date(silo_dbname_ps_mirror, .) %>%
+  collect())
+
+enrolled <- bind_rows(membs_list)
+
+names(enrolled) <- tolower(names(enrolled))
+
+students <- collect(students)
+
+names(students) <- tolower(names(students))
+```
+
+```{r transfer_processing}
+enrolled_2 <- enrolled %>%
+  left_join(students, by = c("studentid"="id")) %>%
+  mutate(
+    date_start =  ymd_hms(calendardate),
+    date_end = date_start + years(1),
+    sy = sprintf("%s-%s",
+                 year(date_start),
+                 year(date_end)),
+    transferred = (!is.na(exitcode) &
+                     exitcode != "GR" &
+                     ymd_hms(exitdate) < date_end),
+    exit_date = ymd_hms(ifelse(ymd_hms(exitdate) >= date_end, NA, exitdate)),
+    exit_month = month(ymd_hms(exitdate),label = TRUE, abbr = TRUE)
+    )
+
+
+transfers_by_day <- enrolled_2 %>%
+  group_by(sy, schoolid.x,  exit_date) %>%
+  summarize(transfers = sum(transferred)) %>%
+  group_by(sy, schoolid.x) %>%
+  mutate(cum_transfers = dplyr::order_by(
+    exit_date,
+    cumsum(as.integer(transfers))))
+
+transfers_by_day_by_code <- enrolled_2 %>%
+  filter(transferred) %>%
+  group_by(sy, schoolid.x,  exit_date, exitcode) %>%
+  summarize(transfers = sum(transferred)) %>%
+  group_by(sy, schoolid.x, exitcode) %>%
+  mutate(cum_transfers = dplyr::order_by(
+    exit_date,
+    cumsum(as.integer(transfers))))
+
+transfers_by_month <- transfers_by_day %>%
+  mutate(exit_month = month(exit_date, label = TRUE, abbr = TRUE)) %>%
+  group_by(sy, schoolid.x, exit_month) %>%
+  summarize(
+    date = max(exit_date),
+    transfers = sum(transfers),
+    cum_transfers = max(cum_transfers))
+
+transfers_by_month_by_code <- transfers_by_day_by_code %>%
+  mutate(exit_month = month(exit_date, label = TRUE, abbr = TRUE)) %>%
+  group_by(sy, schoolid.x, exit_month, exitcode) %>%
+  summarize(
+    date = max(exit_date),
+    transfers = sum(transfers),
+    cum_transfers = max(cum_transfers))
+
+
+transfer_order <- c("Dropped Out", "Expelled", "Behavior/Discipline", "Academics", "Avoid Retention", "Special Needs", "Other", "Don't Know", "Xfer Other KIPP", "Transport", "Moved")
+
+transfer_reasons<-data_frame(exitcode=as.character(c(1:11)),reason=c("Dropped Out", "Moved", "Transport", "Expelled", "Behavior/Discipline", "Academics", "Avoid Retention", "Special Needs", "Other", "Don't Know", "Xfer Other KIPP"))
+
+transfer_reasons <- transfer_reasons %>%
+  mutate(reason = factor(reason, levels = transfer_order, ordered = TRUE))
+
+month_order <- c("Oct", "Nov", "Dec", "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep")
+
+month_factor <- factor(month_order, levels = month_order, ordered = TRUE)
+
+scaffold <- expand.grid(sy = unique(transfers_by_day_by_code$sy),
+                        schoolid.x = unique(transfers_by_day_by_code$schoolid.x),
+                        exit_month = month_factor,
+                        exitcode = unique(transfers_by_day_by_code$exitcode),
+                        stringsAsFactors = FALSE)
+
+
+transfers_by_month_2 <- scaffold %>%
+  left_join(transfers_by_month_by_code, by =c("sy", "schoolid.x", "exit_month", "exitcode")) %>%
+  left_join(transfer_reasons, by="exitcode")%>%
+  group_by(sy, schoolid.x,  exitcode) %>%
+  mutate(cum_transfers_2 = as.integer(zoo::na.locf(cum_transfers, na.rm = FALSE)),
+         month = factor(exit_month, levels = month_order, ordered=  TRUE)) %>%
+  ungroup() %>%
+  mutate(sy = factor(sy, levels = rev(unique(sy)), ordered = TRUE),
+         school_name = school_names(schoolid.x)
+         ) %>%
+  arrange(sy, school_name, month, desc(reason))
+
+
+
+transfer_goals <- enrolled %>%
+  group_by(schoolid, calendardate) %>%
+  summarize(N = n()) %>%
+  mutate(yearly_goal = round(.1 * N),
+         monthly_goal = yearly_goal/12,
+         sy2 = sprintf("%s-%s",
+                      year(ymd_hms(calendardate)),
+                      year(ymd_hms(calendardate))+1),
+         sy = factor(sy2, levels=rev(unique(sy2)), ordered = TRUE),
+         schoolid.x=schoolid,
+         school_name = school_names(schoolid)
+  )
+```
+
+
+```{r}
+View(transfers_by_month_2)
+
+transfer_goals 
+
+```
+

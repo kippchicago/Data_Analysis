@@ -1,0 +1,208 @@
+---
+title: "TNTP roll-up for other KIPP Regions"
+output: html_notebook
+params:
+  tntp_file: "data/Other Regions/Fall 2017 KIPP MN_Teacher Survey School Sorter.xlsx"
+---
+
+```{r setup}
+
+
+library(forcats)
+library(tidyverse)
+library(janitor)
+library(viridis)
+library(kippcolors)
+library(readxl)
+library(zoo)
+library(stringr)
+
+#source('munge/tntp_excel_to_tidy_170530.R')
+#source('../munge/tntp_excel_to_tidy_1701220.R')
+
+#source('../lib/helpers.R')
+```
+
+
+```{r read_data}
+
+
+tntp_f17 <- read_tntp_school_sorter(params$tntp_file)
+
+domains <- unique(tntp_f17$domain)[-1] #drops Sample Size
+
+region_name <- str_replace(params$tntp_file,
+                           "(.+\\/)(Fall\\s|Spring\\s)(\\d{4}\\s)(KIPP\\s.+)(_.+)", "\\4")
+
+```
+
+
+
+## Tile Plots
+
+```{r}
+tntp_domains <- tntp_f17 %>%
+  filter(domain %in% domains,
+         !grepl("Grade Level", school)) %>%
+  mutate(
+         abbrev = mapvizieR::abbrev(school,
+                                    exceptions = list(old = "KAPS",
+                                                      new = "KAP")))
+
+
+tntp_domains$school %>% unique()
+
+tntp_domains_kipp_tq <- tntp_domains %>% 
+  filter(stringr::str_detect(school, "Top Quartile"))
+
+tntp_domains_kipp_avg <- tntp_domains %>% 
+  filter(stringr::str_detect(school, "KIPP Network Average"))
+
+tntp_domains_kipp_kcs <- tntp_domains %>% 
+  filter(!stringr::str_detect(school, "Top Quartile|KIPP Network Average"))
+
+
+# Need to redeuce to single score for each domeain then inner_join by col index ####
+tntp_tile_data <- tntp_domains_kipp_kcs %>%
+  filter(stringr::str_detect(prompt,
+                             "Score|Current Instructional Culture Index|compensated fairly|my workload|\\% of teachers planning to leave this year or next year"),
+         !is.na(value)) %>%
+  filter(!str_detect(prompt, "Effective")) %>%
+  inner_join(tntp_domains_kipp_tq %>%
+               select(col_index,
+                      value_tq_avg = value),
+             by = "col_index") %>%
+  inner_join(tntp_domains_kipp_avg %>%
+               select(col_index,
+                      value_kn_avg = value),
+             by = "col_index") %>%
+  mutate(score = (value>=value_kn_avg) + (value>=value_tq_avg),
+         domain = forcats::fct_inorder(str_pad(str_wrap(domain, width = 10), side = "both", width=1)),
+         schools3 = if_else(str_detect(abbrev, "KRK.+"), "Region", abbrev),
+         value_text = if_else(value < 1.00, 
+                              sprintf("%s%%", as.character(round(value*100))),
+                              as.character(round(value,1)))
+  )
+
+ggplot(tntp_tile_data, aes(x=as.factor(0), y=as.factor(0))) +
+  geom_tile(aes(fill = as.factor(score)), color = "white", size = 2) +
+  facet_grid(schools3 ~ domain, switch="y") +
+  theme_linedraw() +
+  theme(axis.text =  element_blank(),
+        axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        panel.border = element_blank(),
+        panel.grid = element_blank(),
+        panel.background = element_blank(),
+        strip.text.x = element_text(size = 10),
+        strip.text.y = element_text(angle = 180,
+                                    size = 10),
+        legend.position = "bottom") +
+  scale_fill_manual("KIPP Chicago score is:", values = c(scales::muted("red"), "#BCD631","#439539"),
+                    labels = c("< Network Avg", "≥ Network Avg", "≥ Top Quartile Avg "))
+
+
+```
+```{r gray-green-greener}
+
+ggplot(tntp_tile_data, aes(x=as.factor(0), y=as.factor(0))) +
+  geom_tile(aes(fill = as.factor(score)), color = "white", size = 2) +
+  facet_grid(schools3 ~ domain, switch="y") +
+  theme_linedraw() +
+  theme(axis.text =  element_blank(),
+        axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        panel.border = element_blank(),
+        panel.grid = element_blank(),
+        panel.background = element_blank(),
+        strip.text.x = element_text(size = 10),
+        strip.text.y = element_text(angle = 180,
+                                    size = 10),
+        legend.position = "bottom") +
+  scale_fill_manual("KIPP Chicago score is:", values = c("lightgray", "#BCD631","#439539"),
+                    labels = c("< Network Avg", "≥ Network Avg", "≥ Top Quartile Avg "))
+
+
+```
+
+```{r brown-green-greener}
+
+ggplot(tntp_tile_data, aes(x=as.factor(0), y=as.factor(0))) +
+  geom_tile(aes(fill = as.factor(score)), color = "white", size = 2) +
+  facet_grid(schools3 ~ domain, switch="y") +
+  theme_linedraw() +
+  theme(axis.text =  element_blank(),
+        axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        panel.border = element_blank(),
+        panel.grid = element_blank(),
+        panel.background = element_blank(),
+        strip.text.x = element_text(size = 10),
+        strip.text.y = element_text(angle = 180,
+                                    size = 10),
+        legend.position = "bottom") +
+  scale_fill_manual("KIPP Chicago score is:", values = c("#C49A6C", "#BCD631","#439539"),
+                    labels = c("< Network Avg", "≥ Network Avg", "≥ Top Quartile Avg "))
+
+
+```
+```{r blue-green-greener}
+
+ggplot(tntp_tile_data, aes(x=as.factor(0), y=as.factor(0))) +
+  geom_tile(aes(fill = as.factor(score)), color = "white", size = 2) +
+  facet_grid(schools3 ~ domain, switch="y") +
+  theme_linedraw() +
+  theme(axis.text =  element_blank(),
+        axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        panel.border = element_blank(),
+        panel.grid = element_blank(),
+        panel.background = element_blank(),
+        strip.text.x = element_text(size = 8),
+        strip.text.y = element_text(angle = 180,
+                                    size = 10),
+        legend.position = "bottom") +
+  scale_fill_manual("KIPP Chicago score is:", values = c("#A7CFEE", "#BCD631","#439539"),
+                    labels = c("< Network Avg", "≥ Network Avg", "≥ Top Quartile Avg "))
+
+
+```
+
+```{r blue_green_plus_data}
+p <- ggplot(tntp_tile_data, aes(x=as.factor(0), y=as.factor(0))) +
+  geom_tile(aes(fill = as.factor(score)), color = "white", size = 2) +
+  geom_text(aes(label = value_text), color = 'white', size = 4) +
+  facet_grid(schools3 ~ domain, switch="y") +
+  theme_linedraw() +
+  theme(axis.text =  element_blank(),
+        axis.ticks = element_blank(),
+        axis.title = element_blank(),
+        panel.border = element_blank(),
+        panel.grid = element_blank(),
+        panel.background = element_blank(),
+        strip.text.x = element_text(size = 6),
+        strip.text.y = element_text(angle = 180,
+                                    size = 10),
+        legend.position = "bottom") +
+  scale_fill_manual(values = c("#A7CFEE", "#BCD631","#439539"),
+                    labels = c("< Network Avg", "≥ Network Avg", "≥ Top Quartile Avg")) +
+  labs(fill = sprintf("%s score is:", region_name),
+       caption = "Note: Some scores given as index scores; others given as percent of teachers (marked with % sign)",
+       title = sprintf("TNTP Teacher Survey Top line Scores for %s", region_name))
+
+p
+```
+
+```{r save_to_pdf}
+
+file_name <- sprintf("reports/Fall_2017_TNTP_Teacher_Roll_up_%s_%s.pdf", 
+                     region_name, 
+                     lubridate::today())
+
+cairo_pdf(filename = file_name, width = 10.75, height = 4)
+  p
+dev.off()
+
+
+```
+

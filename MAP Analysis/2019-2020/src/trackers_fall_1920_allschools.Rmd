@@ -1,0 +1,460 @@
+---
+title: "Fall 2019-2020 MAP Trackers"
+output: html_notebook
+---
+
+Load packages 
+```{r packages}
+library(tidyverse)
+library(silounloadr)
+
+library(mapvizieR)
+library(purrr)
+library(xlsx)
+library(janitor)
+```
+
+Paramters adn functions are set here
+```{r paramaters}
+todays_date<-lubridate::today()
+
+sy <- calc_academic_year(todays_date, format = "second_year")
+sy_short <- stringr::str_extract(sy, "\\d{2}$")
+#sy <- 2018
+#school <- 'KCCP'
+suppress_kinder <- FALSE
+subjs <- c("Reading", "Mathematics")
+```
+
+And local functions are here:
+
+```{r local_functions}
+# Function to separte combined cdf to roster and results
+separate_cdf <- function(combinded_cdf, district_name = "Not provided"){
+  ar_names <- names(ex_CombinedAssessmentResults) %>% tolower()
+  stu_names <- names(ex_CombinedStudentsBySchool) %>% tolower()
+
+  if (!"districtname" %in% tolower(names(combinded_cdf))) {
+    combinded_cdf <- combinded_cdf %>% mutate_(districtname = ~district_name)
+  }
+
+  roster<-combinded_cdf %>%
+    select_(.dots = stu_names) %>%
+    unique
+
+  cdf<-combinded_cdf %>% select(-studentlastname:-studentfirstname,
+                                -studentmi:-studentgender,
+                                -grade) %>%
+    mutate(testid=as.character(testid))
+
+  out <- list(cdf = cdf,
+              roster = roster)
+
+}
+```
+
+And now we pull down our data
+
+```{r}
+nwea <- get_nwea_map("cdf_combined_kipp_cps")
+
+
+#pull_terms <- list("Spring 2016-2017", "Fall 2017-2018", "Winter 2017-2018")
+
+pull_terms <- list("Spring 2018-2019")
+  #get_nwea(table_name = "MAP$comprehensive#plus_cps")
+nwea_2 <-pull_terms %>%
+  map_df(~ {nwea %>% 
+              filter(term_name == .x) %>%
+              collect(allowLargeResults = TRUE)
+            }
+         )
+
+old_names <- names(nwea_2)
+new_names <- old_names %>% stringr::str_replace_all("_", "")
+names(nwea_2) <- new_names
+
+nwea<-nwea_2 %>% select(-ClassName, -TeacherName) %>% 
+   mutate(teststartdate = lubridate::ymd(teststartdate), 
+          teststarttime = lubridate::hms(teststarttime)) %>%
+  mutate(teststarttime = as.character(teststarttime) %>% stringr::str_replace_all('[HM]\\W', ":") %>% stringr::str_replace("S", ""),
+         teststartdate = as.character(teststartdate)) %>% 
+  distinct()
+
+  
+
+nwea <- nwea %>%
+  #filter(grepl("Create", SchoolName)) %>%
+  mutate(grade=as.integer(ifelse(grade=="K", 0, grade)),
+         measurementscale=ifelse(measurementscale=="Science - General Science",
+                                 "General Science",
+                                 measurementscale)
+  )
+
+# get students
+
+current_ps_roster <- get_powerschool("students")
+
+current_ps_roster <- current_ps_roster %>%
+  filter(enroll_status == 0) %>%
+  collect()
+
+current_ps_roster <- current_ps_roster %>%
+  clean_names() %>%
+  select(studentid = student_number,
+         studentlastname = last_name,
+         studentfirstname = first_name,
+         schoolid,
+         grade_level,
+         home_room)
+
+current_stus_non_k<-current_ps_roster %>% filter(grade_level != 0) %>%
+  select(studentid, current_grade = grade_level)
+
+# Get spring
+# map_spring <- map_all_silo %>%
+#   filter(TermName=="Spring 2014-2015",
+#          MeasurementScale %in% subjs,
+#          StudentID %in% current_stus_non_k$StudentID) %>%
+#   mutate(Current_Grade=Grade+1,
+#          Orignal_Score=TestRITScore,
+#          Original_Percentile=TestPercentile,
+#          Original_Term = "Spring 2015",
+#          Fall_as_Spring = FALSE)
+
+last_spring <- sprintf("Spring %s-%s", sy-2, sy-1)
+this_fall <- sprintf("Fall %s-%s", sy-1, sy)
+this_winter <- sprintf("Winter %s-%s", sy-1, sy)
+
+map_spring <- nwea %>%
+  filter(termname==last_spring,
+         measurementscale %in% subjs) %>%
+  inner_join(current_stus_non_k, by = "studentid") %>%
+  mutate(
+    Orignal_Score=testritscore,
+    Original_Percentile=testpercentile,
+    Original_Term = sprintf("Spring %s", sy-1),
+    Fall_as_Spring = FALSE)
+# find current students with missing spring scores ###
+
+
+current_stus_no_spring <- map_spring %>%
+  split(.$measurementscale) %>%
+  map(~anti_join(current_ps_roster,
+                 .,
+                 by=c("studentid")
+  ) %>%
+    mutate(measurementscale = unique(.x$measurementscale)) %>%
+    select(studentid, measurementscale) %>%
+    unique) %>%
+  bind_rows
+
+# Get fall
+map_fall <- nwea %>%
+  filter(termname==this_fall,
+         grade != 0,
+         measurementscale %in% subjs) %>%
+  inner_join(current_stus_no_spring,
+             by = c("studentid", "measurementscale")) %>%
+  mutate(Current_Grade=grade,
+         Orignal_Score=testritscore,
+         Original_Percentile=testpercentile,
+         Original_Term = sprintf("Fall %s", sy-1),
+         Fall_as_Spring = TRUE,
+         termname = last_spring)
+
+# get fall kinder
+# current_stus_kinder<-current_ps_roster %>%
+#   filter(grade_level == 0) %>%
+#   select(studentid)
+# 
+# map_fall_kinder <- nwea %>%
+#   filter(termname==this_fall,
+#          measurementscale %in% subjs,
+#          studentid %in% current_stus_kinder$studentid
+#   ) %>%
+#   mutate(Current_Grade=grade,
+#          Orignal_Score=testritscore,
+#          Original_Percentile=testpercentile,
+#          Original_Term = sprintf("Fall %s", sy-1),
+#          Fall_as_Spring = NA,
+#          CPS_Imputed = NA)
+# 
+
+
+# Check if spring is na.  If so updated Fall_as_Spring indicator.
+#If Fall_as_Spring==T then update TestRITScore to Fall Score
+# NEW if KAP 5 Then updated Fall_as_Spring to FALSE, update
+# Imputed_from_Fall to TRUE and filter those students, ipmute for
+# math and reading, bind, then join
+
+map_fall_reading <-  map_fall %>%
+  filter(measurementscale == "Reading") %>%
+  mutate(testritscore = as.integer(sqrpr::cps_equate(testritscore, measurementscale, grade)),
+         CPS_Imputed = TRUE,
+         grade = grade -1)
+
+map_fall_math <-  map_fall %>%
+  filter(measurementscale == "Mathematics") %>%
+  mutate(testritscore = as.integer(sqrpr::cps_equate(testritscore, measurementscale, grade)),
+         CPS_Imputed = TRUE,
+         grade = grade -1)
+
+
+map_joined <- dplyr::bind_rows(map_spring %>%
+                                  mutate(CPS_Imputed = FALSE),
+                                map_fall_reading,
+                                map_fall_math
+                               ) %>%
+  group_by(studentid, termname) %>%
+  filter(grade == min(grade)) %>% #need to remove retained students
+  ungroup
+```
+
+
+Calculating stuff
+```{r}
+
+cdf <- separate_cdf(map_joined, "KIPP Chicago")
+
+# add missing columns 
+cdf$cdf <- cdf$cdf %>% 
+  mutate(goal7name = NA, 
+         goal7ritscore = NA, 
+         goal7stderr = NA, 
+         goal7range = NA, 
+         goal7adjective = NA, 
+         goal8name = NA, 
+         goal8ritscore = NA, 
+         goal8stderr = NA, 
+         goal8range = NA, 
+         goal8adjective = NA, 
+         projectedproficiencystudy3 = NA, 
+         projectedproficiencylevel3 = NA)
+
+map_mv<-mapvizieR(cdf = cdf$cdf, roster = cdf$roster)
+
+# cdf_k <- separate_cdf(map_fall_kinder %>% 
+#                         mutate(teststarttime = as.character(teststarttime),
+#                                goal7name = NA, 
+#                                goal7ritscore = NA, 
+#                                goal7stderr = NA, 
+#                                goal7range = NA, 
+#                                goal7adjective = NA, 
+#                                goal8name = NA, 
+#                                goal8ritscore = NA, 
+#                                goal8stderr = NA, 
+#                                goal8range = NA, 
+#                                goal8adjective = NA, 
+#                                projectedproficiencystudy3 = NA, 
+#                                projectedproficiencylevel3 = NA), "KIPP Chicago")
+#  
+# map_mv_k<-mapvizieR(cdf = cdf_k$cdf, roster = cdf_k$roster)
+
+
+# reudce growth to just "start_only terms"
+growth_df <- map_mv$growth_df %>% as.data.frame() %>%
+  filter(match_status == "only start") %>%
+  inner_join(map_mv$cdf %>% select(testid,
+                                   current_grade:cps_imputed,
+                                   testedatkipp),
+             by=c("start_testid" = "testid")) %>%
+  inner_join(map_mv$roster, by = c("studentid"))
+
+
+# growth_df_k <- map_mv_k$growth_df %>%
+#   filter(match_status == "only start",
+#          growth_window == "Fall to Spring") %>%
+#   inner_join(map_mv_k$cdf %>% select(testid,
+#                                      current_grade:cps_imputed,
+#                                      testedatkipp),
+#              by=c("start_testid" = "testid")) %>%
+#   inner_join(map_mv_k$roster, by = c("studentid"))
+
+
+  # growth_df_joined <- current_ps_roster %>%
+  #  left_join(bind_rows(growth_df, growth_df_k),
+  #            by = c("studentid" = "studentid"))
+
+growth_df_joined <- current_ps_roster %>%
+ left_join(growth_df,
+            by = c("studentid"))
+```
+
+
+Update school names
+```{r school_names}
+school_names <- data.frame(schoolid=c(78102, 7810, 4001462, 400146, 4001632, 400163, 4001802, 400180),
+                           School = c("KIPP Ascend Primary School",
+                                          "KIPP Ascend Middle School",
+                                          "KIPP Academy Chicago Primary",
+                                          "KIPP Academy Chicago",
+                                          "KIPP Bloom Primary",
+                                          "KIPP Bloom College Prep",
+                                          "KIPP One Primary",
+                                          "KIPP One Academy"
+                                          )
+)
+
+
+growth_df_joined <- growth_df_joined %>% left_join(school_names, by = "schoolid")
+
+# growth_df_joined$schoolname<-
+#   school_names$schoolname[match(growth_df_joined$schoolid,
+#                                 school_names$schoolid)]
+
+```
+
+Now we prep the mapvizier file to take get ready for the excel maniuplation (i.e., getting kids with goals and results all lined up)
+
+```{r}
+map_growth_final_1<-growth_df_joined %>%
+  mutate(
+    #Goal = ifelse(Current_Grade==0, R42, R22),
+    TypicalGrowth_Spring=start_testritscore + reported_growth,
+    TieredGrowth_Spring= start_testritscore + accel_growth,
+    TypicalGrowth_Winter=start_testritscore + round(reported_growth/2),
+    TieredGrowth_Winter=start_testritscore + round(accel_growth/2),
+    SchoolInitials = abbrev(School, exceptions = list(old ="KAPS", new="KAP")),
+    #Fall_Score = ifelse(original_term == "Fall 2015", orignal_score, NA),
+    Fall_Score = orignal_score,
+    Fall_as_Spring = fall_as_spring) %>%
+  select(SchoolInitials,
+         MeasurementScale = measurementscale.x,
+         Grade=grade_level,
+         StudentID=studentid,
+         StudentFirstName = studentfirstname.x,
+         StudentLastName = studentlastname.x,
+         Spring_Score = start_testritscore,
+         Fall_Score,
+         TypicalGrowth_Winter,
+         TieredGrowth_Winter,
+         TypicalGrowth_Spring,
+         TieredGrowth_Spring,
+         Fall_as_Spring,
+         Tested_at_KIPP = testedatkipp,
+         CPS_imputed = cps_imputed
+         #,Spring_Imputed
+
+  ) %>%
+  mutate(Spring_Score = ifelse(Grade==0, NA, Spring_Score)) %>% # fix for kinder
+  arrange(SchoolInitials, MeasurementScale, Grade, StudentLastName, StudentFirstName)
+
+
+# get original fall scores
+
+map_fall_actual <- nwea %>%
+  filter(termname==this_fall,
+         measurementscale %in% subjs) %>%
+  select(StudentID = studentid,
+         MeasurementScale = measurementscale,
+         Fall_RIT = testritscore)
+
+map_growth_final<-map_growth_final_1 %>%
+  left_join(map_fall_actual %>%
+              select(StudentID,
+                     MeasurementScale,
+                     Fall_RIT),
+            by = c("StudentID", "MeasurementScale")) %>%
+  mutate(Fall_Score = Fall_RIT) %>%
+  select(-Fall_RIT, -StudentID) %>%
+  arrange(SchoolInitials, MeasurementScale, Grade, StudentLastName, StudentFirstName) %>%
+  unique
+
+
+todays_date<-format(lubridate::today(), "%y%m%d")
+readr::write_csv(map_growth_final, path=paste0("../reports/Tracker_",todays_date,".csv"), na="")
+```
+
+## Excel Manipulation
+
+This is where the magic happens.  The excel templates must have tabs for each grade subject. 
+
+```{r fill_in_excel_templates}
+schools <- map_growth_final$SchoolInitials %>% unique
+#schools <- "KBCP"
+#schools <- "KOA"
+for(school in schools) {
+
+  file_in <- sprintf("../Trackers/templates/MAP Tracker - SY%s %s.xlsx", sy_short, school)
+  xls_wb<-loadWorkbook(file=file_in)
+  sheets<-getSheets(xls_wb)
+
+  map_school<-
+    map_growth_final %>%
+    filter(SchoolInitials==school,
+           !is.na(MeasurementScale))
+
+  for (subj in unique(map_school$MeasurementScale)){
+    map_subj<-map_school %>% filter(MeasurementScale==subj)
+    for(gr in unique(map_subj$Grade)){
+
+      map_out <- map_subj %>%
+        filter(Grade==gr)
+
+
+
+      subj<-ifelse(subj=="General Science", "Science", subj)
+      sheet_name <- paste(school, gr, subj)
+
+      message(paste("Getting sheet:", sheet_name))
+      sheet<-sheets[[sheet_name]]
+
+      message("Adding name, spring and fall scores and winter goals")
+      addDataFrame(map_out %>%
+                     dplyr::select(StudentFirstName,
+                            StudentLastName,
+                            Spring_Score,
+                            Fall_Score,
+                            TypicalGrowth_Winter,
+                            TieredGrowth_Winter
+                     ) %>%
+                     as.data.frame(),
+                   sheet=sheet,
+                   col.names=FALSE,
+                   row.names=FALSE,
+                   startRow=4,
+                   startColumn=1
+      )
+
+
+      message("Adding spring goals")
+      addDataFrame(map_out %>%
+                     select(
+                       TypicalGrowth_Spring,
+                       TieredGrowth_Spring
+                     ) %>%
+                     as.data.frame(),
+                   sheet=sheet,
+                   col.names=FALSE,
+                   row.names=FALSE,
+                   startRow=4,
+                   startColumn=10
+      )
+
+
+      message("Adding score source data")
+      addDataFrame(map_out %>%
+                     select(Fall_as_Spring,
+                            Tested_at_KIPP,
+                            CPS_imputed
+                     ) %>%
+                     as.data.frame(),
+                   sheet=sheet,
+                   col.names=FALSE,
+                   row.names=FALSE,
+                   startRow=4,
+                   startColumn=15
+      )
+
+
+
+    }
+  }
+  message("Saving file.")
+  file_out <- sprintf("../Trackers/complete/MAP Tracker - SY%s %s %s.xlsx", sy_short, school, todays_date)
+  saveWorkbook(xls_wb, file=file_out)
+
+}
+```
+

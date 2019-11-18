@@ -1,0 +1,318 @@
+---
+title: "R Notebook"
+output:
+  html_document:
+    df_print: paged
+---
+
+
+
+```{r packages_n_stuff}
+options("httr_oob_default" = TRUE)
+
+library(tidyverse)
+library(silounloadr)
+library(janitor)
+library(lubridate)
+library(stringr)
+library(ggridges)
+library(waffle)
+```
+
+
+First let's get the PARCC PAN raw data at the student level 
+
+```{r load_parcc}
+# get list of parcc data 
+parcc_files <- list.files('../data', pattern = "StudentListReport", full.names = TRUE)
+
+
+parcc_files
+
+parcc_student_data <- parcc_files %>%
+  map_df(read_csv)
+
+View(parcc_student_data)
+  
+  
+parcc_student_data_2017 <- parcc_student_data %>% 
+  clean_names() %>% #tabyl(performance_level)
+  mutate(grade = as.integer(grade),
+         date_of_birth = mdy(date_of_birth),
+         school = case_when(
+           str_detect(testing_school, "ASCEND") ~ "Ascend",
+           str_detect(testing_school, "CREATE CAMPUS") ~ "Create",
+           str_detect(testing_school, "BLOOM") ~ "Bloom",
+           str_detect(testing_school, "CREATE CHARTER") ~ "One"),
+         subject = if_else(str_detect(test_name, "Mathematics"), "Math", "ELA"),
+         performance_level = case_when(
+           str_detect(performance_level, "Approached") ~ "Approached",
+           str_detect(performance_level, "Did Not") ~ "Did Not Meet",
+           str_detect(performance_level, "Exceeded") ~ "Exceeded",
+           str_detect(performance_level, "Partially") ~ "Partially Met",
+           str_detect(performance_level, "Met") ~ "Met"),
+         year = "2016-2017"
+         ) 
+
+glimpse(parcc_student_data_2017)
+```
+
+```{r get_ela}
+parcc_ela <- get_parcc(table_name = "student_results_ela") %>%
+  select(year, 
+         school_name, 
+         grade = tested_grade,
+         student_id, 
+         subject = test_subject, 
+         scale_score = ela_overall_scale_score, 
+         performance_level = ela_performance_level) %>%
+  collect()
+```
+```{r get_math}
+parcc_math <- get_parcc(table_name = "student_results_math") %>%
+  select(year, 
+         school_name, 
+         grade = tested_grade,
+         student_id, 
+         subject = test_subject, 
+         scale_score = math_overall_scale_score, 
+         performance_level = math_performance_level) %>%
+  collect()
+```
+
+
+
+```{r munge_old}
+
+parcc_old <- bind_rows(parcc_ela, parcc_math)
+
+
+parcc_old_2 <- parcc_old %>%
+  mutate(school = case_when(
+           str_detect(school_name, "ASCEND") ~ "Ascend",
+           str_detect(school_name, "CREATE") ~ "Create",
+           str_detect(school_name, "BLOOM") ~ "Bloom"),
+         grade = as.integer(grade),
+         performance_level = lettercase::str_title_case(tolower(performance_level))
+         ) %>%
+  select(-school_name)
+
+parcc_combinded <- parcc_student_data_2017 %>%
+  select(year, school, grade, student_id = state_student_identifier, subject, scale_score, performance_level) %>%
+  bind_rows(parcc_old_2)
+
+
+
+parcc_old_2 %>% 
+  janitor::tabyl(school)
+  
+parcc_school_grade_subj_sy <- parcc_combinded %>%
+  group_by(year, school, grade, subject) %>%
+  summarize(avg_scale_score = mean(scale_score),
+         N_overall = n())
+
+parcc_school_grade_subj_sy %>%
+  filter(grade == 8,
+         subject == "ELA")
+
+parcc_school_grade_subj_pl_sy <- parcc_combinded %>%
+  group_by(year, school, grade, subject, performance_level) %>%
+  summarize(avg_scale_score = mean(scale_score),
+         N = n()) %>%
+  inner_join(parcc_school_grade_subj_sy %>% select(-avg_scale_score),
+             by = c("year", "school", "grade", "subject")) %>%
+  mutate(pct = N/N_overall,
+         perf_level = factor(performance_level, levels = c("Did Not Meet",
+                                                               "Partially Met",
+                                                               "Approached",
+                                                               "Met",
+                                                               "Exceeded"),
+                             ordered = TRUE))
+  
+parcc_school_grade_subj_pl_sy %>%
+  filter(grade == 8,
+         subject == "ELA",
+         year == "2016-2017")
+
+parcc_combinded %>%
+  filter(grade == 8,
+         subject == "ELA",
+         year == "2016-2017", 
+         performance_level == "Met"
+         )
+
+```
+
+```{r ela, fig.width = 10}
+theme_set(theme_linedraw())
+
+parcc_school_grade_subj_pl_sy %>%
+  filter(year == "2016-2017",
+         subject == 'ELA') %>%
+  ggplot(aes(x = perf_level, y = pct, fill = perf_level)) +
+  geom_col( position = 'dodge', show.legend = FALSE) + 
+  geom_text(aes(label = round(100*pct)), color = "white", vjust = 1) +
+  facet_grid(school ~ grade) +
+  scale_y_continuous(labels = scales::percent) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  labs(title = "Spring 2017 PARCC: ELA/Lit",
+       x = "Performance Level",
+       y = "Percent of Students") 
+```
+
+
+```{r math, fig.width=8}
+
+parcc_school_grade_subj_pl_sy %>%
+  filter(year == "2016-2017",
+         subject == 'Math') %>%
+  ggplot(aes(x = perf_level, y = pct, fill = perf_level)) +
+  geom_col( position = 'dodge', show.legend = FALSE) + 
+  geom_text(aes(label = round(100*pct)), color = "white", vjust = 1) +
+  facet_grid(school ~ grade) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  labs(title = "Spring 2017 PARCC: Math",
+       x = "Performance Level",
+       y = "Percent of Students") 
+```
+
+
+```{r ridge_ela, warning=FALSE, message=FALSE}
+parcc_combinded %>%
+  mutate(year2 = forcats::fct_rev(year)) %>%
+  filter(subject == "ELA") %>%
+  ggplot(aes(x=scale_score, y = year2, fill = ..x..)) +
+  geom_density_ridges_gradient(scale = 3, gradient_lwd = .5, adjust=5, show.legend = FALSE) + 
+  #scale_fill_cyclical(values = c("blue", "green")) +
+  scale_fill_viridis_c(option = "D") +
+  facet_grid(school ~ grade) +
+   theme_linedraw() +
+  labs(y = "School Year", 
+       x = "Scale Score",
+      title = "ELA Scale score distributions are realatively stable over time")
+  
+```
+
+```{r ridge_math, warning=FALSE, message=FALSE}
+parcc_combinded %>%
+  mutate(year2 = forcats::fct_rev(year)) %>%
+  filter(subject == "Math") %>%
+  ggplot(aes(x=scale_score, y = year2, fill = ..x..)) +
+  geom_density_ridges_gradient(scale = 3, gradient_lwd = .5, adjust=2, show.legend = FALSE) + 
+  #scale_fill_cyclical(values = c("blue", "green")) +
+  scale_fill_viridis_c(option = "D") +
+  facet_grid(school ~ grade) +
+  theme_linedraw() +
+  labs(y = "School Year", 
+       x = "Scale Score",
+      title = "Math Scale score distributions are realatively stable over time")
+  
+```
+
+
+
+
+```{r pct_meeting}
+
+parcc_school_grade_subj_pl_sy_2 <- parcc_school_grade_subj_pl_sy %>%
+  mutate(perf_level = forcats::fct_collapse(perf_level,
+                                            `Met/Exceeded` = c("Met", "Exceeded"))) %>%
+  group_by(year, school, grade, subject, perf_level) %>%
+  summarize(N = sum(N), N_overall = max(N_overall)) %>%
+  mutate(pct = N/N_overall)
+
+```
+```{r pct_meeting_over_time_ela}
+parcc_school_grade_subj_pl_sy_2 %>% 
+  filter(perf_level %in% c("Met/Exceeded")) %>%
+  ggplot(aes(x=year, y= pct)) +
+  geom_point(aes(color = school)) +
+  geom_line(aes(color =school, group = school)) +
+  facet_grid(subject ~ grade) +
+  scale_y_continuous(labels = scales::percent) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Met/Exeeded Percentage from SY14-15 to SY16-17",
+       x = "School Year",
+       y = "Percent of Students Met or Exceeded",
+       color = "School")
+
+
+```
+
+```{r pct_meeting_over_time_math}
+parcc_school_grade_subj_pl_sy_2 %>% 
+  filter(perf_level %in% c("Met/Exceeded"),
+         subject == "Math") %>%
+  ggplot(aes(x=year, y= pct)) +
+  geom_point(aes(color = perf_level), show.legend = FALSE) +
+  geom_line(aes(color =perf_level, group = perf_level), show.legend = FALSE) +
+  facet_grid(school ~ grade) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  labs(title = "Math over time")
+
+
+```
+
+
+Let's look at some diffs
+```{r}
+parcc_school_grade_subj_pl_sy_2 %>% 
+  filter(year %in% c("2016-2017", "2015-2016")) %>%
+  select(-N, -N_overall) %>%
+  spread(year, pct, sep="_") %>%
+  mutate(diff = `year_2016-2017` - `year_2015-2016`) %>%
+  filter(perf_level == "Met/Exceeded") %>%
+  filter(!is.na(diff)) %>%
+  ggplot(aes(x=grade, y=diff)) +
+  geom_col(aes(fill = diff)) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_x_continuous(breaks = c(3:8)) +
+  #scale_fill_viridis_c(option = "D", direction = -1) + 
+  scale_fill_distiller(type = 'div', palette = 'RdGy', direction = 1, labels = scales::percent) +
+  facet_grid(school~subject) +
+  labs(title = "Change from SY15-16 to SY16-17 in Percent Meets/Exceeds",
+       subtitle = "By grade and subject",
+       y = "Change in Percent Meets/Exceeds",
+       x = "Grade",
+       fill = "Difference in\n% Meets/Exceeds")
+
+
+
+```
+```{r}
+parcc_school_grade_subj_pl_sy_2 %>% 
+  filter(year %in% c("2016-2017", "2015-2016")) %>%
+  select(-N, -N_overall) %>%
+  spread(year, pct, sep="_") %>%
+  mutate(diff = `year_2016-2017` - `year_2015-2016`) %>%
+  filter(perf_level %in% c("Did Not Meet", "Partially Met")) %>%
+  group_by(school, grade, subject) %>%
+  summarize(SY1516 = sum(`year_2015-2016`),
+            SY1617 = sum(`year_2016-2017`)) %>%
+  mutate(diff = SY1617 - SY1516) %>%
+  filter(!is.na(diff)) %>%
+  ggplot(aes(x=grade, y=diff)) +
+  geom_col(aes(fill = diff)) +
+  scale_y_continuous(labels = scales::percent) +
+  scale_x_continuous(breaks = c(3:8)) +
+  #scale_fill_viridis_c(option = "D", direction = -1) + 
+  scale_fill_distiller(type = 'div', palette = 'RdGy', direction = -1, labels = scales::percent) +
+  facet_grid(school~subject) +
+  labs(title = "Change from SY15-16 to SY16-17 in Percent Did Not or Paritally Met",
+       subtitle = "By grade and subject",
+       y = "Change in Percent Did Not or Paritally Met\n(Negative % is Better)",
+       x = "Grade",
+       fill = "Difference in\n% Did Not or\n Paritally Met")
+
+
+
+```
+
+
+Waffle time?
+
+```{r}
+
+```
+
+

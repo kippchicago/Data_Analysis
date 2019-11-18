@@ -1,0 +1,73 @@
+---
+title: "17-18 IA #1 Curves 2017-10-24"
+output: html_notebook
+---
+
+Load Packages
+
+```{r}
+library(tidyverse)
+library(googlesheets)
+```
+
+Let's get the data from the Google Sheet that Steph shared:
+
+```{r get_data}
+
+gs <- gs_auth()
+
+
+ias <- gs_title("IA_1718_1_percent_correct") %>% 
+  gs_read()
+
+glimpse(ias)
+```
+```{r}
+ias_2 <- ias %>%
+  mutate(subject = stringr::str_extract(title, "ELA|Math"))
+
+ias_2 %>% janitor:::tabyl(subject)
+
+ggplot(ias_2, aes(x= percent_correct)) +
+  geom_density(aes(fill = school_abbrev), alpha = .5) +
+  facet_grid(grade_level ~ subject)
+```
+Linear curve.  Assume lowest grade is a 50.  Average grade is a 75.  Adjust from there.
+
+
+
+```{r}
+# get min and mean
+ias_names <- unique(ias_2$title)
+
+ias_filtered <- ias_2 %>%
+  filter(title == ias_names[[2]])
+
+
+mean_goal <- 75
+f_goal <- 50
+
+ia_mean <- mean(ias_filtered$percent_correct)
+ia_min  <- min(ias_filtered$percent_correct)
+
+
+x_score <- 60
+
+
+adjusted_score  <-function(x) {
+  mean_goal + ((f_goal-mean_goal)/(ia_min-ia_mean))*(x-ia_mean)
+  }
+adjusted_score(50)
+
+cut_scores <- function(goal){
+  ia_mean + (goal - mean_goal)/((f_goal - mean_goal)/(ia_min - ia_mean))
+}
+
+cut_scores(73.9)
+
+adj_scores <- c()
+```
+
+
+
+

@@ -1,0 +1,276 @@
+---
+title: "census_and_students"
+params: 
+  inputDir: "gathered/"
+  thisDir:  "cook/"
+  outputDir: "cooked/"
+  fileStem: "census_and_students"
+  inputFiles: 
+    - "Census_Demographics"
+    - "students"
+---
+
+```{r KnitrOpts, echo=FALSE}
+knitr::opts_knit$set(root.dir = normalizePath('../'))
+knitr::opts_chunk$set(echo=TRUE, message=TRUE, warning=TRUE, error=TRUE)
+```
+
+```{r setup}
+library(tidyverse)
+library(stringr)
+library(sf)
+library(kippcolors)
+```
+
+
+```{r Load, results='hide'}
+loadedObjects <- represtools::LoadObjects(params)
+```
+
+```{r clean_students}
+glimpse(students)
+
+students_geocoded <- students %>% 
+  filter(!is.na(geocode)) %>%
+  separate(geocode, sep = ", ", into= c("lat", "lon")) %>%
+  mutate(lat = as.numeric(str_replace(lat, "Lat: ", "")),
+         lon = as.numeric(str_replace(lon, "Lng: ", ""))
+         )
+  
+  
+```
+
+This is quick plot to show that geocoded students are being plotted.
+```{r test_plot}
+ggplot(students_geocoded) +
+  geom_sf(data=chicago_tracts) +
+  geom_point(aes(x = lon, y=lat), color = "hotpink") +
+  facet_wrap(~ethnicity)
+
+
+```
+Google's geocoding isn't totally accurate.  For example these students have the wrong lat/lon given their actual addressess
+```{r}
+students_geocoded %>% filter(lon <= -87.8)
+```
+
+Create simple features data.frame form `students` and reduce to only those students with lat/lon within Chicago's borders
+```{r students_sf}
+students_sf <- students_geocoded %>%
+  sf::st_as_sf(coords = c("lon", "lat"))
+
+st_crs(students_sf)
+
+st_crs(students_sf) <- st_crs(chi)
+
+students_within<-st_within(students_sf, chi)
+
+students_mask <- students_within %>% 
+  map_lgl(function(x) {
+  if(length(x) == 1) {
+    TRUE
+  } else {
+    FALSE
+  }
+})
+
+
+students_sf<-students_sf[students_mask,]
+
+# ggplot(students_sf) +
+#   geom_sf(data=chicago) +
+#   geom_sf( color = "hotpink") +
+#   facet_wrap(~ethnicity)
+  
+```
+
+Recode student ethnicities from integer to string and schools from schoolid to actual name.
+```{r ethnicities}
+students_sf <- students_sf %>%
+  mutate(ethnicity_name = case_when(
+    ethnicity == 1 ~ "White",
+    ethnicity == 2 ~ "African American",
+    ethnicity == 4 ~ "Asian",
+    ethnicity == 5 ~ "Hispanic",
+    ethnicity == 6 ~ "Native Hawaiian/Pacific Islender",
+    ethnicity == 9 ~ "Mulit-racial",
+    ethnicity == 11 ~ "American Indian/Alaskan Native"),
+    
+    school = case_when(
+      schoolid == 400180  ~ "KOA",
+      schoolid == 4001802 ~ "KOP")
+      
+    )
+```
+
+Add ethnicity name to to Chicago data
+```{r chicago_percents}
+chicago_tracts <- chicago_tracts %>%
+  mutate(percent = estimate/summary_est*100,
+         ethnicity_name = case_when(
+           variable == "total_white" ~ "White",
+           variable == "total_aa" ~ "African American",
+           variable == "total_hisp" ~ "Hispanic"
+         ))
+
+# mapview::mapview(chicago_tracts %>%
+#                    filter(ethnicity_name == "Hispanic"),
+#                  zcol = "percent") %>%
+#   mapview::addFeatures(data = students_sf, zcol = "ethnicity_names")
+```
+
+Geocode KIPP One Location.  Get google terrain map for background.  Get student distances.
+```{r kipp_one_location}
+
+kipp_one_location <- ggmap::geocode("KIPP One Academy, Chicago")
+
+one_sf <- kipp_one_location %>%
+  mutate(school_label = "KIPP One") %>%
+  sf::st_as_sf(coords = c("lon", "lat"), remove = FALSE)
+
+chi_bg_map <- ggmap::get_map(location = kipp_one_location,
+                                   zoom = 13,
+                                   maptype = "terrain",
+                                   source = "google",
+                                   color = "bw"
+                                   )
+
+
+# Set CRS
+st_crs(one_sf) <- st_crs(students_sf)
+
+chi_map <- ggmap::ggmap(chi_bg_map)
+
+chi_map +
+  coord_sf() +
+  geom_sf(data = chicago_tracts %>%
+            filter(ethnicity_name %in% c("African American", "Hispanic")),
+          aes(fill = percent), color = NA, alpha = .3,
+          inherit.aes = FALSE) +
+  geom_sf(data = students_sf %>%
+            filter(ethnicity_name %in% c("African American", "Hispanic")), 
+          aes(color = ethnicity_name),
+          size = 2,
+          alpha = .8,
+          inherit.aes = FALSE) +
+    geom_sf(data = one_sf,
+          size = 2,
+          shape = 13,
+          color = "darkblue",
+          inherit.aes = FALSE) +
+  ggrepel::geom_text_repel(data = one_sf,
+             aes(x = lon, y=lat, label = school_label),
+             color = "darkblue",
+             size = 2) +
+  scale_fill_viridis_c() +
+  #scale_fill_viridis_d()
+  #facet_grid(grade_level~ethnicity_name)
+  facet_grid(school~ethnicity_name)
+```
+
+Sample points in census tracts
+```{r st_sample}
+
+distinct_race<-chicago_tracts %>%
+  as_data_frame() %>%
+  select(variable) %>%
+  distinct()
+
+#function to sample, recast as sf
+
+sample_points_as_sf <- function(ethnicity, .data = chicago_tracts, pop_per_point = 10) {
+  
+  filtered_df <- .data %>%
+    filter(variable == ethnicity)
+  
+  geometry <- filtered_df %>%
+    st_sample(size = filtered_df$estimate/pop_per_point)
+  
+  #coerce to sf
+  out_sf <- st_sf(geometry)
+  
+  # Add Ethnicity column
+  out_sf <- out_sf %>%
+    mutate(variable = ethnicity) %>%
+    mutate(ethnicity_name = case_when(
+           variable == "total_white" ~ "White",
+           variable == "total_aa" ~ "African American",
+           variable == "total_hisp" ~ "Hispanic")) #%>%
+  #rename(geometry = sampled_sfc)
+  
+  # Return 
+  out_sf
+
+}
+
+
+# x <- sample_points_as_sf("total_aa", pop_per_point = 10000)
+# glimpse(x)
+
+sampled_points_sf <- distinct_race$variable %>%
+  map(~ sample_points_as_sf(ethnicity = ., 
+                               .data = chicago_tracts,
+                               pop_per_point = 300)) %>%
+  reduce(rbind)
+
+  #scale_fill_viridis_d()
+  #facet_grid(grade_level~ethnicity_name)
+  #facet_grid(school~ethnicity_name)
+```
+Distances form KOA
+```{r}
+km_to_miles <- function(x) x * 0.621371
+
+sampled_points_dist <- km_to_miles(as.integer(st_distance(one_sf, sampled_points_sf)/1000))
+sampled_points_sf$distance <- sampled_points_dist
+
+students_dist <- km_to_miles(as.integer(st_distance(one_sf, students_sf)/1000))
+students_sf$distance <- students_dist
+# sample_points_sf <- sampled_points_list %>%
+#   map_df(~bind_cols(.))
+  
+#   
+# aa<-chicago_tracts %>%
+#   filter(variable == "total_aa") 
+# 
+# x_aa <- aa %>% st_sample(size = aa$estimate/300)
+# 
+# 
+# hisp <- aa<-chicago_tracts %>%
+#   filter(variable == "total_hisp") 
+# 
+# x_hisp <- hisp %>% st_sample(size = hisp$estimate/300)
+# 
+# sf::as
+# 
+# chicago_tracts_sampled <- chicago_tracts %>%
+#  
+# z <- chicago_tracts %>%
+#   mutate(sampled = st_sample(chicago_tracts$geometry, size = chicago_tracts$estimate/1000))
+
+chi_map +
+  geom_sf(data = sampled_points_sf %>% filter(distance <= 1.5), 
+          aes(color = ethnicity_name), 
+          alpha = .7,
+          inherit.aes = FALSE) +
+    geom_sf(data = one_sf,
+          size = 2,
+          shape = 13,
+          color = "darkblue",
+          inherit.aes = FALSE) +
+  ggrepel::geom_text_repel(data = one_sf,
+             aes(x = lon, y=lat, label = school_label),
+             color = "darkblue",
+             size = 2) +
+  scale_color_kipp(reverse= TRUE) #+
+```
+
+```{r ListObjects}
+lstObjects <- represtools::ListObjects(pattern = c("_sf", "_map", "_tracts"))
+represtools::DescribeObjects(represtools::NamesToObjects(lstObjects))
+```
+
+```{r Save}
+save(file = represtools::OutputFile(params)
+     , list = lstObjects)
+```

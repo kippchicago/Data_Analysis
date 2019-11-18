@@ -58,6 +58,10 @@ domains <- unique(tntp$domain)[-1]
 
 plot_tntp(tntp, domains[3], 30)
 
+
+domains %>%
+
+
 tntp %>%
   filter(!is.na(region),
          domain!="Sample Size",
@@ -236,3 +240,11 @@ ggplot(tntp_yoy_2 %>%
   labs(x = "Spring and Fall 2016",
        y = "Score")
 
+
+
+# Overall Scores for kap highlighted
+
+plot_tntp_scores(tntp)
+
++
+  theme(axis.text.x = element_text(color = c("black", "red", "black", "black")))

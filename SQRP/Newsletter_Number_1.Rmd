@@ -1,0 +1,183 @@
+---
+title: "News Letter Graphics"
+output: html_notebook
+---
+```{r}
+options("httr_oob_default" = TRUE)
+library(tidyverse)
+library(forcats)
+library(silounloadr)
+```
+
+## SQRP 
+SQRP Graphics are found in [this R notebook](~/Dropbox (KIPP Chicago Schools)/Data Analysis/SQRP/reports/SY17-18_CPS_SQRP_Analysis_2017-10-31.Rmd)
+
+
+## Attendance
+
+Stats are from [10/27 PMM Culture ](https://docs.google.com/presentation/d/1IgFqilW4MzdULTj6wL_ExNdGBj7uL_-w1MpAFnVEJm8/edit#slide=id.g25d66d2f6a_0_28)
+
+```{r}
+ada <- tribble(
+  ~school,   ~term,     ~ada,
+  "KAC/KCCP","Q1 2017", 98.0,
+  "KAC/KCCP","Q1 2016", 94.9,
+  "KAP",     "Q1 2017", 96.3,
+  "KAP",     "Q1 2016", 96.5,
+  "KAMS",    "Q1 2017", 96.4,
+  "KAMS",    "Q1 2016", 95.0,
+  "KBCP",    "Q1 2017", 96.9,
+  "KBCP",    "Q1 2016", 95.6,
+  "KOP",     "Q1 2017", 97.3,
+  "KOP",     "Q1 2016", 94.1,
+  "KOA",     "Q1 2017", 98.6,
+  "KOA",     "Q1 2016", 97.7
+)
+
+
+ada_region <- tribble(
+  ~SY,   ~ada,
+  'Q1 SY16-17', .958,
+  'Q1 SY17-18', .970
+)
+
+school_order_ada <- ada %>%
+  filter(term == "Q1 2017") %>%
+  arrange(desc(ada)) %>%
+  select(school)
+
+ada <- ada %>%
+  mutate(school_ordered = factor(school, levels = school_order_ada$school),
+         term_ordered = forcats::as_factor(term))
+
+
+ggplot(ada, aes(x = school_ordered, y=ada/100)) +
+  geom_col(aes(fill = term_ordered), position = "dodge") +
+  coord_cartesian(ylim = c(.94, .99)) +
+  theme_linedraw() +
+  theme(legend.position = "bottom") +
+  scale_fill_manual(values = c("#255694", "#A7CFEE")) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(y = "Average Daily Attendance",
+       x = "",
+       fill = "Term",
+       title = "KIPP Chicago attendance is at historic highs",
+       subtitle = "First Quarter Average Daily Attendance, SY17-18 vs SY16-17") 
+
+  
+  
+
+         
+           
+
+
+
+```
+
+
+```{r}
+ggplot(ada_region, aes(x = SY, y=ada/100)) +
+  geom_hline(aes(yintercept = .96), color = "#439539") +
+  geom_col(aes(fill = SY), show.legend = FALSE) +
+  coord_cartesian(ylim = c(.94, .99)) +
+  theme_linedraw() +
+  theme(legend.position = "bottom") +
+  scale_fill_manual(values = c("#255694", "#A7CFEE")) +
+  scale_y_continuous(labels = scales::percent) +
+  labs(y = "Average Daily Attendance",
+       x = "Term",
+       fill = "Term",
+       title = "KIPP Chicago attendance is at historic highs",
+       subtitle = "First Quarter Average Daily Attendance, SY17-18 vs SY16-17") +
+  annotate("text", x=.75, y=.962, label="Maximum SQRP Points", color = "#439539")
+
+  
+  
+```
+
+
+```{r}
+ktc_wishlists <- tribble(
+  ~region,       ~pct,  ~type,
+  "Chicago",     100,   "≥ 9 Applications",
+  "Tulsa",     87,   "≥ 9 Applications",
+  "NYC",     86,   "≥ 9 Applications",
+  "Nashville",     82,   "≥ 9 Applications",
+  "Columbus",     79,   "≥ 9 Applications",
+  "Kansas City",     79,   "≥ 9 Applications",
+  "Jacksonville",     67,   "≥ 9 Applications",
+  "DC",     66,   "≥ 9 Applications",
+  "Baltimore",     64,   "≥ 9 Applications",
+  "New Jersey",     63,   "≥ 9 Applications",
+  "Dallas",     62,   "≥ 9 Applications",
+  "Austin",     59,   "≥ 9 Applications",
+  "LA",     57,   "≥ 9 Applications",
+  "Minnesota",     56,   "≥ 9 Applications",
+  "Bay Area",     55,   "≥ 9 Applications",
+  "St. Louis",     55,   "≥ 9 Applications",
+  "Philly",     52,   "≥ 9 Applications",
+  "San Diego",     49,   "≥ 9 Applications",
+   "Charlotte",     40,   "≥ 9 Applications",
+   "Oklahoma City",     39,   "≥ 9 Applications",
+   "Atlanta",     34,   "≥ 9 Applications",
+   "Houston",     33,   "≥ 9 Applications",
+  "Delta",     17,   "≥ 9 Applications",
+  "Mass",     14,   "≥ 9 Applications",
+  "New Orleans",     12,   "≥ 9 Applications",
+  "Indy",     7,   "≥ 9 Applications",
+  "Memphis",     3,   "≥ 9 Applications",
+  "Albany",     2,   "≥ 9 Applications",
+  
+  "Chicago",     87,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)",
+  "Nashville",     73,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)",
+  "Tulsa",     55,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)",
+  "New Jersey",     53,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)",
+  "Austin",     50,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)",
+  "Minnesota",     50,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)",
+  "NYC",     50,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)",
+  "Philly",     50,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)",
+  "Baltimore",     43,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)",
+  "Kansas City",     43,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)",
+  "Jacksonville",     41,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)",
+  "Oklahoma City",     39,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)",
+  "Bay Area",     34,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)",
+  "DC",     31,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)",
+  "LA",     31,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)",
+  "Columbus",     25,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)",
+  "San Diego",     23,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)",
+  "Dallas",     19,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)",
+  "Charlotte",     17,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)",
+  "Atlanta",     11,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)",
+  "Indy",     7,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)",
+  "New Orleans",     5,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)",
+  "Delta",     3,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)",
+  "Memphis",     3,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)",
+  "Albany",     0,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)",
+  "Mass",     0,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)",
+  "St. Louis",     0,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)",
+  "Houston",     0,   "≥ 6 Balanced Apps\n(Likely+/Match/Reach)"
+) %>%
+  ungroup %>%
+  arrange(desc(type), pct) %>%
+  mutate(row_n = row_number(),
+         type_2 = forcats::fct_inorder(type))
+
+#View(ktc_wishlists)
+
+ggplot(ktc_wishlists, aes(x=row_n, y = pct/100)) +
+  geom_col(aes(fill=pct), show.legend = FALSE) +
+  facet_wrap(~type_2, scales = "free", shrink = TRUE, ncol = 2) +
+  coord_flip()  +
+  scale_x_continuous(breaks = ktc_wishlists$row_n,  
+                     labels = ktc_wishlists$region, 
+                     expand = c(0.01, 0)) +
+  scale_y_continuous(labels = scales::percent) +
+  viridis::scale_fill_viridis(direction = -1, option = "D") +
+  theme_linedraw() +
+  labs(x = "KIPP Region",
+       y = "Percent of Students Meeting Benchmark",
+       title = "KIPP Chicago leads in preparing alumni to apply to college",
+       subtitle = "Percent of non-KIPP HS Seniors meeting application wishlist benchmarks")
+
+
+```

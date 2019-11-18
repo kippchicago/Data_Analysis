@@ -1,0 +1,190 @@
+---
+title: "KIPP One's Neighborhood Demographics"
+output: html_document
+params: 
+  inputDir: "analyzed/"
+  thisDir:  "present/"
+  outputDir: "presented/"
+  fileStem: "One_Demographs"
+  inputFiles: 
+    - "kipp_one"
+---
+
+```{r KnitrOpts, echo=FALSE}
+knitr::opts_knit$set(root.dir = normalizePath('../'))
+knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE, error=TRUE, results='asis')
+```
+
+```{r Load, results='hide'}
+loadedObjects <- represtools::LoadObjects(params)
+
+library(tidyverse)
+library(sf)
+library(ggmap)
+library(kippcolors)
+library(ggrepel)
+```
+## Neighborhood demographics
+
+
+KIPP One is officially located western portion of the Humboldt Park community area, but is also very near Austin (to the west) and West Garfield Park (to the south).
+
+```{r}
+map_neighb <- chi_map +
+  geom_sf(
+    data = one_sf, 
+    color = "hotpink",
+    fill = "hotpink",
+    inherit.aes = FALSE,
+    shape = 23) +
+  geom_sf(data = neighborhoods_sf,
+          inherit.aes = FALSE,
+          fill = NA) +
+  geom_text_repel(
+    data = one_sf, 
+    aes(x = lon, y=lat, label = school_label),
+    color = "hotpink",
+    inherit.aes = FALSE) +
+  theme_kipp_light()
+  
+map_neighb
+  
+```
+
+The demographic characteristics---similar to the rest of Chicago---are very segragated. African American families are located southwest of Grand Ave and Latino famillies are located to eh northwest of Grand Avenue. You cna see the gentrification of Logan Square n the areas east and north of the neighborhood's namesake park. 
+
+Perhpas most interstingly, the least segregated area on this map is the triangle formed by Gradn Avenue the norht east(the hypotenous),  the Kinzie corridor railroad tracks to the south, and the railroad tracks along Kenton Ave to the east. This area, colloquially known as **West Humboldt Park**---finds KIPP One nearly in the center.
+
+```{r map_point_denisty}
+
+map_neighb +
+  geom_sf(data = sampled_points_sf, 
+          aes(fill = ethnicity_name),
+          color = NA, 
+          shape = 21,
+          alpha = .7,
+          inherit.aes = FALSE) +
+  
+  scale_color_kipp() +
+  scale_fill_kipp(reverse = 'FALSE') + 
+  theme_kipp_light()
+  labs(fill = "Ethnicity",
+       color = "Ethnicity"
+       )
+
+```
+
+## Student Distribution
+Does the distribution of student demographics reflect the neighborhood? In short, yes. 
+
+Here's a comparison of African American, Latino, and white students at KOP and KOA versus the expectated distsrbution for various distances form KIPP One:
+
+```{r fig.height=7}
+demographics_by_mileage %>%
+         filter(level %in% c("Population", "school ethnicity_name")) %>%
+ggplot(aes(y = pct*100,
+           x = ethnicity_name)) +
+  geom_col(aes(fill = ethnicity_name)) +
+  facet_grid(distance~school) +
+  scale_fill_kipp() +
+  theme_kipp_light() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  labs(fill = "Ethnicity",
+       x = "",
+       y = "% of Students")
+  
+```
+
+KOA is generally more representative of the neighborhood (that is, more closely matching the n percent of Black and Latino students within 1.5 miles of campus) than KOP.  At further distances the neighboorhood distibution diverges from the schools' distribition as there are more white families located in Logan Square, eastern Humboldt Park, Bucktown, Wicker Park, Ukranian Village, and, West Town. 
+
+These patterns hold when we look at the breakdown across grade levels as well:
+
+```{r fig.height=7}
+demographics_by_mileage %>%
+         filter(level %in% c("Population", "school grade_level ethnicity_name")) %>%
+  mutate(grade_level = ifelse(is.na(grade_level), 
+                              "Neighborhood", 
+                              as.character(grade_level))) %>%
+ ggplot(aes(y = pct*100,
+           x = ethnicity_name)) +
+  geom_col(aes(fill = ethnicity_name)) +
+  facet_grid(distance~grade_level) +
+  scale_fill_kipp() +
+  theme_kipp_light() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+  labs(fill = "Ethnicity",
+       x = "",
+       y = "% of Students")
+  
+```
+
+Again, KOA is more representative of the surrounding neighborhood than KOP.  In fact, KOP tends to have a disproportionate number of African American students. KOA does has more Latino students in 5th grade within 1.5 miles, but at further distances they 5th grade's distribution converges with the neighborhood's.
+
+
+### Where are our student's coming from?
+
+Both KOA and KOP draw the majority of their studetns from the area southwest of the Orr campus. These neighboorhoods are nearly 100% African American and both school's populations reflect.  Latino students tend to be coming from the area just north campus.  KOA has more students from north of Grand Ave than KOA.  However, both have the majority of their Latino students attending from the relatively integrated census tracts (the aquamarine color)
+that campus itself is located in.
+
+```{r}
+chi_map +
+  coord_sf() +
+  geom_sf(data = chicago_tracts %>%
+            filter(ethnicity_name %in% c("African American", "Hispanic")),
+          aes(fill = percent), color = NA, alpha = .3,
+          inherit.aes = FALSE) +
+  geom_sf(data = students_sf %>%
+            filter(ethnicity_name %in% c("African American", "Hispanic")), 
+          aes(color = ethnicity_name),
+          size = 1,
+          alpha = .6,
+          inherit.aes = FALSE) +
+    geom_sf(data = one_sf,
+          size = 2,
+          shape = 23,
+          color = "hotpink",
+          fill = "hotpink",
+          inherit.aes = FALSE) +
+  ggrepel::geom_text_repel(data = one_sf,
+             aes(x = lon, y=lat, label = school_label),
+             color = "hotpink",
+             size = 2) +
+  scale_fill_viridis_c(direction = -1) +
+  scale_color_kipp() +
+  #facet_grid(grade_level~ethnicity_name)
+  facet_grid(school~ethnicity_name) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme_kipp_light() +
+  labs(fill = "% of Ethnicity",
+        color = "Ethnicity")
+```
+
+
+The following histogram shows this pretty clearly.  The vast majority of students come form within 2 miles of KOA (94%) and KOP (87%).  In fact, KOP has more students (though not many in total) coming from further than 2 miles, regardless of ethnicity. And all of KOA's Latino students live within 2 miles. 
+
+```{r}
+students_sf %>%
+  filter(ethnicity_name %in% c("African American", "Hispanic")) %>%
+  ggplot(aes(x = distance)) +
+  geom_histogram(aes(fill = ethnicity_name), color = "white") +
+  facet_grid( ethnicity_name ~ school) +
+  scale_fill_kipp() +
+  theme_kipp_light() +
+  labs(x = "Miles from KIPP One",
+       y = "Number of Students",
+       fill = "Ethnicity")
+```
+
+```{r Save}
+allGood <- FALSE
+
+if (allGood) {
+  save(file = represtools::OutputFile(params)
+     , list = lstObjects)
+}
+```
+
+```{r}
+
+```
+

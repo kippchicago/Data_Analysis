@@ -1,0 +1,107 @@
+---
+title: "TNTP Fall 2018 Silo-prep script"
+output: html_notebook
+params:
+  region: "KIPP Chicago"
+---
+
+
+```{r packages}
+library(tidyverse)
+library(tntpr)
+library(janitor)
+
+```
+
+Let's read in the four (4!) new TNTP files that we download form their [Tableau site](https://data.tntp.org).
+
+Note that you need to use read.delim b/c of encoding issues
+```{r extract}
+
+tntp_item_benchmarks <- read.delim("../data/2018-2019/SS_Benchmarks_data_fall_16_17_18.csv", sep="\t",
+                              fileEncoding = "UTF-16LE", 
+                              stringsAsFactors = FALSE
+                              ) %>%
+  clean_names %>%
+  as_tibble()
+
+
+tntp_domains_benchmarks <- read.delim("../data/2018-2019/SS_benchmarks_for_Domains_data_fall_16_17_18.csv", 
+                                      sep="\t",
+                              fileEncoding = "UTF-16LE", 
+                              stringsAsFactors = FALSE
+                              ) %>%
+  clean_names %>%
+  as_tibble()
+
+
+tntp_domains <- read.delim("../data/2018-2019/SS_Domains_data_fall_16_17_18.csv", 
+                                      sep="\t",
+                              fileEncoding = "UTF-16LE", 
+                              stringsAsFactors = FALSE
+                              ) %>%
+  clean_names %>%
+  as_tibble()
+
+
+tntp_items <- read.delim("../data/2018-2019/SS_Items_data_fall_16_17_18.csv", 
+                                      sep="\t",
+                              fileEncoding = "UTF-16LE", 
+                              stringsAsFactors = FALSE
+                              ) %>%
+  clean_names %>%
+  as_tibble()
+
+
+
+```
+
+Need to align column naming conventions, rename "All Schools Below" to Region name (`params$region`), remove astericks from questions.
+
+## Domains
+Break down by, meaure_names -> variable
+transformed_score, measure_values -> value
+
+```{r transform_domains}
+
+domains_out <- tntp_domains %>%
+  rename(variable = break_down_by, 
+         value = transformed_score
+           )
+
+domains_benchmarks_out <- tntp_domains_benchmarks %>%
+  rename(variable = measure_names, 
+         value = measure_values
+         ) %>%
+  dplyr::mutate(variable = if_else(variable == "Average of schools below", params$region, variable))
+
+```
+
+## Items
+Break down by, meaure_names -> variable
+transformed_score, measure_values -> value
+```{r transform_items}
+items_out <- tntp_items %>%
+  rename(variable = break_down_by, 
+         value = transformed_score
+           ) %>%
+  mutate(clean_question = str_remove_all(clean_question, "\\*?")) %>%
+  select(-school_header)
+
+items_benchmarks_out <- tntp_item_benchmarks %>%
+  rename(variable = measure_names, 
+         value = measure_values
+         ) %>%
+  dplyr::mutate(variable = if_else(variable == "Average of schools below", params$region, variable),
+                clean_question = str_remove_all(clean_question, "\\*?"))
+```
+
+## Load (sorta)
+```{r load}
+write_csv(items_out,"../out_for_SILO/items_fall_16_17_18.csv")
+write_csv(items_benchmarks_out,"../out_for_SILO/items_benchmarks_fall_16_17_18.csv")
+write_csv(domains_out,"../out_for_SILO/domains_fall_16_17_18.csv")
+write_csv(domains_benchmarks_out,"../out_for_SILO/domains_benchmarks_fall_16_17_18.csv")
+
+```
+

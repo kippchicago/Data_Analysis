@@ -1,0 +1,111 @@
+---
+title: "Students in IL Senate District 12"
+output: html_notebook
+---
+
+
+
+```{r}
+library(pacman)
+p_load(sf)
+p_load(rgeos)
+p_load(maptools)
+p_load(ggmap)
+p_load(ggpolypath)
+p_load(silounloadr)
+p_load(googlesheets)
+```
+
+
+Let's first load up the IL Senate and House districts (which are available [here](http://www.ilhousedems.com/redistricting/?page_id=554))
+
+```{r}
+senate_shp <- st_read("gis_files/House and Senate shape files/PA 97-6 Senate Districts.shp")
+
+plot(senate_shp)
+```
+
+Let's now get our students at Create and KAP, thier primary addresses and geocodes (acutally let's get everyone)
+
+```{r}
+stus_db <- get_ps("students")
+
+stus <- stus_db %>% 
+  filter(enroll_status == 0) %>%
+  collect() %>%
+  janitor::clean_names() %>%
+  select(student_number, last_name, first_name, schoolid, grade_level, street, city, state, zip, mother, father, home_phone, emerg_phone_1, emerg_phone_2, geocode) %>%
+  tidyr::separate(geocode, into = c("lat", "lon"), sep = ", ") %>%
+  mutate(lat = stringr::str_extract(lat, "\\d{2}\\.\\d+") %>% as.numeric,
+         lon = stringr::str_extract(lon, "-\\d{2}\\.\\d+") %>% as.numeric) %>%
+  filter(!is.na(lat)) %>%
+  select(lon, lat, student_number:emerg_phone_2)
+
+stus_orig <- stus
+
+coordinates(stus) <- ~ lon + lat
+
+senate_sp <- as(senate_shp, "Spatial")
+proj4string(stus) <- proj4string(senate_sp)
+```
+
+And now we look to ID which polygons contain which students.
+
+```{r}
+
+senate_12  <- senate_sp[, senate_sp$District_N == 12]
+
+over(stus, senate_sp) %>% filter(District_N == 12)
+x<- over(senate_sp, stus, returnList = T) 
+
+senate_12_stus <- x[[12]]
+
+```
+Let's do a quick visual check on these students and S12:
+
+```{r}
+senate_f   <- fortify(senate_sp, region = "District_N")
+
+s12_stus<-senate_12_stus %>%
+  inner_join(stus_orig %>% select(student_number, long=lon, lat),
+             by = "student_number")
+
+
+
+ggplot(senate_f, aes(x=long, y = lat)) +
+  geom_polygon(aes(group=group), color = "black", fill = NA) +
+  geom_point(data = s12_stus, aes(x=long, y=lat), color = "red") +
+  #scale_x_continuous(limits = c(-89.5, -88.5), expand = c(0, 0)) +
+  #scale_y_continuous(limits = c(41, 43), expand = c(0, 0)) +
+  coord_map(xlim = c(-87.8, -87.7),
+            ylim = c(41.7, 41.9))
+
+
+
+```
+
+Finally, let's dumpt these kids into a googlesheet
+
+```{r}
+ 
+s12_out <- s12_stus %>% 
+  mutate(schoolid = 
+           case_when(
+             schoolid == 78102 ~ "KAP",
+             schoolid == 7810 ~ "KAMS",
+             schoolid == 400146 ~ "KCCP",
+             schoolid == 400163 ~ "KBCP",
+             schoolid == 4001802 ~ "KOP",
+             schoolid == 400180 ~ "KOA"
+           )) %>%
+  rename(school = schoolid) %>%
+  arrange(school, grade_level, last_name, first_name)
+
+senate_sheet <-googlesheets::gs_new("16-17 Senate 12 Students")
+
+senate_sheet %>%
+  gs_ws_new(ws_title = "Current Students", input = s12_out)
+
+
+```
+

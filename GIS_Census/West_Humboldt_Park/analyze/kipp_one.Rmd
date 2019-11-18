@@ -1,0 +1,123 @@
+---
+title: "Demographics at KIPP One"
+params: 
+  inputDir: "cooked/"
+  thisDir:  "analyze/"
+  outputDir: "analyzed/"
+  fileStem: "kipp_one"
+  inputFiles: 
+    - "census_and_students"
+---
+
+```{r KnitrOpts, echo=FALSE}
+knitr::opts_knit$set(root.dir = normalizePath('../'))
+knitr::opts_chunk$set(echo=FALSE, message=FALSE, warning=FALSE, error=TRUE)
+
+library(tidyverse)
+library(ggmap)
+library(sf)
+library(kippcolors)
+```
+
+```{r Load, results='hide'}
+loadedObjects <- represtools::LoadObjects(params)
+```
+
+```{r, students_within_distsance}
+summarize_within_mileage <- function(miles, ...){ 
+  
+   groups_quo <- quos(...) 
+   grouping <- paste(groups_quo, collapse = "") %>%
+     stringr::str_replace_all(., "~", " ") %>%
+     stringr::str_trim()
+  
+  students_sf %>%
+   as.data.frame %>%
+   group_by( !!! groups_quo) %>%
+   filter(distance <= miles,
+          ethnicity_name %in% c("African American", "White", "Hispanic")) %>%
+   summarize(n = n()) %>%
+   dplyr::mutate(total = sum(n),
+         pct = n/total,
+         level = grouping,
+         distance = sprintf("≤ %s mile", miles))
+}
+
+summarize_within_mileage(5, school, grade_level, ethnicity_name)
+
+miles <- c(0.5, 1, 1.5, 2, 3, 4, 5)
+
+stu_demo_by_school_grade<- miles %>%
+  map_df(~summarize_within_mileage(., school, grade_level, ethnicity_name))
+
+stu_demo_by_school <- miles %>%
+  map_df(~summarize_within_mileage(., school, ethnicity_name))
+
+
+ggplot(stu_demo_by_school_grade,
+       aes(y = pct*100,
+           x = ethnicity_name)) +
+  geom_col(aes(fill = ethnicity_name)) +
+  facet_grid(distance~grade_level) +
+  scale_fill_kipp()
+
+ggplot(stu_demo_by_school,
+       aes(y = pct*100,
+           x = ethnicity_name)) +
+  geom_col(aes(fill = ethnicity_name)) +
+  facet_grid(distance~school) +
+  scale_fill_kipp()
+  
+  
+```
+
+Let's do the same for our point estimates
+```{r point_distances}
+sampled_points_sf
+summary_sampled_mileage <- function(miles){ 
+  
+   # groups_quo <- quos(...) 
+   # grouping <- paste(groups_quo, collapse = "") %>%
+   #   stringr::str_replace_all(., "~", " ") %>%
+   #   stringr::str_trim()
+   # 
+  sampled_points_sf %>%
+   as.data.frame %>%
+   filter(distance <= miles) %>%
+   group_by(ethnicity_name) %>%
+   summarize(n = n()) %>%
+   dplyr::mutate(total = sum(n),
+         pct = n/total,
+         distance = sprintf("≤ %s mile", miles))
+}
+
+pop_demo_by_mileage <-miles %>%
+  map_df(summary_sampled_mileage) %>%
+  mutate(level = "Population", 
+         school = "Neighborhood")
+  
+demographics_by_mileage <- bind_rows(
+  pop_demo_by_mileage, 
+  stu_demo_by_school, 
+  stu_demo_by_school_grade)
+
+demographics_by_mileage %>%
+         filter(level %in% c("Population", "school ethnicity_name")) %>%
+ggplot(aes(y = pct*100,
+           x = ethnicity_name)) +
+  geom_col(aes(fill = ethnicity_name)) +
+  facet_grid(distance~school) +
+  scale_fill_kipp()
+  
+```
+
+
+```{r ListObjects}
+lstObjects <- represtools::ListObjects(patterns = c("_sf", "_map", "demographics_by_mileage", "_tracts"))
+represtools::DescribeObjects(lstObjects)
+```
+
+```{r Save}
+save(file = represtools::OutputFile(params)
+     , list = lstObjects)
+```
