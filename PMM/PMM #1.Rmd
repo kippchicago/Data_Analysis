@@ -1,0 +1,351 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(tidyverse)
+library(fuzzyjoin)
+library(gt)
+library(silounloadr)
+library(kippcolors)
+```
+
+
+Need ADA by school  YTD this year and last. 
+
+```{r get_terms_info}
+sy <- silounloadr::calc_academic_year(today(), 
+                                      format = 'firstyear')
+
+sy_short <- silounloadr::calc_academic_year(today(),
+                                            format = 'short')
+last_sy_short <- silounloadr::calc_academic_year(today()- years(1),
+                                            format = 'short')
+
+ps_sy_termid <- silounloadr::calc_ps_termid(sy) %>%
+  str_extract("\\d{2}") %>%
+  as.integer()
+
+terms <- get_powerschool("terms") %>%
+  filter(yearid >= ps_sy_termid-1) %>% #last year and this year
+  select(abbreviation,
+         firstday, 
+         lastday) %>%
+  collect() %>%
+  unique() %>%
+  mutate(sy = calc_academic_year(firstday))
+
+terms_first_last <- terms %>% 
+  filter(abbreviation == last_sy_short)
+
+terms_quarterly <- terms %>% 
+  filter(grepl("Q", abbreviation)) %>% 
+  as.data.frame() %>%
+  mutate(q_interval = lubridate::interval(firstday, lastday))
+
+identify_quarter <- . %>%
+  purrr::map(function(x) x %within% terms_quarterly$q_interval) %>% 
+  purrr::map(function(x) which(x)) %>%
+  as.double()  
+```
+
+```{r}
+first_day <- as.character(terms_first_last$firstday)
+
+attendance <- get_powerschool("attendance") %>% #glimpse()
+  filter(att_date >= first_day,
+         att_mode_code == "ATT_ModeDaily") %>%
+  collect()
+
+attendance_code <- get_powerschool("attendance_code") %>%
+  collect() %>%
+  mutate(att_code = if_else(att_code == "true", "T", att_code))
+
+membership <- get_powerschool("ps_membership_reg") %>% 
+  filter(yearid >= ps_sy_termid-1) %>%
+  select(studentid,
+         schoolid,
+         date = calendardate,
+         enrolled = studentmembership,
+         grade_level,
+         attendance = ATT_CalcCntPresentAbsent) %>%
+  collect()
+
+ students <- get_powerschool("students") %>%
+  select(student_id = id,
+         student_number,
+         first_name,
+         last_name,
+         grade_level,
+         home_room,
+         schoolid,
+         exitcode
+         ) %>%
+  collect()
+ 
+ schools <- tribble(~schoolid, ~schoolname, ~schoolabbr,
+                   78102,   "KIPP Ascend Primary",     "KAP",   
+                   7810,    "KIPP Ascend Middle",      "KAMS",
+                   400146,  "KIPP Academy Chicago",    "KAC",
+                   4001462, "KIPP Academy Chicago Primary", "KACP",
+                   400163,  "KIPP Bloom College Prep", "KBCP",
+                   4001632, "KIPP Bloom Primary",      "KBP",
+                   4001802, "KIPP One Primary",        "KOP",
+                   400180,  "KIPP One Academy",        "KOA")
+
+```
+
+```{r att and membership}
+attendance_complete <- attendance %>%
+  inner_join(attendance_code %>% 
+               select(attendance_codeid = id,
+                      att_code), 
+             by = "attendance_codeid")
+
+# combining above with membership
+member_att <- membership  %>%
+  left_join(attendance_complete %>%
+              select(studentid,
+                     att_date,
+                     att_code
+                     #presence_status_cd
+              ),
+            by =c("studentid",
+                  "date" = "att_date")) %>%
+  mutate(sy = calc_academic_year(date, "short"))
+
+#View(member_att)
+```
+
+
+```{r calc PS att}
+attend_student <- member_att %>%
+  filter(date >= terms_first_last$firstday,
+         date <= today()) %>% 
+  mutate(enrolled0 = 1,
+         enrolled = if_else(att_code == "D" & !is.na(att_code), 0, enrolled0),
+         present0 = ifelse(is.na(att_code), 1, 0),
+         present1 = ifelse(att_code %in%  c("A", "S"), 0, present0),#adding in-school suspension
+         present2 = ifelse(att_code == "H", 0.5, present1),
+         present3 = ifelse(att_code %in% c("T", "E", "I", ""), 1, present2),
+         present = ifelse(is.na(present2), 1, present3),
+         absent = (1 - present)*enrolled,
+         tardy = ifelse(att_code %in% "T", 1, 0),
+         dna0 = if_else(att_code == "D", 1, 0),
+         dna = if_else(is.na(dna0), 0, dna0)) %>% 
+  left_join(students %>%
+              select(-c(grade_level,
+                        schoolid)),
+            by= c("studentid" = "student_id")) %>%
+  select(sy, 
+         studentid,
+         student_number,
+         first_name,
+         last_name,
+         grade_level,
+         home_room,
+        # exitdate,
+         schoolid,
+         date,
+         att_code,
+         enrolled,
+         present,
+         absent,
+         tardy,
+         dna) %>%
+  filter(dna != 1)
+```
+
+```{r YTD ADA, incude = FALSE, eval= FALSE}
+ytd <- attend_student %>% 
+  # group_by(student_number) %>% 
+  # filter(exitdate == max(exitdate)) %>% 
+  ungroup() %>%
+  group_by(schoolid, sy) %>% 
+  summarize(ytd_enrolled = sum(enrolled),
+            ytd_present = sum(present),
+            ytd_avg = ytd_present/ytd_enrolled) %>% 
+  left_join(schools,
+            by = "schoolid") %>% 
+  select(sy,
+         schoolid,
+         School = schoolabbr,
+         Enrolled = ytd_enrolled, 
+         Present = ytd_present,
+         YTD = ytd_avg)
+
+ytd %>% 
+  group_by(School) %>%
+  select(-schoolid) %>% 
+  arrange(School) %>% 
+  gt() %>% 
+  fmt_percent(vars(YTD), decimals = 1) %>%
+  tab_header(
+    title = "2019 YTD Attendance")
+
+
+
+ytd %>%
+  ggplot(aes(x = School, y = YTD)) +
+  geom_col(aes(fill = sy), position = position_dodge2(preserve = "single")) +
+  geom_hline(aes(yintercept = .96), color = kipp_colors$darkorange) +
+  geom_text(aes(label = round(100*YTD, 1)),
+            color = "white",
+            position = position_dodge2(width = 1),
+            vjust = 1.1,
+            hjust = .5,
+            size = 5) +
+  coord_cartesian(ylim = c(.9,1)) +
+  scale_fill_kipp(palette = "kipp_bluegray") +
+  scale_y_continuous(labels = scales::percent) +
+  theme_kipp_min() +
+  labs(y = "Average Daily Attendance",
+       x = "",
+       fill = "School Year")
+  
+
+
+
+```
+
+
+```{r quarterly}
+quarters <- attend_student %>% 
+  # group_by(student_number) %>% 
+  # filter(exitdate == max(exitdate)) %>% 
+  fuzzy_left_join(terms_quarterly %>%
+                    select(quarter = abbreviation, 
+                           firstday,
+                           lastday),
+                  by = c("date" = "firstday",
+                         "date" = "lastday"),
+                  match_fun = list(`>=`, `<=`)) %>%
+  filter(quarter == "Q1")
+
+q1 <- quarters %>%
+  group_by(schoolid, sy, quarter) %>% 
+  summarize(ytd_enrolled = sum(enrolled),
+            ytd_present = sum(present),
+            ytd_avg = ytd_present/ytd_enrolled) %>% 
+  left_join(schools,
+            by = "schoolid") %>% 
+  select(sy,
+         schoolid,
+         School = schoolabbr,
+         Enrolled = ytd_enrolled, 
+         Present = ytd_present,
+         Q1_avg = ytd_avg)
+
+q1 %>%
+  ggplot(aes(x = School, y = Q1_avg)) +
+  geom_col(aes(fill = sy), position = position_dodge2(preserve = "single")) +
+  geom_hline(aes(yintercept = .96), color = kipp_colors$darkorange) +
+  geom_hline(aes(yintercept = .98), color = kipp_colors$orange) +
+  geom_text(aes(label = round(100*Q1_avg, 1),
+                color = sy),
+            position = position_dodge2(width = 1),
+            vjust = -0.1,
+            hjust = .5,
+            size = 5, show.legend = FALSE) +
+  coord_cartesian(ylim = c(.9,1)) +
+  scale_fill_kipp(palette = "kipp_bluegray") +
+  scale_color_kipp(palette = "kipp_bluegray", reverse = T) +
+  scale_y_continuous(labels = scales::percent) +
+  theme_kipp_min() +
+  labs(y = "Average Daily Attendance",
+       x = "",
+       fill = "School Year")
+```
+
+```{r IAs}
+
+ia1 <-tribble(
+  ~SY,     ~Subject,    ~Pct, ~Level,
+  '17-18', 'Math',      .21,  "Middle",
+  '18-19', 'Math',      .54,  "Middle",
+  '19-20', 'Math',      .57,  "Middle",
+  '17-18', 'ELA',       .10,  "Middle",
+  '18-19', 'ELA',       .25,  "Middle",
+  '19-20', 'ELA',       .32,  "Middle",
+  '18-19', 'Science',   .52,  "Middle",
+  '19-20', 'Science',   .61,  "Middle",
+  '18-19', 'Math',      .39,  "Primary",
+  '19-20', 'Math',      .40,  "Primary",
+  '18-19', 'ELA',       .22,  "Primary",
+  '19-20', 'ELA',       .22,  "Primary"
+)
+
+
+ia1 %>%
+  ggplot(aes(x = SY, y=Pct, color = Subject, fill = Subject)) +
+  geom_line(group=1, size = 2) +
+  geom_point(size = 6) +
+  geom_text(aes(label = Pct*100), color = "white") +
+  facet_grid(Subject ~ Level)+
+  scale_color_kipp() +
+  scale_fill_kipp() +
+  scale_y_continuous(labels = scales::percent) +
+  theme_kipp_min() +
+  labs(y = "% of Student Score 70% or better",
+       x = "School Year")
+  
+```
+```{r}
+
+man_att<-tibble::tribble(
+  ~School,   ~Q1,   ~Q2,  ~YTD,
+    "KAC", 96.64, 95.58, 96.57,
+   "KACP", 97.18, 97.53, 97.21,
+   "KAMS", 97.26, 97.63, 97.28,
+    "KAP", 96.61, 94.91, 96.48,
+   "KBCP", 96.08, 95.56, 96.05,
+    "KBP",  96.1, 96.94, 96.16,
+    "KOA", 99.05, 98.32,    99,
+    "KOP", 97.23, 96.63, 97.18
+  )
+
+
+man_att %>%
+  ggplot(aes(x = School, y = Q1/100)) +
+  geom_col(fill = kipp_colors$darkblue) +
+  geom_text(aes(label = round(Q1,1)), 
+            color=kipp_colors$darkblue,
+            vjust = -0.1,
+            hjust = .5) +
+  geom_hline(aes(yintercept = .98), color = kipp_colors$darkorange) +
+  scale_y_continuous(labels = scales::percent) +
+  coord_cartesian(ylim = c(.9,1)) +
+
+  theme_kipp_min()  +
+  labs(y = "Average Daily Attendance")
+    
+           
+```
+```{r}
+sqrp <- tribble(
+  ~Campus, ~Points, ~Level,
+  "KIPP One", 4.9,  "Level 1+",
+  "KIPP Bloom", 4.4, "Level 1+",
+  "KIPP Academy", 4.4, "Level 1+",
+  "KIPP Ascend", 3.9, "Level 1"
+) %>%
+  mutate(Campus = fct_inorder(Campus))
+
+
+sqrp %>%
+  ggplot(aes(x = fct_rev(Campus), y = Points, fill = Level)) +
+  geom_col() +
+  geom_hline(aes(yintercept = 4), color= kipp_colors$lightgreen, size =1) +
+
+    coord_flip() +
+  scale_fill_kipp(palette = "kipp_qual") +
+  theme_kipp_min() +
+  labs(x = "",
+       y = "SQRP Points",
+       fill = "SQRP\nLevel")
+
+silounloadr::calc_ps_termid(2020)
+```
+

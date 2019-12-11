@@ -294,7 +294,8 @@ cps_kipp_neihgs_only_sf  <-st_as_sf(cps_kipp_neihgs_only_sf_2) %>%
 }
 
 
-
+cps_kipp_neihgs_only_sf <- cps_kipp_neihgs_only_sf %>%
+  mutate(rating_label = str_extract(sy_2019_2020_sqrp_rating, "\\d.?"))
 
 basemap <- get_stamenmap(bbox = neigh_bbox, 
                              zoom = zoom_level,
@@ -332,34 +333,44 @@ basemap <- get_stamenmap(bbox = neigh_bbox,
   #         color = "red", 
   #         fill= NA, 
   #         inherit.aes = FALSE) +
-  geom_sf(data = cps_kipp_neihgs_only_sf %>%
-            filter(str_detect(sy_2019_2020_sqrp_rating, "1")), 
+  geom_sf(data = cps_kipp_neihgs_only_sf , 
           aes(color = sy_2019_2020_sqrp_rating,
               fill = sy_2019_2020_sqrp_rating#,
               #size = sqrp_total_points_earned
               ), 
-          size = 16,
+          size = 8,
           inherit.aes = FALSE,
           show.legend = FALSE) +
-    geom_sf(data = cps_kipp_neihgs_only_sf %>%
-            filter(!str_detect(sy_2019_2020_sqrp_rating, "1")), 
-          color = "black", 
-          size = 13,
-          shape = 21,
-          inherit.aes = FALSE) +
+    # geom_sf(data = cps_kipp_neihgs_only_sf %>%
+    #         filter(!str_detect(sy_2019_2020_sqrp_rating, "1")), 
+    #       color = "black", 
+    #       size = 13,
+    #       shape = 21,
+    #       inherit.aes = FALSE) +
+
+  geom_sf_text(data = cps_kipp_neihgs_only_sf, 
+               aes(label = rating_label), hjust=.5, vjust = .5,
+               size = 4,
+               color = "white") +
+    
+        geom_sf(data = cps_kipp_neihgs_only_sf %>% filter(kipp),
+          aes(color = sy_2019_2020_sqrp_rating,
+              fill = sy_2019_2020_sqrp_rating#,
+              #size = sqrp_total_points_earned
+              ), 
+          size = 8,
+          inherit.aes = FALSE,
+          show.legend = FALSE) +  
+
   geom_sf(data = cps_kipp_neihgs_only_sf %>% filter(kipp),
-          color = "white", 
-          size = .5, 
+          shape = 21,
+          color = kipp_colors$lightorange, 
+          size = 9, 
           inherit.aes = FALSE) +
-  # geom_sf_text(data = cps_kipp_neihgs_only_sf %>% filter(kipp),
-  #              aes(label = school_nm),
-  #         color = kipp_colors$darkblue, 
-  #         inherit.aes = FALSE,
-  #         size = 7,
-  #         hjust = hjust_name,
-  #         vjust = vjust_name) +
-  # #geom_sf_text(data = cps_sf, 
-  #             aes(label = sqrp_total_points_earned), hjust=1) +
+  geom_sf_text(data = cps_kipp_neihgs_only_sf %>% filter(kipp), 
+               aes(label = rating_label), hjust=.5, vjust = .5,
+               size = 4,
+               color = "white") +
   #geom_sf_text(data = cps_sf, 
   #             aes(label = school_nm), hjust=0, size =1) +
   scale_color_kipp(palette = "kipp_bluegray", reverse = FALSE) + 
@@ -370,6 +381,9 @@ basemap <- get_stamenmap(bbox = neigh_bbox,
 
 
 plot_sqpr_map("Austin")
+plot_sqpr_map("Humboldt Park")
+plot_sqpr_map("North Lawndale")
+plot_sqpr_map("Englewood")
 ```
 
 
@@ -864,5 +878,86 @@ cps_sf %>%
 
 ```{r}
 cps_sf %>% group_by(pri_neigh) %>% count()
+```
+
+```{r chi_maps_prezi}
+ggplot(neighborhoods_sf) +
+  geom_sf(color = kipp_colors$lightgray, 
+          fill = kipp_colors$lightblue) +
+  geom_sf(data = kipp_neighbs_sf, 
+          color = kipp_colors$lightgray,
+          fill = kipp_colors$lightgreen)  +
+  theme_void()
+
+```
+# SQRP
+
+```{r ranked_pin_web}
+ranked_cps <- cps_sf %>% 
+  mutate(type = if_else(kipp, "KIPP Chicago", network),
+         management = if_else(str_detect(type, "Network"), "CPS", type),
+         management = factor(management),
+         management = fct_relevel(management, "KIPP Chicago")) %>%
+  arrange(sqrp_total_points_earned, management) %>%
+  mutate(rank = row_number(sqrp_total_points_earned)) 
+
+
+ranked_cps_kipp <- ranked_cps %>% 
+  filter(kipp) %>%
+  mutate(name = case_when(
+    str_detect(school_nm, "ASCEND") ~ "KIPP Ascend",
+    str_detect(school_nm, "ACADEMY") ~ "KIPP Academy",
+    str_detect(school_nm, "BLOOM") ~ "KIPP Bloom",
+    str_detect(school_nm, "ONE") ~ "KIPP One",
+  ))
+
+ordinate <- Vectorize(toOrdinal::toOrdinal)
+
+rank_labels <- ranked_cps_kipp %>%
+  mutate(rank_label = ordinate(max(rank) - rank + 1)) %>%
+  filter(name != "KIPP Academy") %>%
+  select(rank, rank_label)
+
+p <- ranked_cps %>%
+    arrange(sqrp_total_points_earned, management) %>%
+    mutate(rank = row_number(sqrp_total_points_earned)) %>%
+    ggplot(aes(y = rank, x = sqrp_total_points_earned)) +
+    geom_segment(aes(yend = rank, xend = 0), 
+             size = .05,
+             color = "black") +
+    geom_segment(data = ranked_cps_kipp, 
+                 aes(yend = rank, xend = 0), 
+             color = kipp_colors$orange, 
+             size = 1) +
+    ggrepel::geom_text_repel(data = ranked_cps_kipp,
+                             aes(label = name),
+                             color = kipp_colors$blue,
+                             xlim = c(6), show.legend = FALSE,
+                             direction = "y") +
+   geom_point(size = .125,
+             color = kipp_colors$darkgray) +
+    geom_point(data = ranked_cps_kipp, 
+                 aes(), 
+             color = kipp_colors$orange, 
+             size = 2) +
+    scale_y_continuous(breaks = rank_labels$rank, labels=rank_labels$rank_label) +
+    theme_kipp_min() +
+    theme(legend.position = "bottom", 
+          panel.background = element_rect(fill = "transparent", colour = NA), 
+          plot.background = element_rect(fill = "transparent", colour = NA)) +
+    ##scale_fill_kipp(palette = "kipp_qual") +
+    #scale_color_kipp(palette = "kipp_qual") +
+    xlim(0,6.5) +
+    #coord_flip() +
+    labs(y = "Rank in District",
+         x = "SQRP Points")
+
+p
+```
+
+```{r}
+png("~/Desktop/distrcit_stack.png", height = 1200, width = 1000, res = 150, bg = "transparent")
+p
+dev.off()
 ```
 
