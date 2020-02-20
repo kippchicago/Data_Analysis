@@ -1,0 +1,1435 @@
+
+---
+title: "Q1 Student Track Status for SQRP"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 4
+    toc_float: true
+---
+
+
+```{r global_options, echo = FALSE}
+ knitr::opts_chunk$set(fig.width=11, 
+                       fig.height=6, 
+                        warning=FALSE,
+                       message=FALSE, 
+                       error = FALSE,
+                      cache = FALSE,
+                       echo = FALSE)
+
+options(gargle_oauth_email = "ckinnen@kippchicago.org")
+
+```
+ 
+
+```{r load, load}
+library(formattable)
+library(gghighlight)
+require(here)
+library(googlesheets4)
+require(openxlsx)
+library(dplyr)
+library(silounloadr)
+library(readr)
+library(lubridate)
+library(purrr)
+library(dbplyr)
+require(tidyverse)
+require(janitor)
+require(stringr)
+library(googledrive)
+library(kippcolors)
+library(ggrepel)
+library(lemon)
+
+theme_set(theme_kipp_light())
+```
+
+```{r bigquery tables}
+# first run Illuminate final grades GPA calc for gen ed and DL and Attendance 
+
+sy <-silounloadr::calc_academic_year(today(), format = 'firstyear')
+
+ps_sy_termid <- silounloadr::calc_ps_termid(sy) %>%
+  str_extract("\\d{2}") %>%
+  as.integer()
+
+schools <- data_frame(schoolid = c(78102, 7810, 400146, 4001462, 400163, 4001802, 400180, 4001632),
+                      schoolname = c("Ascend Primary", "Ascend Middle", "Academy Chicago", "Academy Primary", "Bloom", 
+                                     "One Primary", "One Academy", "Bloom Primary"),
+                      schoolabbreviation =c("KAP", "KAMS", "KAC", "KACP", "KBCP", "KOP", "KOA", "KBP"))
+
+students <- get_powerschool("students") %>%
+  select(id,
+         schoolid,
+         student_number,
+         first_name,
+         last_name,
+         grade_level,
+         home_room,
+         enroll_status) %>%
+  collect() %>%
+  left_join(schools %>%
+              select(-schoolname),
+            by = "schoolid") 
+
+membership <- silounloadr::get_powerschool("ps_membership_reg") %>% 
+  filter(yearid >= ps_sy_termid) %>% 
+  select(studentid,
+         schoolid,
+         date = calendardate,
+         enrolled = studentmembership,
+         grade_level,
+         attendance = ATT_CalcCntPresentAbsent) %>%
+  collect() 
+
+users <- get_powerschool("users") %>%
+  select(first_name,
+         last_name,
+         homeschoolid,
+         users_dcid = dcid) %>%
+  collect()
+```
+
+```{r grades}
+
+##1920 Modified grading scales
+ws <- function(df_title, grade_level){
+  read_sheet(df_title$id,
+             sheet = grade_level) %>%
+    select(2) %>% 
+    janitor::clean_names()
+}
+
+#KAMS
+kams_title <- drive_find("KAMS Modified Grading: 19-20SY", n_max = 30)
+
+kams_mod_grades <- bind_rows(ws(kams_title, "5th"), ws(kams_title, "6th"), 
+                             ws(kams_title, "7th"), ws(kams_title, "8th")) 
+
+# KBCP
+
+kbcp_mod_grades <- read_sheet(ss = "https://docs.google.com/spreadsheets/d/17GAPma7f1e0EsXlphbeDFq7_fhK_1F5AQ7vdkH9DusE/edit#gid=0") %>%
+  select(2) %>%
+  clean_names()
+
+# KACP
+kacp_title <- drive_find("KACP-19-20SY MODIFIED GRADES", n_max = 30)
+
+kacp_mod_grades <- read_sheet(kacp_title$id) %>%
+  select(2) %>%
+  clean_names
+
+# KAC
+kac_title <- drive_find("KAC Modified Grading: 19-20SY", n_max = 30)
+
+kac_mod_grades <- bind_rows(ws(kac_title, "5th"), ws(kac_title, "6th"),
+                            ws(kac_title, "7th"), ws(kac_title, "8th"))
+
+# All
+all_mod_grades <- bind_rows(kams_mod_grades,
+                            kbcp_mod_grades,
+                            kacp_mod_grades,
+                            kac_mod_grades) %>%
+  filter(!is.na(id_number))
+
+file_list <- dir(path = "/Users/carolinekinnen/Dropbox (KIPP Chicago Schools)/Illuminate Report Cards/data/Illuminate Grades/", pattern = "\\.csv", full.names = TRUE)
+
+# map read_csv and clean_names functions to entire list
+grade_df_list <- file_list %>%
+  map(read_csv) %>%
+  map(clean_names)
+
+grade_scale <- tribble(
+  ~grade, ~points,
+  "A+",   4.0,
+  "A",    4.0,
+  "A-",   4.0,
+  "B+",   3.0,
+  "B",    3.0,
+  "B-",   3.0,
+  "C+",   2.0,
+  "C",    2.0,
+  "C-",   2.0,
+  "D+",   1.0,
+  "D",    1.0,
+  "D-",   1.0,
+  "F",    0.0
+)
+
+# Grade and percent 
+grade_percent_scale <- tibble(
+  grade = c(rep("A+", 21),
+            rep("A", 40),
+            rep("A-", 40),
+            rep("B+", 30),
+            rep("B", 40),
+            rep("B-", 30),
+            rep("C+", 30),
+            rep("C", 40),
+            rep("C-", 30),
+            rep("D+", 30),
+            rep("D", 40),
+            rep("D-", 30),
+            rep("F", 600)),
+  percent = c(seq(98, 100, .1),
+              seq(94, 97.9, .1),
+              seq(90, 93.9, .1),
+              seq(87, 89.9, .1),
+              seq(83, 86.9, .1),
+              seq(80, 82.9, .1),
+              seq(77, 79.9, .1),
+              seq(73, 76.9, .1),
+              seq(70, 72.9, .1),
+              seq(67, 69.9, .1),
+              seq(63, 66.9, .1),
+              seq(60, 62.9, .1),
+              seq(0, 59.9, .1)) 
+) %>%
+  arrange(desc(percent))
+
+calc_grades_gpa <- . %>% 
+  anti_join(all_mod_grades %>%           #
+              select(id_number),                     #
+            by = c("student_id" = "id_number")) %>% #
+  select(site_id, student_id, contains("percent")) %>% 
+  tidyr::gather(course, percent, -site_id:-student_id) %>% 
+  select(-contains("dont_use")) %>%
+  filter(!is.na(percent), 
+         !stringr::str_detect(course, "y1_avg")) %>% 
+  mutate(#course = gsub(pattern = "th_koa", replacement = "th", course), 
+    #quarter = stringr::str_extract(course, "q\\d"), 
+    course = gsub("_q\\d", "", course), 
+    percent = as.integer(gsub("%", "", percent)),
+    course = gsub(pattern = "th_koa", replacement = "th", course)
+  ) %>% 
+  group_by(site_id, student_id, course) %>% 
+  summarize(q_final_percent = round(mean(percent),1),
+            n_quarters = n(),
+            pcts_used = paste(percent, collapse = " ")) %>% 
+  mutate(q_final_percent = as.character(q_final_percent)) %>%
+  left_join(grade_percent_scale %>%
+              mutate(percent = as.character(percent)), 
+            by = c("q_final_percent" = "percent")) %>%
+  left_join(grade_scale, c("grade")) %>%
+  mutate(course = gsub("_", " ", course),
+         course = gsub("lit centers", "litcenters", course),
+         course = gsub("choice reading", "choice", course), 
+         # course = gsub("math centers", "mathcenters", course),
+         # course = gsub(" 4th$", "", course),
+         subject = stringr::str_extract(course, "\\w+\\s(\\w+)$")
+         #subject0 = stringr::str_extract(course, "\\w+\\s+\\w+\\s+\\w+\\s(\\w+)$")
+  )
+
+
+gpas_final_grades_df <- grade_df_list %>%
+  map_df(calc_grades_gpa) %>%
+  ungroup() %>% 
+  mutate(site_id = as.factor(site_id),
+         student_id = as.factor(student_id))
+
+deduped <- gpas_final_grades_df %>% 
+  mutate(course_school = stringr::str_extract(course, "kacp|kap|kac|kbcp|kams|koa|kop")) %>%
+        # course_school = if_else(course_school %in% "kac", "kccp", course_school)) %>% 
+  left_join(students %>%
+              select(schoolid,
+                     student_number,
+                     schoolabbreviation,
+                     enroll_status) %>%
+              mutate(schoolid = as.factor(schoolid),
+                     student_number = as.factor(student_number),
+                     schoolabbreviation = tolower(schoolabbreviation)),
+            by = c("site_id" = "schoolid",
+                   "student_id" = "student_number")) %>%
+  filter(!is.na(enroll_status)) %>% 
+  #ensuring that the school id in Illuminate matches the enrollment school
+  mutate(same_schoolid_course = course_school == schoolabbreviation) %>%
+  filter(same_schoolid_course) %>%
+  filter(grepl("ela|litcenters|math|science|studies", subject))
+
+q_percent <- deduped %>%
+  mutate(q_final_percent0 = sprintf("%s%%", q_final_percent)) %>%
+  select(-c(course,
+            q_final_percent,
+            n_quarters:points)) %>%
+  tidyr::spread(subject, q_final_percent0) %>%
+  mutate_all(funs(replace(., is.na(.), "")))
+
+#using tidyr::spread to widen the table and place grade under the respective subject
+q_grade <- deduped %>% 
+  mutate(subject = gsub("percent", "grade", subject)) %>%
+  select(-c(course, 
+            q_final_percent:pcts_used,
+            points)) %>%
+  tidyr::spread(subject, grade) %>%
+  mutate_all(funs(replace(., is.na(.), "")))
+
+#calculating gpa
+q_gpa <- deduped %>%
+  group_by(site_id,
+           student_id) %>%
+  summarize(gpa = round(mean(points), 2),
+            n_courses = n(),
+            letter_grades = paste(grade, collapse = " "),
+            points_used = paste(points, collapse = " "))
+
+calc_sped_gpa <- . %>%
+  inner_join(all_mod_grades, by = c("student_id" = "id_number")) %>%
+  select(site_id, student_id, matches("Y1_avg")) %>%
+  select(-contains("q2")) %>%
+  select(-contains("q3")) %>%
+  select(-contains("q4")) %>%
+  tidyr::gather(course, grade, -site_id:-student_id) %>% 
+  arrange(student_id) %>%
+  mutate(course_school = stringr::str_extract(course, "kacp|kac|kbcp|kams")) %>% 
+  left_join(schools, by = c("site_id" = "schoolid")) %>%
+  mutate(schoolabbreviation = tolower(schoolabbreviation),
+         same_school = course_school == schoolabbreviation) %>%
+  filter(same_school) %>%
+  left_join(grade_scale, 
+            by = "grade") %>%
+  filter(!is.na(points)) %>%
+  group_by(site_id, 
+           student_id) %>%
+  summarise(gpa = round(mean(points), 2),
+            n_courses = n(),
+            letter_grades = paste(grade, collapse = " "),
+            points_used = paste(points, collapse = " ")) %>%
+  arrange(n_courses)
+
+#applying sped function to dataset 
+gpas_df <- grade_df_list %>%
+  map_df(calc_sped_gpa) %>%
+  ungroup() %>% 
+  mutate(site_id = as.factor(site_id),
+         student_id = as.factor(student_id))
+
+#joining the tables above into one table for the csv
+final_grades_gpa <- q_grade %>%
+  left_join(q_percent) %>%
+  left_join(q_gpa,
+            by = c("site_id",
+                   "student_id")) %>%
+  full_join(gpas_df,
+            by = c("student_id", "site_id", "gpa", "n_courses", "letter_grades", "points_used")) %>%
+  rename('literacy centers grade' = 'litcenters grade',
+         'literacy centers percent' = 'litcenters percent',
+         'social studies grade' = 'studies grade',
+         'social studies percent' = 'studies percent')
+```
+
+```{r courses}
+# get users table course teacher name code
+# users <- get_powerschool("users") %>%
+#   select(first_name,
+#          last_name,
+#          homeschoolid,
+#          users_dcid = dcid) %>%
+#   collect()
+
+# get teachers table course teacher name code
+teachers <- get_powerschool("schoolstaff") %>%
+  select(teacherid = id,
+         users_dcid) %>%
+  collect()
+
+# get cc table course teacher name code
+cc <- get_powerschool("cc") %>%
+  select(course_number,
+         section_number,
+         teacherid,
+         termid,
+         schoolid,
+         studentid,
+         dateleft) %>%
+  collect()
+
+# get courses table for course teacher name code
+courses <- get_powerschool("courses") %>%
+  select(course_long_name = course_name,
+         course_number) %>%
+  collect()
+
+## Collecting Through Powerschool ##
+course_names_teachers <- users %>% 
+  left_join(teachers, 
+            by = "users_dcid") %>% # joins users and teachers
+  left_join(cc,
+            by = "teacherid") %>% 
+  filter(termid == 2900) %>% # joins users/teachers and cc
+  left_join(courses,
+            by = "course_number") %>% # joins users/teachers/cc and courses 
+  select(c(schoolid,
+           studentid,
+           course_long_name, 
+           first_name,
+           last_name, 
+           course_number,
+           section_number))  %>% 
+  left_join(students %>% # joins users/teachers/cc/courses and students
+              select(student_number,
+                     studentid = id,
+                     grade_level,
+                     home_room,
+                     student_first = first_name,
+                     student_last = last_name), 
+            by = "studentid") %>%
+  filter(!grepl("Attendance|ELL", course_long_name), 
+         grade_level > 3) %>% 
+  #   !schoolid == 78102) %>%
+  # student_number != 50712546) %>%
+  mutate(course_long_name = gsub("ELA", "English Language Arts", course_long_name),
+         course_long_name = if_else(grepl("(\\d)th Math", course_long_name) &
+                                      !grepl("Mathematics", course_long_name), 
+                                    gsub("Math", "Mathematics", course_long_name), course_long_name),
+         course_long_name = if_else(grepl("(\\d)th Literacy Center", course_long_name) &
+                                      !grepl("Literacy Centers", course_long_name), 
+                                    gsub("Literacy Center", "Literacy Centers", course_long_name), course_long_name), 
+         subject = gsub("(\\d)th ", "", course_long_name)) %>%
+  unite("teacher_first_last", 
+        c("first_name", "last_name"), 
+        sep = " ") %>%
+  mutate(course_long_name = ifelse(course_number == "koa7math" & section_number == 1, 
+                                   "7th Pre-Algebra", course_long_name)) %>%
+  select(-c(course_number, section_number))
+# get rid of any attendance sections, grades below 4th, all of KAP, and one KOA student taking two math classes
+# joins Powerschool tables (users, teachers, courses, cc, and students) to create one data frame that 
+# has one row for each class a student is rostered to
+# modified 7th honors section at KOA
+
+course_subject <- course_names_teachers %>%
+  mutate(subject_course = sprintf("%s_course", subject)) %>%
+  select(-c(teacher_first_last, 
+            subject)) %>% 
+  distinct() %>%
+  tidyr::spread(subject_course, course_long_name)
+
+teacher_subject <- course_names_teachers %>%
+  mutate(subject_teacher = sprintf("%s_teacher", subject)) %>%
+  select(-c(course_long_name, 
+            subject)) %>% 
+  distinct() %>%
+  spread(subject_teacher, teacher_first_last) 
+
+course_names_teachers_final <- course_subject %>%
+  left_join(teacher_subject,
+            by = c("schoolid",
+                   "studentid",
+                   "student_number",
+                   "grade_level",
+                   "student_first",
+                   "student_last")) %>%
+  select(-home_room.y) %>%
+  rename(home_room = home_room.x)
+
+#Reviewing work - finding cases of duplicate IDs
+
+dup_ids <- which(duplicated(course_names_teachers_final$studentid))
+# flags duplicate ids, should be 0
+
+# If applicable, make duplicates their own dataframe to tell where mistakes are
+duplicates <- course_names_teachers_final[dup_ids,]
+
+dups <- course_names_teachers_final[dup_ids,] %>% select(studentid) %>% unique()
+
+# Removing all NAs so they don't appear in the import
+middle_course_teacher <- course_names_teachers_final %>%
+  mutate_all(funs(replace(., is.na(.), "")))
+
+primary_course_teacher <- users %>% 
+  left_join(teachers, 
+            by = "users_dcid") %>% # joins users and teachers
+  left_join(cc,
+            by = "teacherid") %>% 
+  filter(termid == 2900) %>% # joins users/teachers and cc
+  left_join(courses,
+            by = "course_number") %>% # joins users/teachers/cc and courses 
+  select(c(schoolid,
+           studentid,
+           course_long_name, 
+           first_name,
+           last_name, 
+           course_number,
+           section_number))  %>% 
+  left_join(students %>% # joins users/teachers/cc/courses and students
+              select(student_number,
+                     studentid = id,
+                     grade_level,
+                     student_first = first_name,
+                     student_last = last_name), 
+            by = "studentid") %>%
+  filter(grade_level < 4) %>%
+  filter(!grepl("Science", course_long_name)) %>%
+  mutate(teacher_full_name = paste(first_name, last_name, sep = " "))
+```
+
+
+```{r attendance}
+
+attendance <- get_powerschool("attendance") %>%
+  dplyr::filter(att_date >= lubridate::ymd("2019-08-19")) %>% # CHANGE DATE
+  # set quarter end dates for Q1,2,3, 4.
+  dplyr::filter(att_date <= lubridate::ymd("2019-11-01")) %>% # CHANGE DATE
+  dplyr::filter(att_mode_code == "ATT_ModeDaily") %>%
+  collect()
+
+# get attendance code table  
+attendance_code <- get_powerschool("attendance_code") %>%
+  dplyr::mutate(att_code = if_else(att_code == "true", "T", att_code)) %>% #
+  collect()
+
+#combine attendance and attendance code tables
+attendance_complete <- attendance %>%
+  right_join(attendance_code %>% 
+               select(attendance_codeid = id,
+                      att_code),
+             by = "attendance_codeid")
+
+# combine membership with attendance complete table
+member_att <- membership  %>%
+  left_join(attendance_complete %>%
+              select(studentid,
+                     att_date,
+                     att_code
+                     #presence_status_cd
+              ),
+            by =c("studentid",
+                  "date" = "att_date"))
+
+
+# Identify whether each att_code is enrolled, present, absent, or tardy for each student
+# for each day
+attend_student <- member_att %>%
+  #mutate(date = lubridate::ymd_hms(date)) %>%
+  filter(date >= lubridate::ymd("2019-08-19")) %>% # CHANGE DATE
+  mutate(enrolled0 = 1,
+         enrolled = if_else(att_code == "D" & !is.na(att_code), 0, enrolled0),
+         present0 = ifelse(is.na(att_code) | att_code == "", 1, 0),
+         present1 = ifelse(att_code %in%  c("A", "S"), 0, present0),
+         present2 = ifelse(att_code == "H", 0.5, present1),
+         present3 = ifelse(att_code %in% c("T", "E", "L", "I"), 1, present2),
+         present = ifelse(is.na(present2), 1, present3),
+         absent = (1 - present)*enrolled,
+         tardy = ifelse(att_code %in% "T", 1, 0)) %>%
+  left_join(students %>%
+              select(studentid = id, 
+                     student_number,
+                     first_name,
+                     last_name,
+                     home_room),
+            by="studentid") %>%
+  inner_join(schools, by=c("schoolid")) %>%
+  select(studentid,
+         student_number,
+         first_name,
+         last_name,
+         grade_level,
+         schoolid,
+         schoolname,
+         schoolabbreviation,
+         home_room,
+         date,
+         att_code,
+         enrolled,
+         present,
+         absent,
+         tardy)
+
+
+# summarize this data for every student
+attend_school_grade_student <- attend_student %>%
+  dplyr::filter(date <= lubridate::ymd("2019-11-02")) %>% #CHANGE DATE
+  group_by(schoolabbreviation, grade_level, student_number, first_name, last_name) %>%
+  summarize(enrolled = sum(enrolled),
+            present = sum(present),
+            absent = sum(absent),
+            tardy = sum(tardy)) %>%
+  arrange(schoolabbreviation,
+          grade_level) %>%
+  filter(enrolled >= 30)
+
+attend_school_grade_student <- attend_school_grade_student %>%
+  mutate(rate = (present/enrolled)*100,
+         rate = round(rate, 1), # add % sign to rate
+         quarter_absent = absent,
+         quarter_tardy = tardy)
+
+```
+
+```{r sqrp_dataset}
+
+# Combining and creating dataset for SQRP analysis
+
+gpas_dl <- gpas_df %>%
+  select(student_id,
+         gpa_dl = gpa,
+         letter_grades_dl = letter_grades,
+         points_used_dl = points_used)
+
+all_final_gpas <- final_grades_gpa %>%
+  full_join(gpas_dl, by = "student_id") %>%
+  mutate(gpa = ifelse(is.na(gpa_dl), gpa, gpa_dl))
+
+track_student <- 
+  final_grades_gpa %>%  
+  select(student_number = student_id,
+         gpa) %>%
+  full_join(middle_course_teacher %>%
+              select(student_number, 
+                     home_room), by = "student_number") %>%
+  mutate(student_number = as.integer(student_number)) %>%
+  left_join(attend_school_grade_student, by = "student_number") %>%
+  select(-c(enrolled, present, absent, tardy, quarter_absent, quarter_tardy)) %>%
+  mutate(gpa_cat = case_when(gpa >= 0 & gpa < 2 ~ "Below 2",
+                                    gpa >= 2 & gpa <= 2.49 ~ "2.0 < 2.5",
+                                    gpa >= 2.5 & gpa <= 2.99 ~ "2.5 < 3.0",
+                                    gpa >= 3 & gpa <= 3.49 ~ "3.0 < 3.5",
+                                    gpa >= 3.5 ~ "3.5 - 4.0")) %>%
+  mutate(att_cat = case_when(rate < 85 ~ "< 85 ADA",
+                                  rate >= 85 & rate < 87.5 ~ ">= 85 and < 87.5 ADA",
+                                  rate >= 87.5 & rate < 90 ~ ">= 87.5 and < 90 ADA",
+                                  rate >= 90 & rate < 92.5 ~ ">= 90 and < 92.5 ADA",
+                                  rate >= 92.5 & rate < 95 ~ ">= 92.5 and < 95 ADA",
+                                  rate >= 95 & rate < 97.5 ~ ">= 95 and < 97.5 ADA",
+                                  rate >= 97.5 ~ ">= 97.5 ADA")) %>%
+  mutate(current_bucket = case_when(
+    gpa_cat == "Below 2" & rate < 85 ~ "Less than 2 GPA and less than 85 ADA",
+    gpa_cat == "Below 2" & rate >= 85 & rate < 87.5 ~ "Less than 2 GPA and 85-87.49 ADA",
+    gpa_cat == "Below 2" & rate >= 87.5 & rate < 90 ~ "Less than 2 GPA and 87.5-89.9 ADA",
+    gpa_cat == "Below 2" & rate >= 90 & rate < 92.5 ~ "Less than 2 GPA and 90-92.49 ADA",
+    gpa_cat == "Below 2" & rate >= 92.5 & rate < 95 ~ "Less than 2 GPA and 92.5-94.9 ADA",
+    gpa_cat == "Below 2" & rate >= 95 & rate < 97.5 ~ "Less than 2 GPA and 95-97.49 ADA",
+    gpa_cat == "Below 2" & rate >= 97.5 ~ "Less than 2 GPA and greater than 97.5 ADA",
+    gpa_cat == "2.0 < 2.5" & rate < 85 ~ "2.0 to 2.5 GPA and less than 85 ADA",
+    gpa_cat == "2.0 < 2.5" & rate >= 85 & rate < 87.5 ~ "2.0 to 2.5 GPA and 85-87.49 ADA",
+    gpa_cat == "2.0 < 2.5" & rate >= 87.5 & rate < 90 ~ "2.0 to 2.5 GPA and 87.5-89.9 ADA",
+    gpa_cat == "2.0 < 2.5" & rate >= 90 & rate < 92.5 ~ "2.0 to 2.5 GPA and 90-92.49 ADA",
+    gpa_cat == "2.0 < 2.5" & rate >= 92.5 & rate < 95 ~ "2.0 to 2.5 GPA and 92.5-94.9 ADA",
+    gpa_cat == "2.0 < 2.5" & rate >= 95 & rate < 97.5 ~ "2.0 to 2.5 GPA and 95-97.49 ADA",
+    gpa_cat == "2.0 < 2.5" & rate >= 97.5 ~ "2.0 to 2.5 GPA and greater than 97.5 ADA",
+    gpa_cat == "2.5 < 3.0" & rate < 85 ~ "2.5 to 3.0 GPA and less than 85 ADA",
+    gpa_cat == "2.5 < 3.0" & rate >= 85 & rate < 87.5 ~ "2.5 to 3.0 GPA and 85-87.49 ADA",
+    gpa_cat == "2.5 < 3.0" & rate >= 87.5 & rate < 90 ~ "2.5 to 3.0 GPA and 87.5-89.9 ADA",
+    gpa_cat == "2.5 < 3.0" & rate >= 90 & rate < 92.5 ~ "2.5 to 3.0 GPA and 90-92.49 ADA",
+    gpa_cat == "2.5 < 3.0" & rate >= 92.5 & rate < 95 ~ "2.5 to 3.0 GPA and 92.5-94.9 ADA",
+    gpa_cat == "2.5 < 3.0" & rate >= 95 & rate < 97.5 ~ "2.5 to 3.0 GPA and 95-97.49 ADA",
+    gpa_cat == "2.5 < 3.0" & rate >= 97.5 ~ "2.5 to 3.0 GPA and greater than 97.5 ADA",
+    gpa_cat == "3.0 < 3.5" & rate < 85 ~ "3.0 to 3.5 GPA and less than 85 ADA",
+    gpa_cat == "3.0 < 3.5" & rate >= 85 & rate < 87.5 ~ "3.0 to 3.5 GPA and 85-87.49 ADA",
+    gpa_cat == "3.0 < 3.5" & rate >= 87.5 & rate < 90 ~ "3.0 to 3.5 GPA and 87.5-89.9 ADA",
+    gpa_cat == "3.0 < 3.5" & rate >= 90 & rate < 92.5 ~ "3.0 to 3.5 GPA and 90-92.49 ADA",
+    gpa_cat == "3.0 < 3.5" & rate >= 92.5 & rate < 95 ~ "3.0 to 3.5 GPA and 92.5-94.9 ADA",
+    gpa_cat == "3.0 < 3.5" & rate >= 95 & rate < 97.5 ~ "3.0 to 3.5 GPA and 95-97.49 ADA",
+    gpa_cat == "3.0 < 3.5" & rate >= 97.5 ~ "3.0 to 3.5 GPA and greater than 97.5 ADA",
+    gpa_cat == "3.5 - 4.0" & rate < 85 ~ "Greater than 3.5 GPA and less than 85 ADA",
+    gpa_cat == "3.5 - 4.0" & rate >= 85 & rate < 87.5 ~ "Greater than 3.5 GPA and 85-87.49 ADA",
+    gpa_cat == "3.5 - 4.0" & rate >= 87.5 & rate < 90 ~ "Greater than 3.5 GPA and 87.5-89.9 ADA",
+    gpa_cat == "3.5 - 4.0" & rate >= 90 & rate < 92.5 ~ "Greater than 3.5 GPA and 90-92.49 ADA",
+    gpa_cat == "3.5 - 4.0" & rate >= 92.5 & rate < 95 ~ "Greater than 3.5 GPA and 92.5-94.9 ADA",
+    gpa_cat == "3.5 - 4.0" & rate >= 95 & rate < 97.5 ~ "Greater than 3.5 GPA and 95-97.49 ADA",
+    gpa_cat == "3.5 - 4.0" & rate >= 97.5 ~ "Greater than 3.5 GPA and greater than 97.5 ADA")) %>%
+  mutate(current_track_status = case_when(
+    current_bucket == "Less than 2 GPA and less than 85 ADA" ~ "Off-Track",
+    current_bucket == "Less than 2 GPA and 85-87.49 ADA" ~ "Far from On-Track",
+    current_bucket == "Less than 2 GPA and 87.5-89.9 ADA" ~ "Far from On-Track",
+    current_bucket == "Less than 2 GPA and 90-92.49 ADA" ~ "Far from On-Track",
+    current_bucket == "Less than 2 GPA and 92.5-94.9 ADA" ~ "Far from On-Track",
+    current_bucket == "Less than 2 GPA and 95-97.49 ADA" ~ "Far from On-Track",
+    current_bucket == "Less than 2 GPA and greater than 97.5 ADA" ~ "Far from On-Track",
+    current_bucket == "2.0 to 2.5 GPA and less than 85 ADA" ~ "Off-Track",
+    current_bucket == "2.0 to 2.5 GPA and 85-87.49 ADA" ~ "Far from On-Track",
+    current_bucket == "2.0 to 2.5 GPA and 87.5-89.9 ADA" ~ "Far from On-Track",
+    current_bucket == "2.0 to 2.5 GPA and 90-92.49 ADA" ~ "Far from On-Track",
+    current_bucket == "2.0 to 2.5 GPA and 92.5-94.9 ADA" ~ "Near On-Track",
+    current_bucket == "2.0 to 2.5 GPA and 95-97.49 ADA" ~ "Near On-Track",
+    current_bucket == "2.0 to 2.5 GPA and greater than 97.5 ADA" ~ "Almost On-Track",
+    current_bucket == "2.5 to 3.0 GPA and less than 85 ADA" ~ "Off-Track",
+    current_bucket == "2.5 to 3.0 GPA and 85-87.49 ADA" ~ "Far from On-Track",
+    current_bucket == "2.5 to 3.0 GPA and 87.5-89.9 ADA" ~ "Near On-Track",
+    current_bucket == "2.5 to 3.0 GPA and 90-92.49 ADA" ~ "Near On-Track",
+    current_bucket == "2.5 to 3.0 GPA and 92.5-94.9 ADA" ~ "Almost On-Track",
+    current_bucket == "2.5 to 3.0 GPA and 95-97.49 ADA"  ~ "Almost On-Track",
+    current_bucket == "2.5 to 3.0 GPA and greater than 97.5 ADA" ~ "On-Track",
+    current_bucket == "3.0 to 3.5 GPA and less than 85 ADA" ~ "Off-Track",
+    current_bucket == "3.0 to 3.5 GPA and 85-87.49 ADA" ~ "Far from On-Track",
+    current_bucket == "3.0 to 3.5 GPA and 87.5-89.9 ADA" ~ "Almost On-Track",
+    current_bucket == "3.0 to 3.5 GPA and 90-92.49 ADA"~ "Almost On-Track",
+    current_bucket == "3.0 to 3.5 GPA and 92.5-94.9 ADA" ~ "Almost On-Track",
+    current_bucket == "3.0 to 3.5 GPA and 95-97.49 ADA" ~ "On-Track",
+    current_bucket == "3.0 to 3.5 GPA and greater than 97.5 ADA" ~ "On-Track",
+    current_bucket == "Greater than 3.5 GPA and less than 85 ADA" ~ "Off-Track",
+    current_bucket == "Greater than 3.5 GPA and 85-87.49 ADA" ~ "Far from On-Track",
+    current_bucket == "Greater than 3.5 GPA and 87.5-89.9 ADA" ~ "Almost On-Track",
+    current_bucket == "Greater than 3.5 GPA and 90-92.49 ADA" ~ "On-Track",
+    current_bucket == "Greater than 3.5 GPA and 92.5-94.9 ADA" ~ "On-Track",
+    current_bucket == "Greater than 3.5 GPA and 95-97.49 ADA" ~ "On-Track",
+    current_bucket == "Greater than 3.5 GPA and greater than 97.5 ADA" ~ "On-Track")) %>%
+  mutate(points = case_when(current_track_status == "On-Track" ~ 5,
+                            current_track_status == "Almost On-Track" ~ 4,
+                            current_track_status == "Near On-Track" ~ 3,
+                            current_track_status == "Far from On-Track" ~ 2,
+                            current_track_status == "Off-Track" ~ 1)) %>%
+  select(student_number,
+         first_name,
+         last_name,
+         schoolabbreviation,
+         grade_level,
+         home_room,
+         ADA = rate,
+         attendance_bucket = att_cat,
+         gpa,
+         gpa_bucket = gpa_cat,
+         current_bucket,
+         current_track_status,
+         points) %>%
+  filter(!is.na(current_track_status))
+
+
+current_track_status_percent <- track_student %>%
+  group_by(schoolabbreviation) %>%
+  count(current_track_status) %>%
+  mutate(total = sum(n)) %>%
+  mutate(status_percent = (n/total) * 100) %>%
+  rename(track_status = current_track_status)
+
+# finalize dataset
+track_student <- track_student %>%
+  left_join(primary_course_teacher %>%
+              select(home_room = course_long_name,
+                     student_number)
+              , by = c("student_number")) %>%
+  mutate(home_room = if_else(is.na(home_room.x), home_room.y, home_room.x)) %>%
+  filter(!grepl("ELL", home_room)) %>%
+  filter(!grepl("KAP DL Software ELA", home_room)) %>%
+  select(-c(home_room.x, home_room.y)) %>%
+  mutate(points = case_when(
+    current_track_status == "On-Track" ~ 5,
+    current_track_status == "Almost On-Track" ~ 4,
+    current_track_status == "Near On-Track" ~ 3,
+    current_track_status == "Far from On-Track" ~ 2,
+    current_track_status == "Off-Track" ~ 1
+  )) %>%
+  filter(!student_number == 50201011) # remove KAC line for student that transferred to KAMS
+
+current_track_status_percent <- track_student %>%
+  mutate(current_track_status = factor(current_track_status, levels = c("On-Track", "Almost On-Track", 
+                                                                        "Near On-Track", "Far from On-Track", "Off-Track"))) %>%
+  group_by(schoolabbreviation) %>%
+  count(current_track_status) %>%
+  mutate(total = sum(n)) %>%
+  mutate(status_percent = round((n/total) * 100, 2)) %>%
+  rename(track_status = current_track_status) 
+
+current_track_status_percent_grade <- track_student %>%
+  mutate(current_track_status = factor(current_track_status, levels = c("On-Track", "Almost On-Track", 
+                                                                        "Near On-Track", "Far from On-Track", "Off-Track"))) %>%
+  group_by(grade_level) %>%
+  count(current_track_status) %>%
+  mutate(total = sum(n)) %>%
+  mutate(status_percent = round((n/total) * 100, 2)) %>%
+  rename(track_status = current_track_status) 
+
+```
+
+
+```{r}
+#homeroom table for the shiny app
+homerooms <- track_student %>% 
+  ungroup() %>% 
+  filter(!is.na(grade_level)) %>% 
+  select(schoolabbreviation, 
+         home_room,
+         grade_level) %>% 
+  unique() %>% 
+  left_join(schools,
+            by = "schoolabbreviation")
+
+```
+
+
+
+# SQRP Q1 State of the World
+
+In SY 19-20, an On-Track Metric score will be calculated for each student in grades 3-8 based on their attendance and GPA in core subjects.
+
+To calculate the school wide score, the sum of the scores of all students will be divided by the number of currently enrolled students who spent more than 30 days at the school. The calculation is a numeric value that will account for 10% of the total final SQRP rating. 
+
+Students who are On-Track will receive 5 points towards the school's final calculation, students Almost On-Track will receive 4, Near On-Track will receive 3, Far from On-Track will receive 2, and students Off-Track will receive 1 point. 
+
+![](/Users/carolinekinnen/Dropbox (KIPP Chicago Schools)/Illuminate Report Cards/Ontrack_cutpoints.png)
+
+One quarter into the school year, this is how KIPP Chicago schools stand
+
+## Track Status - School
+
+```{r track_status_bar}
+current_track_status_percent %>%
+  ungroup() %>%
+  mutate(track_status = factor(track_status, levels = c("Off-Track", "Far from On-Track",  "Near On-Track", 
+                                                       "Almost On-Track", "On-Track"))) %>%
+  # mutate(track_status = factor(track_status, levels = c("On-Track", "Almost On-Track",  "Near On-Track", 
+  #                                                       "Far from On-Track", "Off-Track"))) %>%
+  mutate(schoolabbreviation = factor(schoolabbreviation, levels = c("KOA", "KACP", 
+                                                                    "KBCP", "KAC", "KAMS", "KAP", "KOP"))) %>%
+  ggplot(aes(x = schoolabbreviation, y = status_percent, fill = track_status)) +
+  geom_bar(stat = "identity") +
+  scale_fill_kipp(palette = "kipp_qual") +
+  labs(x = "School", y = "Percent", fill = "Track Status")
+```
+
+## Q1 Distribution of Track Status
+
+This graph displays the range and grouping of each category across the region.
+
+The horizontal line demarcates ADAs below 85 percent. Students in this range will be Off-Track no matter their GPA. For students with high GPAs, moving their attendance up by just a couple days would have been enough to change multiple categories, meaning additional points to the final grade calculation. This is just one example of the type of situations that schools and the Data Team should begin to reason through.
+
+Note that in order to control for overlap, the points on this scatterplot are slightly transparent. Darker points indicate multiple data points stacked on top of one another. The points are also slightly shaken to a random degree.
+
+```{r distribution_reg}
+
+distribution_plot <- function(school){
+track_student %>%
+  filter(schoolabbreviation %in% school) %>%
+  mutate(current_track_status = factor(current_track_status, levels = c("On-Track", "Almost On-Track", 
+                                                                        "Near On-Track", "Far from On-Track", "Off-Track"))) %>%
+  ggplot(aes(gpa, ADA)) +
+  geom_jitter(aes(color = current_track_status), size = 3, alpha = 0.8) +
+  scale_color_kipp(palette = "kipp_qual") +
+  coord_cartesian(ylim=c(30, 100)) + 
+  scale_y_continuous(breaks = seq(0,100,5)) +
+  scale_x_continuous(breaks = seq(0,4,.5)) +
+  labs(#title = "Q1 Distribution of On-Track Metrics",
+       x = "GPA",
+       y = "Attendance Rate",
+       color = "On-Track Metrics") +
+  scale_x_continuous(breaks = seq(0,4,.25)) +
+  geom_hline(yintercept = 85, color = "dark grey") +
+  geom_vline(xintercept = 1.99, color = " dark grey")
+}
+
+distribution_plot(c("KOP", "KAP", "KACP", "KAMS", "KOA", "KAC", "KBCP"))
+
+```
+
+## Q1 SQRP Points from Individual Attendance and GPA
+
+This table shows the score for each school based on attendance and GPA data for students in Quarter 1
+
+```{r points_reg}
+formattable(track_student %>%
+  mutate(points = case_when(
+    current_track_status == "On-Track" ~ 5,
+    current_track_status == "Almost On-Track" ~ 4,
+    current_track_status == "Near On-Track" ~ 3,
+    current_track_status == "Far from On-Track" ~ 2,
+    current_track_status == "Off-Track" ~ 1
+  )) %>%
+  group_by(schoolabbreviation) %>%
+  summarize(points = round(mean(points), 3))) %>%
+  select(School = schoolabbreviation,
+         'Point Average' = points)
+```
+
+## Q1 Points from Individual Attendance and GPA by Grade Level
+
+This graph compares each school's grade level performance to one another. 
+
+```{r points_bar_grade_reg}
+track_student %>%
+  group_by(schoolabbreviation, grade_level) %>%
+  summarize(points = round(mean(points), 3)) %>%
+  select(schoolabbreviation,
+         grade_level,
+         points) %>%
+  ungroup() %>%
+  mutate(schoolabbreviation = factor(schoolabbreviation, levels = c("KOA", "KACP", "KOP", 
+                                                                    "KBCP", "KAC", "KAMS", "KAP"))) %>% 
+  ggplot(aes(factor(grade_level), points, fill = schoolabbreviation), color = "black") +
+  geom_col(position = position_dodge2(preserve = "single")) +   
+  scale_fill_kipp() +
+  scale_y_continuous(breaks = seq(2,5,.25)) +
+  coord_cartesian(ylim=c(2, 5)) +
+  gghighlight() +
+  facet_wrap(vars(grade_level)) +
+  labs(x = "Grade Level", fill = "School")
+```
+
+# By School 
+
+### KOP
+
+#### Grade Level Distribution
+
+```{r kop_distribution}
+distribution_plot("KOP")
+```
+
+##### Distribution of Students in Each Non On-Track Status
+
+The graphs below, separated by grade level, show the distribution of students in each non On-Track Status (Almost On-Track, Near On-Track, Far from On-Track, and Off-Track) by their GPA and ADA. The green boxes represent On-Track, meaning schools should work to move students towards the green
+
+**Third Grade**
+
+```{r kop_3_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names <- function(school, grade){
+  
+track_student %>%
+  filter(schoolabbreviation %in% school,
+         grade_level == grade) %>%
+  mutate(current_track_status = factor(current_track_status, levels = c("On-Track", "Almost On-Track",
+                                                                        "Near On-Track", "Far from On-Track", "Off-Track"))) %>%
+  filter(current_track_status != "On-Track") %>%
+  mutate(firstlast = paste(first_name, last_name)) %>%
+  ggplot() +
+  geom_rect(data = data.frame(x = 1), ymin = 97.5, ymax = 101, xmin = 2.5, xmax = 3, fill = "lightgreen", alpha = .4) +
+  geom_rect(data = data.frame(x = 1), ymin = 95, ymax = 101, xmin = 3, xmax = 3.49, fill = "lightgreen", alpha = .4) +
+  geom_rect(data = data.frame(x = 1), ymin = 90, ymax = 101, xmin = 3.49, xmax = 4.01, fill = "lightgreen", alpha = .4) +
+# added data = data.frame so geom_rect won't inheret track_student_plot data (question and answer found here  https://github.com/clauswilke/ggridges/issues/32)
+  geom_text_repel(aes(gpa, ADA, label = firstlast), force = 10, max.iter = 8000, box.padding = .75, 
+                  segment.colour = "gray", size = 5) +
+  geom_point(aes(gpa, ADA, color = current_track_status), size = 9, alpha = 0.8) +
+# geom_hline(yintercept = 85, color = "dark grey") +
+#  geom_vline(aes(gpa, ADA, xintercept = 1.99), color = " dark grey") +
+#geom_text(aes(label = firstlast, color = current_track_status)) +
+scale_color_manual(values = c("#A7CFEE", "#F7941E", "#BCD631", "#C49A6C")) +
+theme(axis.text.y = element_text(size = 25),
+      axis.text.x = element_text(size = 21),
+      legend.text = element_text(size = 15),
+      strip.text = element_text(size = 16),
+      axis.title = element_text(size = 20)) +
+scale_x_continuous(breaks = seq(0,4,.25)) +
+#scale_y_continuous(breaks = seq(0,100,5)) +
+  labs(#title = "Q1 Distribution of On-Track Metrics",
+       x = "GPA",
+       y = "Attendance Rate",
+       color = "On-Track Metrics") +
+#  facet_wrap(~current_track_status, ncol = 1, scales = "free_y") 
+    facet_rep_wrap(~current_track_status, ncol = 1, scales = "free_y", repeat.tick.labels = TRUE)
+}
+
+distribution_plot_student_names("KOP", 3)
+
+
+```
+
+##### Number of students in each category
+
+```{r number_kop}
+number_table <- function(school){
+formattable(track_student %>%
+  filter(schoolabbreviation %in% school) %>%
+  mutate(current_track_status = factor(current_track_status, levels = c("On-Track", "Almost On-Track", 
+                                                                        "Near On-Track", "Far from On-Track", "Off-Track"))) %>%
+  group_by(current_track_status) %>%
+  summarize(N = n()) %>%
+  rename("Track Status" = current_track_status) %>%
+  mutate(Total = sum(N), 
+         Percent = paste0(round((N/Total * 100), 2), "%")))
+}
+
+number_table("KOP")
+```
+
+
+#### Grade Level Points
+
+```{r grade_points_kop}
+
+grade_points_table <- function(school){
+formattable(track_student %>%
+  filter(schoolabbreviation %in% school) %>%
+  mutate(points = case_when(
+    current_track_status == "On-Track" ~ 5,
+    current_track_status == "Almost On-Track" ~ 4,
+    current_track_status == "Near On-Track" ~ 3,
+    current_track_status == "Far from On-Track" ~ 2,
+    current_track_status == "Off-Track" ~ 1
+  )) %>%
+  group_by(schoolabbreviation, grade_level) %>%
+  summarize(points = round(mean(points), 3))) %>%
+  select(School = schoolabbreviation,
+         "Grade Level" = grade_level,
+         'Point Average' = points)
+}
+
+grade_points_table("KOP")
+
+```
+
+#### Points by homeroom
+
+```{r homeroom_points_kop}
+
+homeroom_points_table <- function(school){
+formattable(track_student %>%
+  filter(schoolabbreviation %in% school) %>%
+  filter(!is.na(home_room)) %>%
+  mutate(points = case_when(
+    current_track_status == "On-Track" ~ 5,
+    current_track_status == "Almost On-Track" ~ 4,
+    current_track_status == "Near On-Track" ~ 3,
+    current_track_status == "Far from On-Track" ~ 2,
+    current_track_status == "Off-Track" ~ 1
+  )) %>%
+  group_by(schoolabbreviation, grade_level, home_room) %>%
+  summarize(points = round(mean(points), 3))) %>%
+  select(School = schoolabbreviation,
+         "Grade Level" = grade_level, 
+         "Homeroom" = home_room,
+         'Point Average' = points)
+}
+
+```
+
+```{r homeroom_points_bar_kop}
+
+home_room_points_graph <- function(school){
+  track_student %>%
+  filter(schoolabbreviation %in% school) %>%
+  group_by(schoolabbreviation, grade_level, home_room) %>%
+  filter(!is.na(home_room)) %>%
+  summarize(points = round(mean(points), 3)) %>%
+  mutate(home_room = str_replace_all(string = home_room, " ", "\n")) %>%
+  select(schoolabbreviation,
+         grade_level,
+         home_room,
+         points) %>%
+  ungroup() %>%
+  ggplot(aes(home_room, points, fill = factor(grade_level))) +
+  geom_col(position = "dodge2") +
+  scale_fill_kipp() +
+  scale_y_continuous(breaks = seq(2,5,.25)) +
+  coord_cartesian(ylim=c(2, 5)) +
+  labs(x = "Homeroom", y = "Points", fill = "Grade Level", title = "Distribution by Grade") +
+  theme(axis.text.x = element_text(#hjust = 1,# vjust = 0.7, 
+                                   size = 10))
+}
+
+home_room_points_graph("KOP")
+
+```
+
+### KAP
+
+#### Grade Level Distribution
+
+```{r kap_distribution}
+distribution_plot("KAP")
+```
+
+##### Number of students in each category
+
+```{r number_kap}
+number_table("KAP")
+```
+
+##### Distribution of Students in Each Non On-Track Status
+
+The graphs below, separated by grade level, show the distribution of students in each non On-Track Status (Almost On-Track, Near On-Track, Far from On-Track, and Off-Track) by their GPA and ADA. The green boxes represent On-Track, meaning schools should work to move students towards the green
+
+**Third Grade**
+
+```{r kap_3_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KAP", 3)
+
+```
+
+**Fourth Grade**
+
+```{r kap_4_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KAP", 4)
+
+```
+
+#### Grade Level Points
+
+```{r grade_points_kap}
+grade_points_table("KAP")
+```
+
+#### Points by homeroom
+
+```{r homeroom_points_bar_kap}
+home_room_points_graph("KAP")
+```
+
+### KACP
+
+#### Grade Level Distribution
+
+```{r kacp_distribution}
+distribution_plot("KACP")
+```
+
+##### Number of students in each category
+
+```{r number_kacp}
+number_table("KACP")
+```
+
+##### Distribution of Students in Each Non On-Track Status
+
+The graphs below, separated by grade level, show the distribution of students in each non On-Track Status (Almost On-Track, Near On-Track, Far from On-Track, and Off-Track) by their GPA and ADA. The green boxes represent On-Track, meaning schools should work to move students towards the green
+
+**Fourth Grade**
+
+```{r kacp_4_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KACP", 4)
+
+```
+
+#### Grade Level Points
+
+```{r grade_points_kacp}
+grade_points_table("KACP")
+```
+
+#### Points by homeroom
+
+```{r homeroom_points_bar_kacp}
+home_room_points_graph("KACP")
+```
+
+### KAMS
+
+#### Grade Level Distribution
+
+```{r kams_distribution}
+distribution_plot("KAMS")
+```
+
+##### Number of students in each category
+
+```{r number_kams}
+number_table("KAMS")
+```
+
+##### Distribution of Students in Each Non On-Track Status
+
+The graphs below, separated by grade level, show the distribution of students in each non On-Track Status (Almost On-Track, Near On-Track, Far from On-Track, and Off-Track) by their GPA and ADA. The green boxes represent On-Track, meaning schools should work to move students towards the green
+
+**Fifth Grade**
+
+```{r kams_5_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KAMS", 5)
+
+```
+
+**Sixth Grade**
+
+```{r kams_6_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KAMS", 6)
+
+```
+
+**Seventh Grade**
+
+```{r kams_7_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KAMS", 7)
+
+```
+
+**Eighth Grade**
+
+```{r kams_8_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KAMS", 8)
+
+```
+
+
+
+#### Grade Level Points
+
+```{r grade_points_kams}
+grade_points_table("KAMS")
+```
+
+#### Points by homeroom
+
+```{r homeroom_points_bar_kams}
+home_room_points_graph("KAMS")
+```
+
+### KAC
+
+#### Grade Level Distribution
+
+```{r kac_distribution}
+distribution_plot("KAC")
+```
+
+##### Number of students in each category
+
+```{r number_kac}
+number_table("KAC")
+```
+
+##### Distribution of Students in Each Non On-Track Status
+
+The graphs below, separated by grade level, show the distribution of students in each non On-Track Status (Almost On-Track, Near On-Track, Far from On-Track, and Off-Track) by their GPA and ADA. The green boxes represent On-Track, meaning schools should work to move students towards the green
+
+**Fifth Grade**
+
+```{r kac_5_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KAC", 5)
+
+```
+
+**Sixth Grade**
+
+```{r kac_6_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KAC", 6)
+
+```
+
+**Seventh Grade**
+
+```{r kac_7_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KAC", 7)
+
+```
+
+**Eighth Grade**
+
+```{r kac_8_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KAC", 8)
+
+```
+
+
+#### Grade Level Points
+
+```{r grade_points_kac}
+grade_points_table("KAC")
+```
+
+#### Points by homeroom
+
+```{r homeroom_points_bar_kac}
+home_room_points_graph("KAC")
+```
+
+### KBCP
+
+#### Grade Level Distribution
+
+```{r kbcp_distribution}
+distribution_plot("KBCP")
+```
+
+##### Number of students in each category
+
+```{r number_kbcp}
+number_table("KBCP")
+```
+
+##### Distribution of Students in Each Non On-Track Status
+
+The graphs below, separated by grade level, show the distribution of students in each non On-Track Status (Almost On-Track, Near On-Track, Far from On-Track, and Off-Track) by their GPA and ADA. The green boxes represent On-Track, meaning schools should work to move students towards the green
+
+**Fifth Grade**
+
+```{r kbcp_5_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KBCP", 5)
+
+```
+
+**Sixth Grade**
+
+```{r kbcp_6_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KBCP", 6)
+
+```
+
+**Seventh Grade**
+
+```{r kbcp_7_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KBCP", 7)
+
+```
+
+**Eighth Grade**
+
+```{r kbcp_8_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KBCP", 8)
+
+```
+
+#### Grade Level Points
+
+```{r grade_points_kbcp}
+grade_points_table("KBCP")
+```
+
+#### Points by homeroom
+
+```{r homeroom_points_bar_kbcp}
+home_room_points_graph("KBCP")
+```
+
+### KOA
+
+#### Grade Level Distribution
+
+```{r koa_distribution}
+distribution_plot("KOA")
+```
+
+##### Number of students in each category
+
+```{r number_koa}
+number_table("KOA")
+```
+
+##### Distribution of Students in Each Non On-Track Status
+
+The graphs below, separated by grade level, show the distribution of students in each non On-Track Status (Almost On-Track, Near On-Track, Far from On-Track, and Off-Track) by their GPA and ADA. The green boxes represent On-Track, meaning schools should work to move students towards the green
+
+**Fifth Grade**
+
+```{r koa_5_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KOA", 5)
+
+```
+
+**Sixth Grade**
+
+```{r koa_6_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KOA", 6)
+
+```
+
+**Seventh Grade**
+
+```{r koa_7_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KOA", 7)
+
+```
+
+**Eighth Grade**
+
+```{r koa_8_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KOA", 8)
+
+```
+
+#### Grade Level Points
+
+```{r grade_points_koa}
+grade_points_table("KOA")
+```
+
+#### Points by homeroom
+
+```{r homeroom_points_bar_koa}
+home_room_points_graph("KOA")
+```
+
+# Combined Campuses 
+
+### Ascend
+
+#### Ascend Distribution
+
+```{r ascend_distribution}
+distribution_plot(c("KAP", "KAMS"))
+```
+
+#### Ascend School Level Points
+
+```{r school_points_ascend}
+
+school_level_points <- function(school1, school2) {
+formattable(grade_points_table(c(school1, school2)) %>%
+  group_by(School) %>%
+  summarize('School Point Average' = mean(`Point Average`)))
+}
+
+school_level_points("KAP", "KAMS")
+
+```
+
+#### Ascend Campus Level Points
+
+```{r campus_points_ascend}
+
+campus_level_points <- function(school1, school2) {
+formattable(grade_points_table(c(school1, school2)) %>%
+  group_by(School) %>%
+  summarize('School Point Average' = mean(`Point Average`)) %>%
+  ungroup() %>%
+  summarize('Campus Point Average' = mean(`School Point Average`)))
+} 
+
+campus_level_points("KAP", "KAMS")
+
+```
+
+### Academy
+
+#### Academy Distribution
+
+```{r academy_distribution}
+distribution_plot(c("KACP", "KAC"))
+```
+
+#### Academy School Level Points
+
+```{r school_points_academy}
+
+school_level_points("KACP", "KAC")
+
+```
+
+#### Academy Campus Level Points
+
+```{r campus_points_academy}
+
+campus_level_points("KACP", "KAC")
+
+```
+
+### One
+
+#### One Distribution
+
+```{r one_distribution}
+distribution_plot(c("KOA", "KOP"))
+```
+
+#### One School Level Points
+
+```{r school_points_one}
+
+school_level_points("KOA", "KOP")
+
+```
+
+#### One Campus Level Points
+
+```{r campus_points_one}
+
+campus_level_points("KOA", "KOP")
+
+```

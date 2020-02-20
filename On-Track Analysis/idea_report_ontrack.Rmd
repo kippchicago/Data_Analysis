@@ -1,0 +1,785 @@
+---
+title: "1920_SQRP_Report_Dynamic"
+output: 
+  html_document:
+    toc: true
+    toc_depth: 4
+    toc_float: true
+---
+
+```{r global_options, echo = FALSE}
+ knitr::opts_chunk$set(fig.width=11, 
+                       fig.height=6, 
+                        warning=FALSE,
+                       message=FALSE, 
+                       error = FALSE,
+                      cache = FALSE,
+                       echo = FALSE)
+
+```
+
+```{r}
+library(silounloadr)
+library(lubridate)
+library(here)
+library(tidyverse)
+library(googleCloudStorageR)
+library(rlang)
+library(purrr)
+library(formattable)
+library(gghighlight)
+library(googlesheets4)
+require(openxlsx)
+library(dplyr)
+library(readr)
+library(dbplyr)
+require(janitor)
+require(stringr)
+library(googledrive)
+library(kippcolors)
+library(ggrepel)
+library(lemon)
+```
+
+```{r, load_data}
+gcs_global_bucket('idea_sqrp_ontrack')
+
+gcs_load("track_student.rda")
+```
+
+```{r, tables}
+
+current_track_status_percent <- track_student %>%
+  group_by(schoolabbreviation) %>%
+  count(current_track_status) %>%
+  mutate(total = sum(n)) %>%
+  mutate(status_percent = (n/total) * 100) %>%
+  rename(track_status = current_track_status)
+
+current_track_status_percent <- track_student %>%
+  mutate(current_track_status = factor(current_track_status, levels = c("On-Track", "Almost On-Track",
+                                                                        "Near On-Track", "Far from On-Track", "Off-Track"))) %>%
+  group_by(schoolabbreviation) %>%
+  count(current_track_status) %>%
+  mutate(total = sum(n)) %>%
+  mutate(status_percent = round((n/total) * 100, 2)) %>%
+  rename(track_status = current_track_status)
+
+current_track_status_percent_grade <- track_student %>%
+  mutate(current_track_status = factor(current_track_status, levels = c("On-Track", "Almost On-Track",
+                                                                        "Near On-Track", "Far from On-Track", "Off-Track"))) %>%
+  group_by(grade_level) %>%
+  count(current_track_status) %>%
+  mutate(total = sum(n)) %>%
+  mutate(status_percent = round((n/total) * 100, 2)) %>%
+  rename(track_status = current_track_status)
+
+schools <- tribble(~"schoolid", ~"schoolabbreviation",
+                   78102, "KAP",
+                   7810, "KAMS",
+                   400146, "KAC",
+                   400163, "KBCP",
+                   4001802, "KOP",
+                   400180, "KOA",
+                   4001632, "KBP",
+                   4001462, "KACP")
+
+
+#homeroom table for the shiny app
+homerooms <- track_student %>%
+  ungroup() %>%
+  filter(!is.na(grade_level)) %>%
+  select(schoolabbreviation,
+         home_room,
+         grade_level) %>%
+  unique() %>%
+  left_join(schools,
+            by = "schoolabbreviation")
+```
+
+
+# SQRP State of the World
+
+In SY 19-20, an On-Track Metric score will be calculated for each student in grades 3-8 based on their attendance and GPA in core subjects.
+
+To calculate the school wide score, the sum of the scores of all students will be divided by the number of currently enrolled students who spent more than 30 days at the school. The calculation is a numeric value that will account for 10% of the total final SQRP rating. 
+
+Students who are On-Track will receive 5 points towards the school's final calculation, students Almost On-Track will receive 4, Near On-Track will receive 3, Far from On-Track will receive 2, and students Off-Track will receive 1 point. 
+
+![](/Users/carolinekinnen/Dropbox (KIPP Chicago Schools)/Illuminate Report Cards/Ontrack_cutpoints.png)
+
+This is how KIPP Chicago schools stand today. Note that the current quarter's GPAs are not yet finalized and will likely change before the end of the quarter.
+
+## Track Status - School
+
+```{r track_status_bar}
+current_track_status_percent %>%
+  ungroup() %>%
+  mutate(track_status = factor(track_status, levels = c("Off-Track", "Far from On-Track",  "Near On-Track", 
+                                                       "Almost On-Track", "On-Track"))) %>%
+  # mutate(track_status = factor(track_status, levels = c("On-Track", "Almost On-Track",  "Near On-Track", 
+  #                                                       "Far from On-Track", "Off-Track"))) %>%
+  mutate(schoolabbreviation = factor(schoolabbreviation, levels = c("KOA", "KACP", 
+                                                                    "KBCP", "KAC", "KAMS", "KAP", "KOP"))) %>%
+  ggplot(aes(x = schoolabbreviation, y = status_percent, fill = track_status)) +
+  geom_bar(stat = "identity") +
+  scale_fill_kipp(palette = "kipp_qual") +
+  labs(x = "School", y = "Percent", fill = "Track Status")
+```
+
+##Distribution of Track Status
+
+This graph displays the range and grouping of each category across the region.
+
+The horizontal line demarcates ADAs below 85 percent. Students in this range will be Off-Track no matter their GPA. For students with high GPAs, moving their attendance up by just a couple days would have been enough to change multiple categories, meaning additional points to the final grade calculation. This is just one example of the type of situations that schools and the Data Team should begin to reason through.
+
+Note that in order to control for overlap, the points on this scatterplot are slightly transparent. Darker points indicate multiple data points stacked on top of one another. The points are also slightly shaken to a random degree.
+
+```{r distribution_reg}
+
+distribution_plot <- function(school){
+track_student %>%
+  filter(schoolabbreviation %in% school) %>%
+  mutate(current_track_status = factor(current_track_status, levels = c("On-Track", "Almost On-Track", 
+                                                                        "Near On-Track", "Far from On-Track", "Off-Track"))) %>%
+  ggplot(aes(y_avg_gpa, ADA)) +
+  geom_jitter(aes(color = current_track_status), size = 3, alpha = 0.8) +
+  scale_color_kipp(palette = "kipp_qual") +
+  coord_cartesian(ylim=c(30, 100)) + 
+  scale_y_continuous(breaks = seq(0,100,5)) +
+  scale_x_continuous(breaks = seq(0,4,.5)) +
+  labs(#title = "Q1 Distribution of On-Track Metrics",
+       x = "GPA",
+       y = "Attendance Rate",
+       color = "On-Track Metrics") +
+  scale_x_continuous(breaks = seq(0,4,.25)) +
+  geom_hline(yintercept = 85, color = "dark grey") +
+  geom_vline(xintercept = 1.99, color = " dark grey")
+}
+
+distribution_plot(c("KOP", "KAP", "KACP", "KAMS", "KOA", "KAC", "KBCP"))
+
+```
+
+## SQRP Points from Individual Attendance and GPA
+
+This table shows the score for each school based on attendance and GPA data for students from the most recent data collection
+
+```{r points_reg}
+formattable(track_student %>%
+  mutate(points = case_when(
+    current_track_status == "On-Track" ~ 5,
+    current_track_status == "Almost On-Track" ~ 4,
+    current_track_status == "Near On-Track" ~ 3,
+    current_track_status == "Far from On-Track" ~ 2,
+    current_track_status == "Off-Track" ~ 1
+  )) %>%
+  group_by(schoolabbreviation) %>%
+  summarize(points = round(mean(points), 3))) %>%
+  select(School = schoolabbreviation,
+         'Point Average' = points)
+```
+
+## Points from Individual Attendance and GPA by Grade Level
+
+This graph compares each school's grade level performance to one another. 
+
+```{r points_bar_grade_reg}
+track_student %>%
+  group_by(schoolabbreviation, grade_level) %>%
+  summarize(points = round(mean(points), 3)) %>%
+  select(schoolabbreviation,
+         grade_level,
+         points) %>%
+  ungroup() %>%
+  mutate(schoolabbreviation = factor(schoolabbreviation, levels = c("KOA", "KACP", "KOP", 
+                                                                    "KBCP", "KAC", "KAMS", "KAP"))) %>% 
+  ggplot(aes(factor(grade_level), points, fill = schoolabbreviation), color = "black") +
+  geom_col(position = position_dodge2(preserve = "single")) +   
+  scale_fill_kipp() +
+  scale_y_continuous(breaks = seq(2,5,.25)) +
+  coord_cartesian(ylim=c(2, 5)) +
+  gghighlight() +
+  facet_wrap(vars(grade_level)) +
+  labs(x = "Grade Level", fill = "School")
+```
+
+# By School 
+
+### KOP
+
+#### Grade Level Distribution
+
+```{r kop_distribution}
+distribution_plot("KOP")
+```
+
+##### Distribution of Students in Each Non On-Track Status
+
+The graphs below, separated by grade level, show the distribution of students in each non On-Track Status (Almost On-Track, Near On-Track, Far from On-Track, and Off-Track) by their GPA and ADA. The green boxes represent On-Track, meaning schools should work to move students towards the green
+
+**Third Grade**
+
+```{r kop_3_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names <- function(school, grade){
+  
+track_student %>%
+  filter(schoolabbreviation %in% school,
+         grade_level == grade) %>%
+  mutate(current_track_status = factor(current_track_status, levels = c("On-Track", "Almost On-Track",
+                                                                        "Near On-Track", "Far from On-Track", "Off-Track"))) %>%
+  filter(current_track_status != "On-Track") %>%
+  mutate(firstlast = paste(first_name, last_name)) %>%
+  ggplot() +
+  geom_rect(data = data.frame(x = 1), ymin = 97.5, ymax = 101, xmin = 2.5, xmax = 3, fill = "lightgreen", alpha = .4) +
+  geom_rect(data = data.frame(x = 1), ymin = 95, ymax = 101, xmin = 3, xmax = 3.49, fill = "lightgreen", alpha = .4) +
+  geom_rect(data = data.frame(x = 1), ymin = 90, ymax = 101, xmin = 3.49, xmax = 4.01, fill = "lightgreen", alpha = .4) +
+# added data = data.frame so geom_rect won't inheret track_student_plot data (question and answer found here  https://github.com/clauswilke/ggridges/issues/32)
+  geom_text_repel(aes(y_avg_gpa, ADA, label = firstlast), force = 10, max.iter = 8000, box.padding = .75, 
+                  segment.colour = "gray", size = 5) +
+  geom_point(aes(y_avg_gpa, ADA, color = current_track_status), size = 9, alpha = 0.8) +
+# geom_hline(yintercept = 85, color = "dark grey") +
+#  geom_vline(aes(y_avg_gpa, ADA, xintercept = 1.99), color = " dark grey") +
+#geom_text(aes(label = firstlast, color = current_track_status)) +
+scale_color_manual(values = c("#A7CFEE", "#F7941E", "#BCD631", "#C49A6C")) +
+theme(axis.text.y = element_text(size = 25),
+      axis.text.x = element_text(size = 21),
+      legend.text = element_text(size = 15),
+      strip.text = element_text(size = 16),
+      axis.title = element_text(size = 20)) +
+scale_x_continuous(breaks = seq(0,4,.25)) +
+#scale_y_continuous(breaks = seq(0,100,5)) +
+  labs(#title = "Q1 Distribution of On-Track Metrics",
+       x = "GPA",
+       y = "Attendance Rate",
+       color = "On-Track Metrics") +
+#  facet_wrap(~current_track_status, ncol = 1, scales = "free_y") 
+    facet_rep_wrap(~current_track_status, ncol = 1, scales = "free_y", repeat.tick.labels = TRUE)
+}
+
+distribution_plot_student_names("KOP", 3)
+
+
+```
+
+##### Number of students in each category
+
+```{r number_kop}
+number_table <- function(school){
+formattable(track_student %>%
+  filter(schoolabbreviation %in% school) %>%
+  mutate(current_track_status = factor(current_track_status, levels = c("On-Track", "Almost On-Track", 
+                                                                        "Near On-Track", "Far from On-Track", "Off-Track"))) %>%
+  group_by(current_track_status) %>%
+  summarize(N = n()) %>%
+  rename("Track Status" = current_track_status) %>%
+  mutate(Total = sum(N), 
+         Percent = paste0(round((N/Total * 100), 2), "%")))
+}
+
+number_table("KOP")
+```
+
+
+#### Grade Level Points
+
+```{r grade_points_kop}
+
+grade_points_table <- function(school){
+formattable(track_student %>%
+  filter(schoolabbreviation %in% school) %>%
+  mutate(points = case_when(
+    current_track_status == "On-Track" ~ 5,
+    current_track_status == "Almost On-Track" ~ 4,
+    current_track_status == "Near On-Track" ~ 3,
+    current_track_status == "Far from On-Track" ~ 2,
+    current_track_status == "Off-Track" ~ 1
+  )) %>%
+  group_by(schoolabbreviation, grade_level) %>%
+  summarize(points = round(mean(points), 3))) %>%
+  select(School = schoolabbreviation,
+         "Grade Level" = grade_level,
+         'Point Average' = points)
+}
+
+grade_points_table("KOP")
+
+```
+
+#### Points by homeroom
+
+```{r homeroom_points_kop}
+
+homeroom_points_table <- function(school){
+formattable(track_student %>%
+  filter(schoolabbreviation %in% school) %>%
+  filter(!is.na(home_room)) %>%
+  mutate(points = case_when(
+    current_track_status == "On-Track" ~ 5,
+    current_track_status == "Almost On-Track" ~ 4,
+    current_track_status == "Near On-Track" ~ 3,
+    current_track_status == "Far from On-Track" ~ 2,
+    current_track_status == "Off-Track" ~ 1
+  )) %>%
+  group_by(schoolabbreviation, grade_level, home_room) %>%
+  summarize(points = round(mean(points), 3))) %>%
+  select(School = schoolabbreviation,
+         "Grade Level" = grade_level, 
+         "Homeroom" = home_room,
+         'Point Average' = points)
+}
+
+```
+
+```{r homeroom_points_bar_kop}
+
+home_room_points_graph <- function(school){
+  track_student %>%
+  filter(schoolabbreviation %in% school) %>%
+  group_by(schoolabbreviation, grade_level, home_room) %>%
+  filter(!is.na(home_room)) %>%
+  summarize(points = round(mean(points), 3)) %>%
+  mutate(home_room = str_replace_all(string = home_room, " ", "\n")) %>%
+  select(schoolabbreviation,
+         grade_level,
+         home_room,
+         points) %>%
+  ungroup() %>%
+  ggplot(aes(home_room, points, fill = factor(grade_level))) +
+  geom_col(position = "dodge2") +
+  scale_fill_kipp() +
+  scale_y_continuous(breaks = seq(2,5,.25)) +
+  coord_cartesian(ylim=c(2, 5)) +
+  labs(x = "Homeroom", y = "Points", fill = "Grade Level", title = "Distribution by Grade") +
+  theme(axis.text.x = element_text(#hjust = 1,# vjust = 0.7, 
+                                   size = 10))
+}
+
+home_room_points_graph("KOP")
+
+```
+
+### KAP
+
+#### Grade Level Distribution
+
+```{r kap_distribution}
+distribution_plot("KAP")
+```
+
+##### Number of students in each category
+
+```{r number_kap}
+number_table("KAP")
+```
+
+##### Distribution of Students in Each Non On-Track Status
+
+The graphs below, separated by grade level, show the distribution of students in each non On-Track Status (Almost On-Track, Near On-Track, Far from On-Track, and Off-Track) by their GPA and ADA. The green boxes represent On-Track, meaning schools should work to move students towards the green
+
+**Third Grade**
+
+```{r kap_3_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KAP", 3)
+
+```
+
+**Fourth Grade**
+
+```{r kap_4_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KAP", 4)
+
+```
+
+#### Grade Level Points
+
+```{r grade_points_kap}
+grade_points_table("KAP")
+```
+
+#### Points by homeroom
+
+```{r homeroom_points_bar_kap}
+home_room_points_graph("KAP")
+```
+
+### KACP
+
+#### Grade Level Distribution
+
+```{r kacp_distribution}
+distribution_plot("KACP")
+```
+
+##### Number of students in each category
+
+```{r number_kacp}
+number_table("KACP")
+```
+
+##### Distribution of Students in Each Non On-Track Status
+
+The graphs below, separated by grade level, show the distribution of students in each non On-Track Status (Almost On-Track, Near On-Track, Far from On-Track, and Off-Track) by their GPA and ADA. The green boxes represent On-Track, meaning schools should work to move students towards the green
+
+**Fourth Grade**
+
+```{r kacp_4_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KACP", 4)
+
+```
+
+#### Grade Level Points
+
+```{r grade_points_kacp}
+grade_points_table("KACP")
+```
+
+#### Points by homeroom
+
+```{r homeroom_points_bar_kacp}
+home_room_points_graph("KACP")
+```
+
+### KAMS
+
+#### Grade Level Distribution
+
+```{r kams_distribution}
+distribution_plot("KAMS")
+```
+
+##### Number of students in each category
+
+```{r number_kams}
+number_table("KAMS")
+```
+
+##### Distribution of Students in Each Non On-Track Status
+
+The graphs below, separated by grade level, show the distribution of students in each non On-Track Status (Almost On-Track, Near On-Track, Far from On-Track, and Off-Track) by their GPA and ADA. The green boxes represent On-Track, meaning schools should work to move students towards the green
+
+**Fifth Grade**
+
+```{r kams_5_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KAMS", 5)
+
+```
+
+**Sixth Grade**
+
+```{r kams_6_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KAMS", 6)
+
+```
+
+**Seventh Grade**
+
+```{r kams_7_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KAMS", 7)
+
+```
+
+**Eighth Grade**
+
+```{r kams_8_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KAMS", 8)
+
+```
+
+
+
+#### Grade Level Points
+
+```{r grade_points_kams}
+grade_points_table("KAMS")
+```
+
+#### Points by homeroom
+
+```{r homeroom_points_bar_kams}
+home_room_points_graph("KAMS")
+```
+
+### KAC
+
+#### Grade Level Distribution
+
+```{r kac_distribution}
+distribution_plot("KAC")
+```
+
+##### Number of students in each category
+
+```{r number_kac}
+number_table("KAC")
+```
+
+##### Distribution of Students in Each Non On-Track Status
+
+The graphs below, separated by grade level, show the distribution of students in each non On-Track Status (Almost On-Track, Near On-Track, Far from On-Track, and Off-Track) by their GPA and ADA. The green boxes represent On-Track, meaning schools should work to move students towards the green
+
+**Fifth Grade**
+
+```{r kac_5_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KAC", 5)
+
+```
+
+**Sixth Grade**
+
+```{r kac_6_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KAC", 6)
+
+```
+
+**Seventh Grade**
+
+```{r kac_7_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KAC", 7)
+
+```
+
+**Eighth Grade**
+
+```{r kac_8_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KAC", 8)
+
+```
+
+
+#### Grade Level Points
+
+```{r grade_points_kac}
+grade_points_table("KAC")
+```
+
+#### Points by homeroom
+
+```{r homeroom_points_bar_kac}
+home_room_points_graph("KAC")
+```
+
+### KBCP
+
+#### Grade Level Distribution
+
+```{r kbcp_distribution}
+distribution_plot("KBCP")
+```
+
+##### Number of students in each category
+
+```{r number_kbcp}
+number_table("KBCP")
+```
+
+##### Distribution of Students in Each Non On-Track Status
+
+The graphs below, separated by grade level, show the distribution of students in each non On-Track Status (Almost On-Track, Near On-Track, Far from On-Track, and Off-Track) by their GPA and ADA. The green boxes represent On-Track, meaning schools should work to move students towards the green
+
+**Fifth Grade**
+
+```{r kbcp_5_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KBCP", 5)
+
+```
+
+**Sixth Grade**
+
+```{r kbcp_6_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KBCP", 6)
+
+```
+
+**Seventh Grade**
+
+```{r kbcp_7_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KBCP", 7)
+
+```
+
+**Eighth Grade**
+
+```{r kbcp_8_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KBCP", 8)
+
+```
+
+#### Grade Level Points
+
+```{r grade_points_kbcp}
+grade_points_table("KBCP")
+```
+
+#### Points by homeroom
+
+```{r homeroom_points_bar_kbcp}
+home_room_points_graph("KBCP")
+```
+
+### KOA
+
+#### Grade Level Distribution
+
+```{r koa_distribution}
+distribution_plot("KOA")
+```
+
+##### Number of students in each category
+
+```{r number_koa}
+number_table("KOA")
+```
+
+##### Distribution of Students in Each Non On-Track Status
+
+The graphs below, separated by grade level, show the distribution of students in each non On-Track Status (Almost On-Track, Near On-Track, Far from On-Track, and Off-Track) by their GPA and ADA. The green boxes represent On-Track, meaning schools should work to move students towards the green
+
+**Fifth Grade**
+
+```{r koa_5_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KOA", 5)
+
+```
+
+**Sixth Grade**
+
+```{r koa_6_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KOA", 6)
+
+```
+
+**Seventh Grade**
+
+```{r koa_7_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KOA", 7)
+
+```
+
+**Eighth Grade**
+
+```{r koa_8_distribution_student_names, fig.height = 20, fig.width = 19}
+
+distribution_plot_student_names("KOA", 8)
+
+```
+
+#### Grade Level Points
+
+```{r grade_points_koa}
+grade_points_table("KOA")
+```
+
+#### Points by homeroom
+
+```{r homeroom_points_bar_koa}
+home_room_points_graph("KOA")
+```
+
+# Combined Campuses 
+
+### Ascend
+
+#### Ascend Distribution
+
+```{r ascend_distribution}
+distribution_plot(c("KAP", "KAMS"))
+```
+
+#### Ascend School Level Points
+
+```{r school_points_ascend}
+
+school_level_points <- function(school1, school2) {
+formattable(grade_points_table(c(school1, school2)) %>%
+  group_by(School) %>%
+  summarize('School Point Average' = mean(`Point Average`)))
+}
+
+school_level_points("KAP", "KAMS")
+
+```
+
+#### Ascend Campus Level Points
+
+```{r campus_points_ascend}
+
+campus_level_points <- function(school1, school2) {
+formattable(grade_points_table(c(school1, school2)) %>%
+  group_by(School) %>%
+  summarize('School Point Average' = mean(`Point Average`)) %>%
+  ungroup() %>%
+  summarize('Campus Point Average' = mean(`School Point Average`)))
+} 
+
+campus_level_points("KAP", "KAMS")
+
+```
+
+### Academy
+
+#### Academy Distribution
+
+```{r academy_distribution}
+distribution_plot(c("KACP", "KAC"))
+```
+
+#### Academy School Level Points
+
+```{r school_points_academy}
+
+school_level_points("KACP", "KAC")
+
+```
+
+#### Academy Campus Level Points
+
+```{r campus_points_academy}
+
+campus_level_points("KACP", "KAC")
+
+```
+
+### One
+
+#### One Distribution
+
+```{r one_distribution}
+distribution_plot(c("KOA", "KOP"))
+```
+
+#### One School Level Points
+
+```{r school_points_one}
+
+school_level_points("KOA", "KOP")
+
+```
+
+#### One Campus Level Points
+
+```{r campus_points_one}
+
+campus_level_points("KOA", "KOP")
+
+```
+
