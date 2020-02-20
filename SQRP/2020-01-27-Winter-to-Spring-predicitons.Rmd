@@ -1,0 +1,141 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+
+```{r}
+library(tidyverse)
+library(tidymodels)
+
+library(silounloadr)
+library(mapvizieR)
+```
+
+```{r}
+
+map_silo <- get_nwea_map()
+
+
+terms <- map_silo %>% 
+  select(term_name, test_start_date) %>% 
+  filter(test_start_date>= "2014-01-01") %>% 
+  select(term_name) %>% 
+  distinct() %>% 
+  pull(term_name)
+
+
+get_map_by_term <- function(termname) {
+  map_silo %>% 
+    filter(term_name == termname, 
+           measurement_scale %in% c("Mathematics", "Reading")) %>% 
+    collect()
+}
+
+map_silo_2 <- terms %>%
+  purrr::map_df(~get_map_by_term(.))
+
+
+map_silo_3 <- map_silo_2 %>%
+  ungroup %>%
+  distinct
+
+
+students <- get_powerschool("students") %>%
+  select(studentid = student_number,
+         schoolid,
+         ethnicity) %>%
+  collect()
+
+schools <- tribble(
+  ~schoolid, ~school_abbrev, ~school,
+  78102,     "KAP",          "KIPP Ascend",
+  7810,      "KAMS",         "KIPP Ascend",
+  400146,    "KAC",          "KIPP Academy",
+  4001462,   "KACP",         "KIPP Academy",
+  4001632,   "KBP",          "KIPP Bloom",
+  400163,    "KBCP",         "KIPP Bloom",
+  4001802,   "KOP",          "KIPP One",
+  400180,    "KOA",          "KIPP One"
+ 
+)
+
+students_schools <- students %>%
+  inner_join(schools, by = "schoolid")
+
+names(map_silo_3) <- stringr::str_replace_all(names(map_silo_3), "_", "") %>% tolower
+
+map_silo_4 <- map_silo_3 %>%
+  left_join(
+    students_schools %>%
+      select(-schoolid),
+    by = "studentid"
+    ) %>%
+  mutate(schoolname = school) %>%
+  select(-school)
+
+
+#seperate cdf
+separate_cdf <- function(combinded_cdf, district_name = "Not provided"){
+  ar_names <- names(ex_CombinedAssessmentResults) %>% tolower()
+  stu_names <- names(ex_CombinedStudentsBySchool) %>% tolower()
+  
+  if (!"districtname" %in% tolower(names(combinded_cdf))) {
+    combinded_cdf <- combinded_cdf %>% mutate_(districtname = ~district_name)
+  }
+  
+  roster<-combinded_cdf %>%
+    select_(.dots = stu_names) %>%
+    distinct()
+  
+  cdf<-combinded_cdf %>% select(-studentlastname:-studentfirstname,
+                                -studentmi:-studentgender,
+                                -grade) %>%
+    mutate(testid=as.character(testid))
+  
+  out <- list(cdf = cdf,
+              roster = roster)
+  
+}
+
+map_sep <- separate_cdf(map_silo_4, district_name = "KIPP Chicago")
+
+# map_sep$cdf <- map_sep$cdf %>%
+#   mutate(
+#     school_initials = abbrev(schoolname,
+#                              exceptions = list(old = "KAPS", new = "KAP")
+#                              ),
+#     schoolname = ifelse(grepl("Ascend", schoolname), "KIPP Ascend", schoolname)
+#   )
+
+map_sep$cdf <- map_sep$cdf %>%
+  mutate(goal7name = NA, 
+         goal7ritscore = NA, 
+         goal7stderr = NA, 
+         goal7range = NA, 
+         goal7adjective = NA, 
+         goal8name = NA, 
+         goal8ritscore = NA, 
+         goal8stderr = NA, 
+         goal8range = NA, 
+         goal8adjective = NA, 
+         projectedproficiencystudy3 = NA, 
+         projectedproficiencylevel3 = NA) %>%
+  distinct()
+
+map_sep$roster <- map_sep$roster %>% distinct()
+
+
+
+kcs_mv<-mapvizieR(map_sep$cdf, map_sep$roster, include_unsanctioned_windows=TRUE)
+```
+```{r}
+growth_df <- kcs_mv$growth_df %>%
+  filter(complete_obsv)
+
+
+
+growth_df %>% skimr::skim()
+```
+
+

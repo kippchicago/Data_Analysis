@@ -1,0 +1,42 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r}
+library(tidyverse)
+library(silounloadr)
+library(pins)
+library(janitor)
+library(lubridate)
+```
+
+# Get IA data 
+From a pinned resource on idea
+
+```{r pin}
+board_register_rsconnect(server = "idea2.kippchicago.org")
+
+ias <-pin_get("mastery-pct-correct")
+
+ias %>% filter(date_taken >= ymd("2020-01-01"),
+               str_detect(local_assessment_id, "IA"),
+               ia==2,
+               !dl
+               ) %>%
+  group_by(school_abbrev, grade_level, subject) %>%
+  summarize(n_students = n(),
+            n_mastered = sum(round(pct_correct,2)>=.7) ) %>%
+  mutate(pct_mastered = n_mastered/n_students) %>%
+  arrange(subject,desc(pct_mastered)) %>%
+  filter(pct_mastered >= .7) %>%
+  select(school_abbrev, grade_level, subject, pct_mastered) %>%
+  mutate(label = glue::glue("{school_abbrev} {grade_level} {round(pct_mastered*100)}%"))
+
+
+```
+
